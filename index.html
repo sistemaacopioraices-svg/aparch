@@ -787,6 +787,7 @@ tr:hover td{background:#f9f6f1;}
       <div style="display:flex;gap:8px;">
         <button class="btn btn-primary" id="btn-abrir-caja" onclick="abrirModalAperturaCaja()">🔓 Abrir Caja</button>
         <button class="btn btn-danger" id="btn-cerrar-caja" onclick="cerrarCajaActual()" style="display:none;">🔒 Cerrar Caja</button>
+        <button class="btn btn-dorado btn-sm" onclick="migrarEgresosCafeCoco()" title="Crear egresos en caja para compras de Café Coco que no tienen recibo vinculado">🌰 Vincular Café Coco</button>
       </div>
     </div>
     <div class="table-wrap">
@@ -4517,6 +4518,64 @@ function cargarGdriveClientIdEnConfig(){
   if(el) el.value = id;
   const estado = document.getElementById('gdrive-config-estado');
   if(estado && id) estado.innerHTML = '<span style="color:#2e7d32;">✅ Client ID configurado</span>';
+}
+
+// ── Migrar egresos de Café Coco existentes que no tienen recibo en caja ──
+function migrarEgresosCafeCoco(){
+  if(!DB.cafecoco || !DB.cafecoco.length){
+    alert('No hay compras de Café Coco registradas.');
+    return;
+  }
+
+  const idxCaja = cajaAbiertaActual();
+  const apCaja  = idxCaja >= 0 ? DB.aperturas[idxCaja] : null;
+
+  // Encontrar compras sin recibo vinculado
+  const sinRecibo = DB.cafecoco.filter(c => !c.recibo_egreso_ref && parseFloat(c.total||0) > 0);
+
+  if(!sinRecibo.length){
+    alert('✅ Todas las compras de Café Coco ya tienen egreso de caja vinculado.');
+    return;
+  }
+
+  const totalMonto = sinRecibo.reduce((a,c)=>a+(parseFloat(c.total)||0),0);
+  const msg = `🌰 VINCULAR CAFÉ COCO A CAJA\n\n` +
+    `Se encontraron ${sinRecibo.length} compra(s) sin egreso de caja:\n` +
+    sinRecibo.map(c=>`• ${c.codigo} — ${c.nombres} — S/. ${parseFloat(c.total).toFixed(2)}`).join('\n') +
+    `\n\nTotal a registrar como egreso: S/. ${totalMonto.toFixed(2)}\n` +
+    (apCaja ? `Caja: ${apCaja.codigo}` : '⚠️ No hay caja abierta — se vincularán sin apertura') +
+    `\n\n¿Continuar?`;
+
+  if(!confirm(msg)) return;
+
+  if(!DB.recibos) DB.recibos=[];
+  let creados = 0;
+
+  DB.cafecoco.forEach((compra, idx)=>{
+    if(compra.recibo_egreso_ref || parseFloat(compra.total||0) <= 0) return;
+
+    const codigoRecibo = nextCodigo(DB.recibos, 'EGR-');
+    DB.recibos.push({
+      codigo: codigoRecibo,
+      tipo: 'egreso',
+      fecha: compra.fecha,
+      persona: compra.nombres,
+      concepto: `Compra Café Coco ${compra.codigo} — ${parseFloat(compra.kgneto||0).toFixed(2)} kg neto`,
+      monto: parseFloat(compra.total).toFixed(2),
+      formapago: 'Efectivo',
+      observaciones: `Vinculado automáticamente desde migración — Compra ${compra.codigo}`,
+      apertura_ref: apCaja ? apCaja.codigo : (compra.apertura_ref||''),
+      usuario: SESSION.user
+    });
+
+    DB.cafecoco[idx].recibo_egreso_ref = codigoRecibo;
+    if(apCaja) DB.cafecoco[idx].apertura_ref = apCaja.codigo;
+    creados++;
+  });
+
+  guardarDB();
+  renderCaja();
+  alert(`✅ Se crearon ${creados} egreso(s) de caja para las compras de Café Coco.\n\nAhora aparecen en la lista de Recibos y se descuentan del saldo de caja.`);
 }
 
 function cajaAbiertaActual(){
