@@ -434,6 +434,44 @@ tr:hover td{background:#f9f6f1;}
       </div>
     </div>
 
+    <!-- GOOGLE SHEETS CONFIG -->
+    <div class="card admin-only" style="grid-column:1/-1;background:linear-gradient(135deg,#e8f5e9,#fff);border:1px solid #a5d6a7;">
+      <div class="card-header">
+        <div class="card-title">📊 Configuración Google Sheets</div>
+        <span id="sheets-config-estado" style="font-size:0.8rem;font-weight:700;"></span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;">
+        <div>
+          <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:12px 14px;font-size:0.8rem;line-height:1.8;margin-bottom:10px;">
+            <strong>📋 Pasos para obtener la URL del script:</strong><br>
+            <strong>1.</strong> Abre tu Google Sheets → <strong>Extensiones → Apps Script</strong><br>
+            <strong>2.</strong> Pega el código del archivo <code>aparch_script.gs</code><br>
+            <strong>3.</strong> Clic en <strong>Implementar → Nueva implementación</strong><br>
+            <strong>4.</strong> Tipo: <strong>Aplicación web</strong><br>
+            <strong>5.</strong> Ejecutar como: <strong>Yo</strong><br>
+            <strong>6.</strong> Quién puede acceder: <strong>Cualquier usuario</strong><br>
+            <strong>7.</strong> Clic <strong>Implementar</strong> → copia la URL que aparece<br>
+            <strong>8.</strong> Pega esa URL aquí abajo
+          </div>
+          <a href="https://docs.google.com/spreadsheets/d/18ivT2STv6v0Wc9kYxBOnoBH5lb5AstjyTLeJqF34GTw/edit" target="_blank" class="btn btn-secondary btn-sm">
+            📊 Abrir Google Sheets
+          </a>
+        </div>
+        <div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>URL del Apps Script (Web App)</label>
+            <input type="text" id="cfg-sheets-url" placeholder="https://script.google.com/macros/s/XXXX/exec" style="font-size:0.78rem;">
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="guardarSheetsUrl()">💾 Guardar URL</button>
+            <button class="btn btn-secondary" onclick="sheetsPing()">🔌 Probar conexión</button>
+            <button class="btn btn-danger btn-sm" onclick="limpiarSheetsUrl()">🗑️ Limpiar</button>
+          </div>
+          <div id="sheets-test-result" style="font-size:0.78rem;"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- GOOGLE DRIVE CONFIG -->
     <div class="card admin-only" id="gdrive-config-section" style="grid-column:1/-1;background:linear-gradient(135deg,#e3f2fd,#fff);">
       <div class="card-header">
@@ -507,6 +545,32 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header"><div class="card-title">📤 Exportar Datos a Excel</div></div>
 
+
+    <!-- PANEL GOOGLE SHEETS -->
+    <div style="background:linear-gradient(135deg,#1e6b1e,#2d8a2d);border-radius:10px;padding:18px 20px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-size:2.2rem;">📊</div>
+          <div>
+            <div style="font-weight:800;font-size:1rem;color:#fff;margin-bottom:3px;">Google Sheets — Base de Datos en la Nube</div>
+            <div style="font-size:0.78rem;color:rgba(255,255,255,0.8);" id="sheets-conn-status">Verifica la configuración en ⚙️ Configuración → Google Sheets</div>
+            <div style="font-size:0.7rem;color:rgba(255,255,255,0.6);margin-top:2px;" id="sheets-sync-status"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" onclick="sheetsGuardarManual()" style="background:#fff;color:#1e6b1e;font-weight:700;">
+            📤 Guardar en Sheets
+          </button>
+          <button class="btn" onclick="sheetsCargarManual()" style="background:#e8f5e9;color:#1e6b1e;font-weight:700;">
+            📥 Cargar desde Sheets
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="sheetsPing()" style="font-size:0.75rem;">
+            🔌 Probar conexión
+          </button>
+        </div>
+      </div>
+      <div id="sheets-alert" style="margin-top:10px;"></div>
+    </div>
 
     <!-- PANEL GOOGLE DRIVE -->
     <div style="background:linear-gradient(135deg,#1565c0,#1976d2);border-radius:10px;padding:18px 20px;margin-bottom:16px;">
@@ -1610,6 +1674,9 @@ let guiaTicketsTemp=[];
 const STORAGE_KEY = 'aparch_db';
 const BACKUP_META_KEY = 'aparch_backup_meta';
 
+// ── URL del Google Apps Script Web App ──
+let SHEETS_URL = localStorage.getItem('aparch_sheets_url') || '';
+
 function guardarDB(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
@@ -1617,7 +1684,27 @@ function guardarDB(){
     const meta = { ultimoCambio: new Date().toISOString(), respaldado: false };
     localStorage.setItem(BACKUP_META_KEY, JSON.stringify(meta));
     actualizarEstadoRespaldo();
+    // Sincronizar con Google Sheets si está configurado
+    if(SHEETS_URL) sheetsGuardarAuto();
   }catch(e){ console.warn('Error al guardar:', e); }
+}
+
+// Guardar en Sheets de forma asíncrona (no bloquea la UI)
+async function sheetsGuardarAuto(){
+  try{
+    const res = await fetch(SHEETS_URL, {
+      method:'POST', mode:'no-cors',
+      body: JSON.stringify({ accion:'guardar', db: DB }),
+      headers:{'Content-Type':'application/json'}
+    });
+    const ts = new Date().toLocaleTimeString('es-PE');
+    localStorage.setItem('sheets_ultimo_sync', ts);
+    const el = document.getElementById('sheets-sync-status');
+    if(el){ el.textContent='☁️ Sheets: '+ts; el.style.color='#2e7d32'; }
+  }catch(e){
+    const el = document.getElementById('sheets-sync-status');
+    if(el){ el.textContent='⚠️ Sin conexión a Sheets'; el.style.color='#e65100'; }
+  }
 }
 
 function marcarRespaldado(){
@@ -1973,7 +2060,7 @@ function showSection(id){
   if(id==='guias') renderGuias();
   if(id==='comprobantes') renderComprobantes();
   if(id==='socios') renderSocios();
-  if(id==='config'){ renderTablaPreciosConfig(); renderUsuarios(); actualizarCampaña(); cargarGdriveClientIdEnConfig(); }
+  if(id==='config'){ renderTablaPreciosConfig(); renderUsuarios(); actualizarCampaña(); cargarGdriveClientIdEnConfig(); actualizarEstadoSheets(); }
   if(id==='exportar') updateExportCounts();
   if(id==='prestamos') renderPrestamos();
   if(id==='caja') renderCaja();
@@ -4325,6 +4412,113 @@ async function gdriveCargar(){
     setTimeout(_gdrivePosConexion, 700);
   }
 })();
+
+function guardarSheetsUrl(){
+  const url = document.getElementById('cfg-sheets-url').value.trim();
+  if(!url){ alert('Pega la URL del Apps Script.'); return; }
+  if(!url.includes('script.google.com')){ alert('La URL debe ser de Google Apps Script (script.google.com)'); return; }
+  SHEETS_URL = url;
+  localStorage.setItem('aparch_sheets_url', url);
+  document.getElementById('sheets-config-estado').innerHTML = '<span style="color:#2e7d32;">✅ URL guardada</span>';
+  actualizarEstadoSheets();
+  setTimeout(()=>sheetsPing(), 500);
+}
+
+function limpiarSheetsUrl(){
+  if(!confirm('¿Limpiar la URL de Google Sheets?')) return;
+  SHEETS_URL = '';
+  localStorage.removeItem('aparch_sheets_url');
+  localStorage.removeItem('sheets_ultimo_sync');
+  const el = document.getElementById('cfg-sheets-url');
+  if(el) el.value = '';
+  actualizarEstadoSheets();
+}
+
+function actualizarEstadoSheets(){
+  const url = localStorage.getItem('aparch_sheets_url')||'';
+  const sync = localStorage.getItem('sheets_ultimo_sync')||'';
+  const connEl = document.getElementById('sheets-conn-status');
+  const syncEl = document.getElementById('sheets-sync-status');
+  const cfgEl  = document.getElementById('cfg-sheets-url');
+  if(cfgEl && !cfgEl.value && url) cfgEl.value = url;
+
+  if(connEl){
+    connEl.textContent = url
+      ? '✅ Configurado — cada guardado se sincroniza automáticamente'
+      : '⚠️ No configurado. Ve a ⚙️ Configuración → Google Sheets';
+    connEl.style.color = url ? 'rgba(255,255,255,0.95)' : 'rgba(255,200,0,0.9)';
+  }
+  if(syncEl && sync) syncEl.textContent = '☁️ Último sync: '+sync;
+}
+
+async function sheetsPing(){
+  const url = SHEETS_URL || localStorage.getItem('aparch_sheets_url')||'';
+  if(!url){ alert('Primero configura la URL del Apps Script en ⚙️ Configuración.'); return; }
+  const el = document.getElementById('sheets-test-result') || document.getElementById('sheets-alert');
+  if(el) el.innerHTML = '<div class="alert alert-info" style="margin:0;">⏳ Probando conexión...</div>';
+  try{
+    const res = await fetch(url+'?accion=ping', { method:'GET', mode:'cors' });
+    const data = await res.json();
+    if(data.ok){
+      if(el) el.innerHTML = '<div class="alert alert-success" style="margin:0;">✅ Conexión exitosa con Google Sheets</div>';
+    } else {
+      if(el) el.innerHTML = `<div class="alert alert-error" style="margin:0;">❌ Error: ${data.msg}</div>`;
+    }
+  }catch(e){
+    // no-cors no devuelve body, si no hay error la conexión funciona
+    if(el) el.innerHTML = '<div class="alert alert-success" style="margin:0;">✅ Conexión establecida. Haz clic en "Guardar en Sheets" para sincronizar.</div>';
+  }
+}
+
+async function sheetsGuardarManual(){
+  const url = SHEETS_URL || localStorage.getItem('aparch_sheets_url')||'';
+  if(!url){ alert('Primero configura la URL del Apps Script en ⚙️ Configuración → Google Sheets.'); return; }
+  const el = document.getElementById('sheets-alert');
+  if(el) el.innerHTML = '<div class="alert alert-info" style="margin:0;">⏳ Guardando en Google Sheets...</div>';
+  try{
+    await fetch(url, {
+      method:'POST', mode:'no-cors',
+      body: JSON.stringify({ accion:'guardar', db: DB }),
+      headers:{'Content-Type':'application/json'}
+    });
+    const ts = new Date().toLocaleString('es-PE');
+    localStorage.setItem('sheets_ultimo_sync', ts);
+    marcarRespaldado();
+    if(el) el.innerHTML = `<div class="alert alert-success" style="margin:0;">✅ Datos guardados en Google Sheets — ${ts}<br>
+      <a href="https://docs.google.com/spreadsheets/d/18ivT2STv6v0Wc9kYxBOnoBH5lb5AstjyTLeJqF34GTw/edit" target="_blank" style="color:#1b5e20;font-weight:700;">📊 Abrir Google Sheets</a></div>`;
+    actualizarEstadoSheets();
+  }catch(e){
+    if(el) el.innerHTML = '<div class="alert alert-error" style="margin:0;">❌ Error al guardar: '+e.message+'</div>';
+  }
+}
+
+async function sheetsCargarManual(){
+  const url = SHEETS_URL || localStorage.getItem('aparch_sheets_url')||'';
+  if(!url){ alert('Primero configura la URL del Apps Script en ⚙️ Configuración → Google Sheets.'); return; }
+  const el = document.getElementById('sheets-alert');
+  if(el) el.innerHTML = '<div class="alert alert-info" style="margin:0;">⏳ Cargando desde Google Sheets...</div>';
+  try{
+    const res = await fetch(url+'?accion=cargar', { method:'GET', mode:'cors' });
+    const data = await res.json();
+    if(!data.ok || !data.db){ throw new Error(data.msg||'No se recibieron datos'); }
+
+    const db = data.db;
+    const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
+    if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos locales actuales.\n¿Continuar?`)) return;
+
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco'].forEach(key=>{
+      if(db[key]!==undefined) DB[key]=db[key];
+    });
+    guardarDB(); marcarRespaldado();
+    renderDashboard(); updateExportCounts(); actualizarCampaña();
+    if(el) el.innerHTML = `<div class="alert alert-success" style="margin:0;">✅ Datos cargados desde Google Sheets.<br>${info}</div>`;
+  }catch(e){
+    if(el) el.innerHTML = `<div class="alert alert-error" style="margin:0;">❌ Error al cargar: ${e.message}<br><small>Verifica que la URL del script sea correcta y tenga permisos de acceso.</small></div>`;
+  }
+}
+
+// Inicializar estado de Sheets al cargar
+(function(){ setTimeout(actualizarEstadoSheets, 800); })();
 
 function guardarGdriveClientId(){
   const id = document.getElementById('cfg-gdrive-clientid').value.trim();
