@@ -280,12 +280,67 @@ tr:hover td{background:#f9f6f1;}
 
 <!-- DASHBOARD -->
 <div class="section active" id="sec-dashboard">
-  <div class="stats-grid">
-    <div class="stat-card"><div class="stat-label">🎫 Tickets</div><div class="stat-val" id="dash-tickets">0</div><div class="stat-sub">Total campaña</div></div>
-    <div class="stat-card cafe"><div class="stat-label">📋 Guías</div><div class="stat-val" id="dash-guias">0</div><div class="stat-sub">Total campaña</div></div>
-    <div class="stat-card dorado"><div class="stat-label">⚖️ Peso Neto (kg)</div><div class="stat-val" id="dash-peso">0</div><div class="stat-sub">Suma de tickets</div></div>
-    <div class="stat-card azul"><div class="stat-label">👥 Socios</div><div class="stat-val" id="dash-socios">0</div><div class="stat-sub">Registrados</div></div>
+
+  <!-- STATS PRINCIPALES -->
+  <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
+    <div class="stat-card dorado">
+      <div class="stat-label">⚖️ KG Netos</div>
+      <div class="stat-val" id="dash-kg-netos">0</div>
+      <div class="stat-sub">Total acopiado</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#6b3a2a;">
+      <div class="stat-label">☕ QQ Netos</div>
+      <div class="stat-val" id="dash-qq-netos">0</div>
+      <div class="stat-sub">Quintales (÷55.2)</div>
+    </div>
+    <div class="stat-card azul">
+      <div class="stat-label">💰 Total Pagado</div>
+      <div class="stat-val" id="dash-total-pagado">S/. 0</div>
+      <div class="stat-sub">Guías liquidadas</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#1565c0;">
+      <div class="stat-label">📈 Precio Promedio</div>
+      <div class="stat-val" id="dash-precio-prom">S/. 0</div>
+      <div class="stat-sub">por KG neto</div>
+    </div>
+    <div class="stat-card cafe">
+      <div class="stat-label">👥 Socios</div>
+      <div class="stat-val" id="dash-socios">0</div>
+      <div class="stat-sub">Registrados</div>
+    </div>
   </div>
+
+  <!-- GRÁFICOS ROW 1 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <!-- Gráfico % Acopio por Base -->
+    <div class="card" style="padding:16px 18px;">
+      <div class="card-header" style="margin-bottom:12px;">
+        <div class="card-title" style="font-size:0.9rem;">📊 Acopio por Base (%)</div>
+      </div>
+      <canvas id="chart-base" height="220"></canvas>
+      <div id="chart-base-legend" style="margin-top:10px;font-size:0.73rem;display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+
+    <!-- Gráfico Acopio por Certificación -->
+    <div class="card" style="padding:16px 18px;">
+      <div class="card-header" style="margin-bottom:12px;">
+        <div class="card-title" style="font-size:0.9rem;">🌿 KG por Certificación</div>
+      </div>
+      <canvas id="chart-certif" height="220"></canvas>
+      <div id="chart-certif-legend" style="margin-top:10px;font-size:0.73rem;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;'"></div>
+    </div>
+  </div>
+
+  <!-- GRÁFICO Acopio diario -->
+  <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+    <div class="card-header" style="margin-bottom:12px;">
+      <div class="card-title" style="font-size:0.9rem;">📈 Acopio Diario (kg netos)</div>
+    </div>
+    <canvas id="chart-diario" height="140"></canvas>
+  </div>
+
+  <!-- ÚLTIMOS TICKETS -->
   <div class="card">
     <div class="card-header">
       <div class="card-title">🎫 Últimos Tickets</div>
@@ -293,7 +348,8 @@ tr:hover td{background:#f9f6f1;}
     </div>
     <div class="table-wrap">
       <table><thead><tr>
-        <th>N° Ticket</th><th>Fecha</th><th>Productor</th><th>Certificación</th><th>Sacos</th><th>Peso Neto</th><th>Lote</th>
+        <th>N° Ticket</th><th>Fecha</th><th>Productor</th><th>Base</th>
+        <th>Certif.</th><th>Lote</th><th>KG Neto</th>
       </tr></thead><tbody id="dash-tickets-body"></tbody></table>
     </div>
   </div>
@@ -2156,19 +2212,276 @@ function showSection(id){
 // DASHBOARD
 // ══════════════════════════════════════════
 function renderDashboard(){
-  document.getElementById('dash-tickets').textContent=DB.tickets.length;
-  document.getElementById('dash-guias').textContent=DB.guias.length;
-  document.getElementById('dash-socios').textContent=DB.socios.length;
-  const peso=DB.tickets.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  document.getElementById('dash-peso').textContent=peso.toFixed(1);
-  const tb=document.getElementById('dash-tickets-body');
-  const rec=[...DB.tickets].reverse().slice(0,6);
-  if(!rec.length){tb.innerHTML='<tr><td colspan="7" class="empty-state">Sin tickets</td></tr>';return;}
-  tb.innerHTML=rec.map(t=>`<tr>
-    <td class="td-codigo">${t.codigo}</td><td>${fechaDisplay(t.fecha)}</td>
-    <td>${t.productor||'—'}</td><td><span class="badge badge-verde">${t.certificacion||'—'}</span></td>
-    <td>${t.sacos||0}</td><td>${parseFloat(t.pesoneto||0).toFixed(2)}</td><td>${t.lote||'—'}</td>
-  </tr>`).join('');
+  // ── STATS ──
+  const kgNetos = DB.tickets.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+  const qqNetos = kgNetos/55.2;
+
+  // Total pagado = suma de comprobantes activos
+  const totalPagado = DB.comprobantes
+    .filter(c=>c.estado!=='Anulado')
+    .reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
+
+  // Precio promedio = total pagado / kg netos
+  const precioProm = kgNetos > 0 ? totalPagado/kgNetos : 0;
+
+  document.getElementById('dash-kg-netos').textContent   = kgNetos.toFixed(1);
+  document.getElementById('dash-qq-netos').textContent   = qqNetos.toFixed(2);
+  document.getElementById('dash-total-pagado').textContent = 'S/. '+totalPagado.toFixed(2);
+  document.getElementById('dash-precio-prom').textContent  = 'S/. '+precioProm.toFixed(4);
+  document.getElementById('dash-socios').textContent       = DB.socios.length;
+
+  // ── ÚLTIMOS TICKETS ──
+  const tb = document.getElementById('dash-tickets-body');
+  const rec = [...DB.tickets].reverse().slice(0,8);
+  if(!rec.length){ tb.innerHTML='<tr><td colspan="7" class="empty-state">Sin tickets registrados</td></tr>'; }
+  else {
+    tb.innerHTML = rec.map(t=>`<tr>
+      <td class="td-codigo">${t.codigo}</td>
+      <td>${fechaDisplay(t.fecha)}</td>
+      <td><strong>${t.productor||'—'}</strong></td>
+      <td style="font-size:0.78rem;">${t.base||'—'}</td>
+      <td><span class="badge badge-verde" style="font-size:0.65rem;">${(t.certificacion||'—').replace('ORGANICO - FAIRTRADE USA','ORG-FT').replace('ORGANICO','ORG').replace('CONVENCIONAL','CONV')}</span></td>
+      <td style="font-size:0.78rem;color:#1565c0;">${t.lote||'—'}</td>
+      <td style="font-weight:700;color:#1b5e20;">${parseFloat(t.pesoneto||0).toFixed(2)}</td>
+    </tr>`).join('');
+  }
+
+  // ── GRÁFICOS ──
+  setTimeout(()=>{
+    renderChartBase();
+    renderChartCertif();
+    renderChartDiario();
+  }, 100);
+}
+
+// ── COLORES PARA GRÁFICOS ──
+const COLORES_BASES = ['#1a5c2e','#2e7d32','#43a047','#66bb6a','#c8951a','#e65100','#1565c0','#6a1b9a','#ad1457','#00838f','#4e342e','#37474f'];
+
+// ── GRÁFICO % ACOPIO POR BASE (barras horizontales) ──
+function renderChartBase(){
+  const canvas = document.getElementById('chart-base');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Agrupar kg netos por base
+  const porBase = {};
+  DB.tickets.forEach(t=>{
+    const base = t.base||'Sin Base';
+    porBase[base] = (porBase[base]||0) + (parseFloat(t.pesoneto)||0);
+  });
+
+  const total = Object.values(porBase).reduce((a,v)=>a+v,0);
+  const bases = Object.entries(porBase).sort((a,b)=>b[1]-a[1]);
+
+  if(!bases.length){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#999'; ctx.font='13px Arial'; ctx.textAlign='center';
+    ctx.fillText('Sin datos', canvas.width/2, canvas.height/2);
+    return;
+  }
+
+  const W = canvas.offsetWidth || 400;
+  const H = Math.max(200, bases.length*38+40);
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+
+  const padL=140, padR=70, padT=10, padB=20;
+  const barH=22, gap=16;
+
+  bases.forEach(([base, kg], i)=>{
+    const pct = total > 0 ? kg/total : 0;
+    const barW = (W-padL-padR)*pct;
+    const y = padT + i*(barH+gap);
+    const color = COLORES_BASES[i % COLORES_BASES.length];
+
+    // Barra
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(padL, y, Math.max(barW,2), barH, 4);
+    ctx.fill();
+
+    // Fondo barra (track)
+    ctx.fillStyle = '#f0f0f0';
+    ctx.beginPath();
+    ctx.roundRect(padL, y, W-padL-padR, barH, 4);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(padL, y, Math.max(barW,2), barH, 4);
+    ctx.fill();
+
+    // Nombre base
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText(base.length>18?base.slice(0,17)+'…':base, padL-6, y+barH/2+4);
+
+    // Porcentaje + kg
+    ctx.fillStyle = '#555';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${(pct*100).toFixed(1)}% (${kg.toFixed(0)}kg)`, padL+barW+6, y+barH/2+4);
+  });
+
+  // Leyenda
+  const leg = document.getElementById('chart-base-legend');
+  if(leg) leg.innerHTML = bases.map(([base,kg],i)=>`
+    <span style="display:inline-flex;align-items:center;gap:3px;">
+      <span style="width:10px;height:10px;border-radius:2px;background:${COLORES_BASES[i%COLORES_BASES.length]};display:inline-block;"></span>
+      <span>${base}: ${(total>0?kg/total*100:0).toFixed(1)}%</span>
+    </span>`).join('');
+}
+
+// ── GRÁFICO DONUT — POR CERTIFICACIÓN ──
+function renderChartCertif(){
+  const canvas = document.getElementById('chart-certif');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const porCertif = {};
+  DB.tickets.forEach(t=>{
+    const cert = (t.certificacion||'Sin certif.').replace('ORGANICO - FAIRTRADE USA','ORG-FAIRTRADE').replace('ORGANICO','ORGÁNICO').replace('CONVENCIONAL','CONVENCIONAL');
+    porCertif[cert] = (porCertif[cert]||0) + (parseFloat(t.pesoneto)||0);
+  });
+
+  const entries = Object.entries(porCertif);
+  const total   = entries.reduce((a,[,v])=>a+v,0);
+
+  const W = canvas.offsetWidth || 300;
+  const H = 220;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+
+  if(!entries.length){
+    ctx.fillStyle='#999'; ctx.font='13px Arial'; ctx.textAlign='center';
+    ctx.fillText('Sin datos', W/2, H/2); return;
+  }
+
+  const colores = ['#1a5c2e','#c8951a','#6b3a2a','#1565c0','#880e4f'];
+  const cx=W/2, cy=H/2-10, r=Math.min(W,H)/2-30, ri=r*0.55;
+  let ang = -Math.PI/2;
+
+  entries.forEach(([cert,kg],i){
+    const slice = total>0 ? (kg/total)*Math.PI*2 : 0;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,ang,ang+slice);
+    ctx.closePath();
+    ctx.fillStyle = colores[i%colores.length];
+    ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+
+    // Etiqueta
+    const midAng = ang + slice/2;
+    const lx = cx + (r*0.75)*Math.cos(midAng);
+    const ly = cy + (r*0.75)*Math.sin(midAng);
+    if(slice > 0.15){
+      ctx.fillStyle='#fff'; ctx.font='bold 10px Arial'; ctx.textAlign='center';
+      ctx.fillText(`${(kg/total*100).toFixed(1)}%`, lx, ly+4);
+    }
+    ang += slice;
+  });
+
+  // Hueco interior (donut)
+  ctx.beginPath();
+  ctx.arc(cx,cy,ri,0,Math.PI*2);
+  ctx.fillStyle='#fff'; ctx.fill();
+
+  // Total en el centro
+  ctx.fillStyle='#333'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
+  ctx.fillText(total.toFixed(0)+' kg', cx, cy-2);
+  ctx.fillStyle='#888'; ctx.font='9px Arial';
+  ctx.fillText('TOTAL', cx, cy+12);
+
+  // Leyenda
+  const leg = document.getElementById('chart-certif-legend');
+  if(leg) leg.innerHTML = entries.map(([cert,kg],i)=>`
+    <span style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f5;padding:3px 7px;border-radius:5px;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${colores[i%colores.length]};display:inline-block;flex-shrink:0;"></span>
+      <span>${cert}: <strong>${kg.toFixed(0)}kg</strong></span>
+    </span>`).join('');
+}
+
+// ── GRÁFICO LÍNEA — ACOPIO DIARIO ──
+function renderChartDiario(){
+  const canvas = document.getElementById('chart-diario');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Agrupar por fecha (últimos 14 días con datos)
+  const porFecha = {};
+  DB.tickets.forEach(t=>{
+    if(t.fecha) porFecha[t.fecha] = (porFecha[t.fecha]||0) + (parseFloat(t.pesoneto)||0);
+  });
+
+  const fechas = Object.keys(porFecha).sort().slice(-14);
+  const valores = fechas.map(f=>porFecha[f]);
+
+  const W = canvas.offsetWidth || 600;
+  const H = 140;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+
+  if(fechas.length < 2){
+    ctx.fillStyle='#999'; ctx.font='13px Arial'; ctx.textAlign='center';
+    ctx.fillText(fechas.length===0?'Sin datos aún':'Se necesitan al menos 2 días de datos', W/2, H/2);
+    return;
+  }
+
+  const padL=50, padR=20, padT=15, padB=30;
+  const gW=W-padL-padR, gH=H-padT-padB;
+  const maxVal = Math.max(...valores)*1.15||1;
+
+  // Líneas guía
+  ctx.strokeStyle='#f0f0f0'; ctx.lineWidth=1;
+  [0,0.25,0.5,0.75,1].forEach(f=>{
+    const y=padT+gH*(1-f);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+gW,y); ctx.stroke();
+    ctx.fillStyle='#aaa'; ctx.font='9px Arial'; ctx.textAlign='right';
+    ctx.fillText((maxVal*f).toFixed(0), padL-4, y+3);
+  });
+
+  // Área rellena
+  ctx.beginPath();
+  fechas.forEach((f,i)=>{
+    const x = padL + (i/(fechas.length-1))*gW;
+    const y = padT + gH*(1-valores[i]/maxVal);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.lineTo(padL+gW, padT+gH);
+  ctx.lineTo(padL, padT+gH);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0,padT,0,padT+gH);
+  grad.addColorStop(0,'rgba(26,92,46,0.35)');
+  grad.addColorStop(1,'rgba(26,92,46,0.02)');
+  ctx.fillStyle=grad; ctx.fill();
+
+  // Línea principal
+  ctx.beginPath();
+  ctx.strokeStyle='#1a5c2e'; ctx.lineWidth=2.5;
+  fechas.forEach((f,i)=>{
+    const x=padL+(i/(fechas.length-1))*gW;
+    const y=padT+gH*(1-valores[i]/maxVal);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Puntos + etiquetas fecha
+  fechas.forEach((f,i)=>{
+    const x=padL+(i/(fechas.length-1))*gW;
+    const y=padT+gH*(1-valores[i]/maxVal);
+    ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2);
+    ctx.fillStyle='#1a5c2e'; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+
+    // Etiqueta fecha (solo algunas para no saturar)
+    if(i===0 || i===fechas.length-1 || fechas.length<=7 || i%2===0){
+      const parts=f.split('-');
+      const label=`${parts[2]}/${parts[1]}`;
+      ctx.fillStyle='#888'; ctx.font='8.5px Arial'; ctx.textAlign='center';
+      ctx.fillText(label, x, H-padB+12);
+    }
+  });
 }
 
 // ══════════════════════════════════════════
@@ -5717,7 +6030,12 @@ function exportarCafeCoco(){
     if(el) el.value=DB.precioBase||790;
     renderTablaPreciosConfig();
   },100);
-  // Advertir si se cierra la pestaña con datos sin respaldar
+  // Redibujar gráficos al cambiar tamaño de ventana
+  window.addEventListener('resize', ()=>{
+    if(document.getElementById('sec-dashboard').classList.contains('active')){
+      renderChartBase(); renderChartCertif(); renderChartDiario();
+    }
+  });
   window.addEventListener('beforeunload', function(e){
     try{
       const meta = JSON.parse(localStorage.getItem(BACKUP_META_KEY)||'{}');
