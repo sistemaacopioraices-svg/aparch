@@ -393,7 +393,22 @@ tr:hover td{background:#f9f6f1;}
       </div>
     </div>
     <div class="search-bar">
-      <input type="text" id="search-guia" placeholder="🔍 Buscar..." oninput="filtrarGuias()">
+      <input type="text" id="search-guia" placeholder="🔍 Buscar por productor, código, base..." oninput="filtrarGuias()">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:0.75rem;color:#555;white-space:nowrap;">Desde:</label>
+        <input type="date" id="filter-guia-desde" onchange="filtrarGuias()" style="padding:6px 8px;border:1px solid var(--borde);border-radius:7px;font-size:0.82rem;">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:0.75rem;color:#555;white-space:nowrap;">Hasta:</label>
+        <input type="date" id="filter-guia-hasta" onchange="filtrarGuias()" style="padding:6px 8px;border:1px solid var(--borde);border-radius:7px;font-size:0.82rem;">
+      </div>
+      <select id="filter-guia-estado" onchange="filtrarGuias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.82rem;">
+        <option value="">Todos los estados</option>
+        <option value="Pendiente">Pendiente</option>
+        <option value="Pago Parcial">Pago Parcial</option>
+        <option value="Pagado Total">Pagado Total</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="limpiarFiltrosGuias()">✕ Limpiar</button>
     </div>
     <div class="table-wrap">
       <table><thead><tr>
@@ -673,7 +688,7 @@ tr:hover td{background:#f9f6f1;}
     </div>
 
     <!-- REPORTE GENERAL destacado -->
-    <div style="background:linear-gradient(135deg,#1a5c2e,#2d7a45);border-radius:10px;padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
+    <div style="background:linear-gradient(135deg,#1a5c2e,#2d7a45);border-radius:10px;padding:20px 24px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
       <div>
         <div style="color:#f0b429;font-weight:800;font-size:1.05rem;margin-bottom:4px;">📊 REPORTE GENERAL DE ACOPIO</div>
         <div style="color:rgba(255,255,255,0.8);font-size:0.8rem;">Cruza tickets + guías: Fecha, Lote, DNI, Productor, N° Guía, Sacos, KG Bruto, KG Neto, QQ Neto, Rendimiento, Precio KG, Precio QQ, Total a Pagar, Humedad, Desc. Humedad, Base</div>
@@ -681,6 +696,18 @@ tr:hover td{background:#f9f6f1;}
       </div>
       <button class="btn" onclick="exportarReporteGeneral()" style="background:#f0b429;color:#1a5c2e;font-weight:800;font-size:0.95rem;padding:12px 22px;white-space:nowrap;flex-shrink:0;">
         📥 Descargar Reporte
+      </button>
+    </div>
+
+    <!-- REPORTE POR SOCIO -->
+    <div style="background:linear-gradient(135deg,#1565c0,#1976d2);border-radius:10px;padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
+      <div>
+        <div style="color:#fff;font-weight:800;font-size:1.05rem;margin-bottom:4px;">👥 REPORTE POR SOCIO</div>
+        <div style="color:rgba(255,255,255,0.8);font-size:0.8rem;">Resumen por productor: KG Netos, QQ Netos, N° Guías, Total Pagado, Precio Promedio, Saldo Pendiente, Estimado vs Acumulado</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;margin-top:4px;" id="exp-count-socios-rep">0 socios con actividad</div>
+      </div>
+      <button class="btn" onclick="exportarReportePorSocio()" style="background:#fff;color:#1565c0;font-weight:800;font-size:0.95rem;padding:12px 22px;white-space:nowrap;flex-shrink:0;">
+        📥 Reporte por Socio
       </button>
     </div>
 
@@ -910,9 +937,9 @@ tr:hover td{background:#f9f6f1;}
       <div class="stat-sub">Suma de pagos</div>
     </div>
     <div class="stat-card azul">
-      <div class="stat-label">👥 Productores Distintos</div>
-      <div class="stat-val" id="cc-stat-productores">0</div>
-      <div class="stat-sub">DNI únicos</div>
+      <div class="stat-label">📈 Precio Promedio</div>
+      <div class="stat-val" id="cc-stat-productores">S/. 0</div>
+      <div class="stat-sub">por KG neto</div>
     </div>
   </div>
 
@@ -3114,10 +3141,24 @@ function guardarGuia(){
   guardarDB(); cerrarModal('modal-guia'); renderGuias(); showSection('guias');
 }
 
-function renderGuias(filtro){
-  const lista=filtro?DB.guias.filter(g=>(g.codigo||'').toLowerCase().includes(filtro)||(g.productor||'').toLowerCase().includes(filtro)):DB.guias;
+function renderGuias(filtro, desde, hasta, estado){
+  const lista = DB.guias.filter(g=>{
+    const matchTxt = !filtro || (g.codigo||'').toLowerCase().includes(filtro)||(g.productor||'').toLowerCase().includes(filtro)||(g.base||'').toLowerCase().includes(filtro)||(g.dni||'').toLowerCase().includes(filtro);
+    const matchDesde = !desde || (g.fecha||'') >= desde;
+    const matchHasta = !hasta || (g.fecha||'') <= hasta;
+    const matchEst   = !estado || (g.estado_pago||'Pendiente') === estado;
+    return matchTxt && matchDesde && matchHasta && matchEst;
+  });
   const tb=document.getElementById('guias-body');
-  if(!lista.length){tb.innerHTML=`<tr><td colspan="15"><div class="empty-state"><span class="ico">📋</span>Sin guías.</div></td></tr>`;return;}
+  if(!lista.length){
+    tb.innerHTML=`<tr><td colspan="15"><div class="empty-state"><span class="ico">📋</span>Sin guías con ese filtro.</div></td></tr>`;
+    // Mostrar total filtrado
+    return;
+  }
+  // Totales del filtro
+  const totalValor = lista.reduce((a,g)=>a+(parseFloat(g.valorrecibido)||0),0);
+  const totalQQ    = lista.reduce((a,g)=>a+((g.tickets_detalle||[]).reduce((b,t)=>b+(parseFloat(t.pesoneto)||0),0)/55.2),0);
+
   tb.innerHTML=[...lista].reverse().map(g=>{
     const ri=DB.guias.indexOf(g);
     const ep=g.estado_pago||'Pendiente';
@@ -3125,7 +3166,7 @@ function renderGuias(filtro){
     return `<tr>
       <td class="td-codigo">${g.codigo}</td><td>${fechaDisplay(g.fecha)}</td><td>${g.campana||'—'}</td>
       <td><strong>${g.productor||'—'}</strong></td><td>${g.dni||'—'}</td>
-      <td>${g.producto||'—'}</td><td><span class="badge badge-verde">${g.certificacion||'—'}</span></td>
+      <td>${g.producto||'—'}</td><td><span class="badge badge-verde" style="font-size:0.65rem;">${g.certificacion||'—'}</span></td>
       <td>${g.base||'—'}</td><td>${g.formaentrega||'—'}</td>
       <td style="text-align:center;font-weight:700;color:#1b5e20;">${g.rend_export||'—'}%</td>
       <td style="text-align:right;">S/.${parseFloat(g.precioqq||0).toFixed(2)}</td>
@@ -3138,9 +3179,27 @@ function renderGuias(filtro){
         <button class="btn btn-danger btn-sm" onclick="eliminarGuia(${ri})">🗑️</button>
       </div></td>
     </tr>`;
-  }).join('');
+  }).join('')
+  + `<tr style="background:#f0faf4;font-weight:700;font-size:0.82rem;">
+      <td colspan="12" style="text-align:right;color:#555;">Totales filtro (${lista.length} guías):</td>
+      <td style="text-align:right;color:#e65100;">S/.${totalValor.toFixed(2)}</td>
+      <td colspan="2"></td>
+    </tr>`;
 }
-function filtrarGuias(){renderGuias(document.getElementById('search-guia').value.toLowerCase());}
+function filtrarGuias(){
+  const q      = document.getElementById('search-guia').value.toLowerCase();
+  const desde  = document.getElementById('filter-guia-desde').value;
+  const hasta  = document.getElementById('filter-guia-hasta').value;
+  const estado = document.getElementById('filter-guia-estado').value;
+  renderGuias(q, desde, hasta, estado);
+}
+function limpiarFiltrosGuias(){
+  document.getElementById('search-guia').value='';
+  document.getElementById('filter-guia-desde').value='';
+  document.getElementById('filter-guia-hasta').value='';
+  document.getElementById('filter-guia-estado').value='';
+  renderGuias();
+}
 function eliminarGuia(i){
   const guia = DB.guias[i];
   if(guia){
@@ -4158,6 +4217,94 @@ function exportarTodo(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hCC,...(DB.cafecoco||[]).map(c=>[c.codigo,c.fecha,c.dni,c.nombres,c.sacos,c.kgbruto,c.tara,c.kgneto,c.preciokg,c.total,c.observacion])]),'Cafe_Coco');
   XLSX.writeFile(wb,`APARCH_Datos_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
+function exportarReportePorSocio(){
+  // Agrupar datos por socio
+  const porSocio = {};
+
+  // Datos desde tickets
+  DB.tickets.forEach(t=>{
+    if(!t.productor) return;
+    if(!porSocio[t.productor]) porSocio[t.productor] = {
+      productor:t.productor, dni:t.dni||'', base:t.base||'', caserio:t.caserio||'',
+      certificacion:t.certificacion||'', nTickets:0, kgNetos:0, qqNetos:0,
+      nGuias:0, totalGuia:0, totalPagado:0, saldoPend:0, estimadoKg:0, estimadoQq:0
+    };
+    porSocio[t.productor].nTickets++;
+    porSocio[t.productor].kgNetos += parseFloat(t.pesoneto||0);
+    porSocio[t.productor].qqNetos += parseFloat(t.pesoneto||0)/55.2;
+  });
+
+  // Datos desde guías (total guía y pagado)
+  DB.guias.forEach(g=>{
+    if(!g.productor) return;
+    if(!porSocio[g.productor]) porSocio[g.productor] = {
+      productor:g.productor, dni:g.dni||'', base:g.base||'', caserio:g.caserio||'',
+      certificacion:g.certificacion||'', nTickets:0, kgNetos:0, qqNetos:0,
+      nGuias:0, totalGuia:0, totalPagado:0, saldoPend:0, estimadoKg:0, estimadoQq:0
+    };
+    porSocio[g.productor].nGuias++;
+    porSocio[g.productor].totalGuia += parseFloat(g.valorrecibido||0);
+    const pag = totalPagadoGuia(g.codigo);
+    porSocio[g.productor].totalPagado += pag;
+    porSocio[g.productor].saldoPend   += Math.max(0, parseFloat(g.valorrecibido||0) - pag);
+  });
+
+  // Estimado desde socios
+  Object.keys(porSocio).forEach(nombre=>{
+    const s = DB.socios.find(x=>x.nombre===nombre);
+    if(s){
+      const eqq = parseFloat(s.estimado_qq||0);
+      const ekg = eqq > 0 ? eqq*55.2 : parseFloat(s.estimado_kg||s.estimado||0);
+      porSocio[nombre].estimadoQq = eqq.toFixed(2);
+      porSocio[nombre].estimadoKg = ekg.toFixed(2);
+    }
+  });
+
+  const lista = Object.values(porSocio).sort((a,b)=>b.kgNetos-a.kgNetos);
+
+  if(!lista.length){ alert('No hay datos de socios para generar el reporte.'); return; }
+
+  const headers = [
+    'PRODUCTOR','DNI','BASE','CASERÍO','CERTIFICACIÓN',
+    'N° TICKETS','KG NETOS','QQ NETOS',
+    'N° GUÍAS','TOTAL GUÍA S/.','TOTAL PAGADO S/.','SALDO PEND. S/.',
+    'PRECIO PROM. S/./KG',
+    'ESTIMADO QQ','ESTIMADO KG','AVANCE %'
+  ];
+
+  const filas = lista.map(r=>{
+    const precioProm = r.kgNetos > 0 ? (r.totalPagado/r.kgNetos).toFixed(4) : '0';
+    const estimadoKg = parseFloat(r.estimadoKg||0);
+    const avance = estimadoKg > 0 ? Math.min(100,(r.kgNetos/estimadoKg*100)).toFixed(1)+'%' : '—';
+    return [
+      r.productor, r.dni, r.base, r.caserio, r.certificacion,
+      r.nTickets, parseFloat(r.kgNetos.toFixed(2)), parseFloat(r.qqNetos.toFixed(4)),
+      r.nGuias, parseFloat(r.totalGuia.toFixed(2)), parseFloat(r.totalPagado.toFixed(2)), parseFloat(r.saldoPend.toFixed(2)),
+      parseFloat(precioProm),
+      r.estimadoQq, r.estimadoKg, avance
+    ];
+  });
+
+  // Fila de totales
+  const totKg    = lista.reduce((a,r)=>a+r.kgNetos,0);
+  const totQq    = lista.reduce((a,r)=>a+r.qqNetos,0);
+  const totGuia  = lista.reduce((a,r)=>a+r.totalGuia,0);
+  const totPag   = lista.reduce((a,r)=>a+r.totalPagado,0);
+  const totSaldo = lista.reduce((a,r)=>a+r.saldoPend,0);
+  const totProm  = totKg > 0 ? (totPag/totKg).toFixed(4) : '0';
+  filas.push(['TOTALES','','','','',
+    lista.reduce((a,r)=>a+r.nTickets,0), parseFloat(totKg.toFixed(2)), parseFloat(totQq.toFixed(4)),
+    lista.reduce((a,r)=>a+r.nGuias,0), parseFloat(totGuia.toFixed(2)), parseFloat(totPag.toFixed(2)), parseFloat(totSaldo.toFixed(2)),
+    parseFloat(totProm),'','',''
+  ]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers,...filas]);
+  ws['!cols']=[{wch:30},{wch:12},{wch:14},{wch:14},{wch:20},{wch:10},{wch:12},{wch:12},{wch:10},{wch:14},{wch:14},{wch:14},{wch:16},{wch:12},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Reporte por Socio');
+  XLSX.writeFile(wb, `APARCH_ReporteSocios_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
 function exportarReporteGeneral(){
   // Encabezados exactos solicitados + prima y descuento
   const headers = [
@@ -4275,7 +4422,11 @@ function updateExportCounts(){
   if(elPr) elPr.textContent = (DB.prestamos||[]).length + ' registros';
   const elCc = document.getElementById('exp-count-cafecoco');
   if(elCc) elCc.textContent = (DB.cafecoco||[]).length + ' registros';
-  // Contar filas del reporte general (1 por ticket en detalle de guía, o 1 por guía si no tiene detalle)
+  const elSocRep = document.getElementById('exp-count-socios-rep');
+  if(elSocRep){
+    const sociosActivos = new Set([...DB.tickets.map(t=>t.productor),...DB.guias.map(g=>g.productor)].filter(Boolean)).size;
+    elSocRep.textContent = sociosActivos + ' socios con actividad';
+  }
   let countReporte = 0;
   DB.guias.forEach(g => {
     countReporte += (g.tickets_detalle && g.tickets_detalle.length > 0) ? g.tickets_detalle.length : 1;
@@ -5907,11 +6058,11 @@ function renderCafeCoco(filtro){
   // Stats
   const totalKg = DB.cafecoco.reduce((a,c)=>a+(parseFloat(c.kgneto)||0),0);
   const totalMonto = DB.cafecoco.reduce((a,c)=>a+(parseFloat(c.total)||0),0);
-  const dniUnicos = new Set(DB.cafecoco.map(c=>c.dni)).size;
+  const precioProm = totalKg > 0 ? totalMonto/totalKg : 0;
   document.getElementById('cc-stat-total').textContent = DB.cafecoco.length;
   document.getElementById('cc-stat-kg').textContent = totalKg.toFixed(1);
   document.getElementById('cc-stat-monto').textContent = 'S/. '+totalMonto.toFixed(2);
-  document.getElementById('cc-stat-productores').textContent = dniUnicos;
+  document.getElementById('cc-stat-productores').textContent = 'S/. '+precioProm.toFixed(4);
 
   const tb = document.getElementById('cafecoco-body');
   if(!lista.length){
