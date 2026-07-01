@@ -6327,35 +6327,67 @@ function switchKardexTab(tipo){
 // Poblar el select de orígenes (guías convencional o compras coco)
 function kardexPoblarOrigen(){
   const sel = document.getElementById('kd-origen-sel');
-  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
-  if(kardexTipo === 'conv'){
-    // Guías convencionales no vendidas completamente
-    DB.guias
-      .filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'))
-      .forEach(g=>{
-        const kgDisp = kardexKgDisponibleGuia(g.codigo);
-        const label = `${g.codigo} — ${g.productor} — ${kgDisp.toFixed(2)} kg disp.`;
-        sel.innerHTML += `<option value="guia:${g.codigo}" data-kg="${kgDisp}" data-costo="${g.precikg||0}">${label}</option>`;
-      });
-  } else {
-    // Compras de café coco no vendidas completamente
+  sel.innerHTML = '<option value="">-- Seleccionar origen --</option>';
+
+  // ── GUÍAS CONVENCIONALES ──
+  const guiasConv = DB.guias.filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'));
+  if(guiasConv.length){
+    sel.innerHTML += '<optgroup label="☕ Guías Café Convencional">';
+    guiasConv.forEach(g=>{
+      const kgDisp = kardexKgDisponibleGuia(g.codigo);
+      if(kgDisp < 0.01) return; // ocultar si ya no hay stock
+      const label = `${g.codigo} — ${g.productor} — ${kgDisp.toFixed(2)} kg disp.`;
+      sel.innerHTML += `<option value="guia:${g.codigo}" data-kg="${kgDisp}" data-costo="${g.precikg||0}" data-origen="guia-conv">${label}</option>`;
+    });
+    sel.innerHTML += '</optgroup>';
+  }
+
+  // ── GUÍAS ORGÁNICAS (para mezclas) ──
+  const guiasOrg = DB.guias.filter(g=>!(g.certificacion||'').toUpperCase().includes('CONVENCIONAL') && g.certificacion);
+  if(guiasOrg.length){
+    sel.innerHTML += '<optgroup label="🌿 Guías Café Orgánico/Fairtrade">';
+    guiasOrg.forEach(g=>{
+      const kgDisp = kardexKgDisponibleGuia(g.codigo);
+      if(kgDisp < 0.01) return;
+      const label = `${g.codigo} — ${g.productor} — ${kgDisp.toFixed(2)} kg disp.`;
+      sel.innerHTML += `<option value="guia:${g.codigo}" data-kg="${kgDisp}" data-costo="${g.precikg||0}" data-origen="guia-org">${label}</option>`;
+    });
+    sel.innerHTML += '</optgroup>';
+  }
+
+  // ── COMPRAS CAFÉ COCO ──
+  if(DB.cafecoco && DB.cafecoco.length){
+    sel.innerHTML += '<optgroup label="🌰 Compras Café Coco">';
     DB.cafecoco.forEach(c=>{
       const kgDisp = kardexKgDisponibleCoco(c.codigo);
+      if(kgDisp < 0.01) return;
       const costoProm = parseFloat(c.kgneto||0)>0 ? parseFloat(c.total||0)/parseFloat(c.kgneto) : 0;
       const label = `${c.codigo} — ${c.nombres} — ${kgDisp.toFixed(2)} kg disp.`;
-      sel.innerHTML += `<option value="coco:${c.codigo}" data-kg="${kgDisp}" data-costo="${costoProm.toFixed(4)}">${label}</option>`;
+      sel.innerHTML += `<option value="coco:${c.codigo}" data-kg="${kgDisp}" data-costo="${costoProm.toFixed(4)}" data-origen="coco">${label}</option>`;
     });
+    sel.innerHTML += '</optgroup>';
+  }
+
+  // Si no hay nada
+  const total = (guiasConv.length + guiasOrg.length + (DB.cafecoco||[]).length);
+  if(total === 0){
+    sel.innerHTML += '<option disabled>Sin stock disponible</option>';
   }
 }
 
-// KG disponibles de una guía (acopiados - ya vendidos en otros kardex)
+// KG disponibles de una guía — descontando todo lo ya vendido en cualquier kardex
 function kardexKgDisponibleGuia(codigoGuia){
   const g = DB.guias.find(x=>x.codigo===codigoGuia);
   if(!g) return 0;
   const acopiado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  const vendido  = (DB.kardex||[])
-    .filter(k=>k.tipo==='conv' && (k.origenes||[]).includes(codigoGuia))
-    .reduce((a,k)=>a+(parseFloat(k.kg_venta)||0),0);
+  // Descontar todo lo vendido en cualquier venta del kárdex que incluya esta guía
+  const vendido = (DB.kardex||[])
+    .filter(k=>(k.origenes||[]).includes(codigoGuia))
+    .reduce((a,k)=>{
+      // Si la venta tiene detalle por origen, usar el kg asignado a esta guía específica
+      const det = (k.origenes_detalle||[]).find(d=>d.ref===`guia:${codigoGuia}`);
+      return a + (det ? parseFloat(det.kgAjustado||0) : parseFloat(k.kg_venta||0));
+    }, 0);
   return Math.max(0, acopiado - vendido);
 }
 
@@ -6363,9 +6395,12 @@ function kardexKgDisponibleCoco(codigoCoco){
   const c = DB.cafecoco.find(x=>x.codigo===codigoCoco);
   if(!c) return 0;
   const acopiado = parseFloat(c.kgneto||0);
-  const vendido  = (DB.kardex||[])
-    .filter(k=>k.tipo==='coco' && (k.origenes||[]).includes(codigoCoco))
-    .reduce((a,k)=>a+(parseFloat(k.kg_venta)||0),0);
+  const vendido = (DB.kardex||[])
+    .filter(k=>(k.origenes||[]).includes(codigoCoco))
+    .reduce((a,k)=>{
+      const det = (k.origenes_detalle||[]).find(d=>d.ref===`coco:${codigoCoco}`);
+      return a + (det ? parseFloat(det.kgAjustado||0) : parseFloat(k.kg_venta||0));
+    }, 0);
   return Math.max(0, acopiado - vendido);
 }
 
@@ -6521,17 +6556,15 @@ function renderKardex(){
   const totalCosto   = lista.reduce((a,k)=>a+(parseFloat(k.costo)||0),0);
   const totalUtil    = totalIngreso - totalCosto;
 
-  // Stock disponible
+  // Stock disponible — suma de todos los orígenes disponibles para este tab
   let totalAcopiado = 0;
   if(kardexTipo==='conv'){
-    totalAcopiado = DB.guias
-      .filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'))
-      .reduce((a,g)=>{
-        const kg=(g.tickets_detalle||[]).reduce((b,t)=>b+(parseFloat(t.pesoneto)||0),0);
-        return a+kg;
-      },0);
+    // Guías convencionales
+    DB.guias.filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'))
+      .forEach(g=>{ totalAcopiado += (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0); });
   } else {
-    totalAcopiado = DB.cafecoco.reduce((a,c)=>a+(parseFloat(c.kgneto)||0),0);
+    // Coco + cualquier guía que se haya mezclado en ventas de tipo coco
+    DB.cafecoco.forEach(c=>{ totalAcopiado += parseFloat(c.kgneto||0); });
   }
   const stock = totalAcopiado - totalVendido;
 
