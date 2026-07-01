@@ -2361,7 +2361,7 @@ function renderChartCertif(){
   const cx=W/2, cy=H/2-10, r=Math.min(W,H)/2-30, ri=r*0.55;
   let ang = -Math.PI/2;
 
-  entries.forEach(([cert,kg],i){
+  entries.forEach(([cert,kg],i)=>{
     const slice = total>0 ? (kg/total)*Math.PI*2 : 0;
     ctx.beginPath();
     ctx.moveTo(cx,cy);
