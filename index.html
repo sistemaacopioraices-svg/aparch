@@ -1776,13 +1776,31 @@ function actualizarEstadoRespaldo(){
 function cargarDB(){
   try{
     const d = localStorage.getItem(STORAGE_KEY);
-    if(d){ const p=JSON.parse(d); DB={...DB,...p}; }
-  }catch(e){}
-  // Usuarios por defecto
+    if(d){
+      const p=JSON.parse(d);
+      DB={...DB,...p};
+    }
+  }catch(e){ console.warn('Error al cargar DB:', e); }
+  // Siempre asegurar usuarios por defecto
   if(!DB.usuarios || !DB.usuarios.length){
-    DB.usuarios=[{user:'admin',pass:'admin123',role:'admin'},{user:'operador',pass:'op2026',role:'operador'}];
-    guardarDB();
+    DB.usuarios=[
+      {user:'admin',pass:'admin123',role:'admin'},
+      {user:'operador',pass:'op2026',role:'operador'}
+    ];
   }
+  // Asegurar que admin siempre existe
+  if(!DB.usuarios.find(x=>x.user==='admin')){
+    DB.usuarios.unshift({user:'admin',pass:'admin123',role:'admin'});
+  }
+  // Inicializar arrays si no existen
+  if(!DB.tickets) DB.tickets=[];
+  if(!DB.guias) DB.guias=[];
+  if(!DB.comprobantes) DB.comprobantes=[];
+  if(!DB.socios) DB.socios=[];
+  if(!DB.prestamos) DB.prestamos=[];
+  if(!DB.aperturas) DB.aperturas=[];
+  if(!DB.recibos) DB.recibos=[];
+  if(!DB.cafecoco) DB.cafecoco=[];
 }
 
 // ── BACKUP JSON ──
@@ -1878,7 +1896,26 @@ function restaurarDesdeJSON(input){
 function loginSubmit(){
   const u=document.getElementById('l-user').value.trim().toLowerCase();
   const p=document.getElementById('l-pass').value;
-  const found=DB.usuarios.find(x=>x.user.toLowerCase()===u && x.pass===p);
+
+  // Asegurar que siempre existen usuarios por defecto
+  if(!DB.usuarios || !DB.usuarios.length){
+    DB.usuarios=[
+      {user:'admin',pass:'admin123',role:'admin'},
+      {user:'operador',pass:'op2026',role:'operador'}
+    ];
+    guardarDB();
+  }
+
+  // Permitir acceso de emergencia con admin/admin123 siempre
+  let found = DB.usuarios.find(x=>x.user.toLowerCase()===u && x.pass===p);
+  if(!found && u==='admin' && p==='admin123'){
+    found = {user:'admin', pass:'admin123', role:'admin'};
+    if(!DB.usuarios.find(x=>x.user==='admin')){
+      DB.usuarios.push(found);
+      guardarDB();
+    }
+  }
+
   if(!found){ document.getElementById('login-error').style.display='block'; return; }
   document.getElementById('login-error').style.display='none';
   SESSION={user:found.user, role:found.role};
