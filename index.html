@@ -702,7 +702,17 @@ tr:hover td{background:#f9f6f1;}
       </button>
     </div>
 
-    <!-- REPORTE POR SOCIO -->
+    <!-- REPORTE CAJA -->
+    <div style="background:linear-gradient(135deg,#4a148c,#7b1fa2);border-radius:10px;padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
+      <div>
+        <div style="color:#fff;font-weight:800;font-size:1.05rem;margin-bottom:4px;">🏦 REPORTE DE CAJA — Entradas y Salidas</div>
+        <div style="color:rgba(255,255,255,0.8);font-size:0.8rem;">Fecha, N° Comprobante, Nombres y Apellidos, Concepto, Ingreso, Egreso, Saldo Acumulado. Incluye apertura de caja, todos los recibos y pagos de guías.</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;margin-top:4px;" id="exp-count-caja-rep">0 movimientos</div>
+      </div>
+      <button class="btn" onclick="exportarReporteCaja()" style="background:#fff;color:#4a148c;font-weight:800;font-size:0.95rem;padding:12px 22px;white-space:nowrap;flex-shrink:0;">
+        📥 Reporte de Caja
+      </button>
+    </div>
     <div style="background:linear-gradient(135deg,#1565c0,#1976d2);border-radius:10px;padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
       <div>
         <div style="color:#fff;font-weight:800;font-size:1.05rem;margin-bottom:4px;">👥 REPORTE POR SOCIO</div>
@@ -4446,6 +4456,143 @@ function exportarReportePorSocio(){
   XLSX.writeFile(wb, `APARCH_ReporteSocios_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+function exportarReporteCaja(){
+  if(!DB.aperturas || !DB.aperturas.length){
+    alert('No hay aperturas de caja registradas.'); return;
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  // Generar una hoja por cada apertura de caja
+  DB.aperturas.forEach((ap, apIdx) => {
+    const nombreHoja = (ap.codigo + ' ' + (ap.fecha||'')).slice(0,31);
+
+    // Recopilar todos los movimientos de esta apertura ordenados por fecha
+    const movimientos = (DB.recibos||[])
+      .filter(r => r.apertura_ref === ap.codigo)
+      .map(r => ({
+        fecha:        r.fecha || ap.fecha,
+        comprobante:  r.codigo || '',
+        persona:      r.persona || '',
+        concepto:     r.concepto || '',
+        ingreso:      r.tipo === 'ingreso' ? parseFloat(r.monto||0) : null,
+        egreso:       r.tipo === 'egreso'  ? parseFloat(r.monto||0) : null,
+        orden:        r.fecha + (r.codigo||'')
+      }))
+      .sort((a,b) => a.orden.localeCompare(b.orden));
+
+    // ── Construir filas del Excel ──
+    const filas = [];
+
+    // Cabecera
+    filas.push(['FECHA','N°COMPROBANTE','NOMBRES Y APELLIDOS','CONCEPTO DE GASTO','INGRESO','EGRESO','MONTO GENERAL']);
+
+    // Saldo inicial (apertura de caja)
+    const saldoInicial = parseFloat(ap.saldo_inicial||0);
+    filas.push([
+      ap.fecha ? new Date(ap.fecha+'T00:00:00') : '',
+      ap.codigo,
+      ap.usuario || 'ADMIN',
+      'SALDO INICIAL — APERTURA DE CAJA',
+      null,
+      null,
+      saldoInicial
+    ]);
+
+    // Movimientos con saldo acumulado
+    let saldo = saldoInicial;
+    movimientos.forEach(m => {
+      const ing = m.ingreso || 0;
+      const egr = m.egreso  || 0;
+      saldo = saldo + ing - egr;
+      filas.push([
+        m.fecha ? new Date(m.fecha+'T00:00:00') : '',
+        m.comprobante,
+        m.persona,
+        m.concepto,
+        ing > 0 ? ing : null,
+        egr > 0 ? egr : null,
+        saldo
+      ]);
+    });
+
+    // Fila de cierre si la caja está cerrada
+    if(ap.estado === 'Cerrada' && ap.fecha_cierre){
+      filas.push([
+        new Date(ap.fecha_cierre+'T00:00:00'),
+        '',
+        ap.usuario_cierre || ap.usuario || '',
+        'CIERRE DE CAJA',
+        null,
+        null,
+        parseFloat(ap.saldo_final||saldo)
+      ]);
+    }
+
+    // Fila de totales
+    const totalIngresos = movimientos.reduce((a,m)=>a+(m.ingreso||0),0);
+    const totalEgresos  = movimientos.reduce((a,m)=>a+(m.egreso||0),0);
+    filas.push([]);
+    filas.push(['','','','TOTALES', totalIngresos, totalEgresos, saldoInicial + totalIngresos - totalEgresos]);
+
+    // ── Crear la hoja Excel ──
+    const ws = XLSX.utils.aoa_to_sheet(filas);
+
+    // ── Estilos y anchos ──
+    ws['!cols'] = [
+      {wch:14}, // Fecha
+      {wch:16}, // N° Comprobante
+      {wch:32}, // Nombres
+      {wch:42}, // Concepto
+      {wch:13}, // Ingreso
+      {wch:13}, // Egreso
+      {wch:15}, // Monto General
+    ];
+
+    // Formato de fecha en columna A
+    const rangoFechas = filas.length;
+    for(let i = 2; i <= rangoFechas; i++){
+      const cell = ws[`A${i}`];
+      if(cell && cell.t === 'n'){
+        cell.z = 'dd/mm/yyyy';
+      }
+    }
+
+    // Formato numérico para columnas E, F, G (ingreso, egreso, saldo)
+    for(let i = 2; i <= rangoFechas; i++){
+      ['E','F','G'].forEach(col => {
+        const cell = ws[`${col}${i}`];
+        if(cell && (cell.t === 'n' || typeof cell.v === 'number')){
+          cell.z = '#,##0.00';
+        }
+      });
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, nombreHoja);
+  });
+
+  // Hoja de resumen general de todas las aperturas
+  const resumen = [['N° APERTURA','FECHA','USUARIO','SALDO INICIAL','INGRESOS','EGRESOS','SALDO FINAL','ESTADO']];
+  DB.aperturas.forEach(ap => {
+    const ingresos = (DB.recibos||[]).filter(r=>r.apertura_ref===ap.codigo&&r.tipo==='ingreso').reduce((a,r)=>a+(parseFloat(r.monto)||0),0);
+    const egresos  = (DB.recibos||[]).filter(r=>r.apertura_ref===ap.codigo&&r.tipo==='egreso').reduce((a,r)=>a+(parseFloat(r.monto)||0),0);
+    const saldoF   = parseFloat(ap.saldo_inicial||0) + ingresos - egresos;
+    resumen.push([
+      ap.codigo, ap.fecha, ap.usuario,
+      parseFloat(ap.saldo_inicial||0),
+      ingresos, egresos, saldoF, ap.estado
+    ]);
+  });
+  const wsRes = XLSX.utils.aoa_to_sheet(resumen);
+  wsRes['!cols'] = [{wch:14},{wch:12},{wch:14},{wch:14},{wch:12},{wch:12},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsRes, '📊 Resumen General');
+
+  // Mover resumen al frente
+  // Guardar archivo
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `APARCH_ReporteCaja_${fecha}.xlsx`);
+}
+
 function exportarReporteGeneral(){
   // Encabezados exactos solicitados + prima y descuento
   const headers = [
@@ -4563,6 +4710,11 @@ function updateExportCounts(){
   if(elPr) elPr.textContent = (DB.prestamos||[]).length + ' registros';
   const elCc = document.getElementById('exp-count-cafecoco');
   if(elCc) elCc.textContent = (DB.cafecoco||[]).length + ' registros';
+  const elCajaRep = document.getElementById('exp-count-caja-rep');
+  if(elCajaRep){
+    const totalMov = (DB.recibos||[]).length + (DB.aperturas||[]).length;
+    elCajaRep.textContent = totalMov + ' movimientos (' + (DB.aperturas||[]).length + ' aperturas)';
+  }
   const elSocRep = document.getElementById('exp-count-socios-rep');
   if(elSocRep){
     const sociosActivos = new Set([...DB.tickets.map(t=>t.productor),...DB.guias.map(g=>g.productor)].filter(Boolean)).size;
