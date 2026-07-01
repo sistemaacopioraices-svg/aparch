@@ -249,6 +249,9 @@ tr:hover td{background:#f9f6f1;}
   <a class="nav-item" onclick="showSection('cafecoco')" href="#">
     <span class="ico">🌰</span> Compra Café Coco
   </a>
+  <a class="nav-item" onclick="showSection('kardex')" href="#">
+    <span class="ico">📦</span> Kárdex de Ventas
+  </a>
   <div class="nav-section">Configuración</div>
   <a class="nav-item" onclick="showSection('socios')" href="#">
     <span class="ico">👥</span> Socios / Productores
@@ -960,6 +963,142 @@ tr:hover td{background:#f9f6f1;}
         <th>Sacos</th><th>Kg Bruto</th><th>Tara</th><th>Kg Neto</th>
         <th>Precio/kg S/.</th><th>Total a Pagar S/.</th><th>Obs.</th><th>Acciones</th>
       </tr></thead><tbody id="cafecoco-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- KÁRDEX DE VENTAS -->
+<div class="section" id="sec-kardex">
+
+  <!-- TABS: Convencional / Coco -->
+  <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--borde);padding-bottom:10px;">
+    <button id="kardex-tab-conv" class="btn btn-primary" onclick="switchKardexTab('conv')" style="font-size:0.9rem;">
+      ☕ Café Pergamino Convencional
+    </button>
+    <button id="kardex-tab-coco" class="btn btn-secondary" onclick="switchKardexTab('coco')" style="font-size:0.9rem;">
+      🌰 Café Coco
+    </button>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid" style="margin-bottom:16px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+    <div class="stat-card dorado">
+      <div class="stat-label">⚖️ Stock Disponible</div>
+      <div class="stat-val" id="kd-stock">0 kg</div>
+      <div class="stat-sub" id="kd-stock-sub">KG netos - vendidos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">📦 Total Vendido</div>
+      <div class="stat-val" id="kd-vendido">0 kg</div>
+      <div class="stat-sub">Suma de ventas</div>
+    </div>
+    <div class="stat-card azul">
+      <div class="stat-label">💰 Ingreso Total</div>
+      <div class="stat-val" id="kd-ingreso">S/. 0</div>
+      <div class="stat-sub">Total de ventas</div>
+    </div>
+    <div class="stat-card cafe">
+      <div class="stat-label">💵 Costo Total</div>
+      <div class="stat-val" id="kd-costo">S/. 0</div>
+      <div class="stat-sub">Lo que se pagó</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#2e7d32;">
+      <div class="stat-label">📈 Utilidad</div>
+      <div class="stat-val" id="kd-utilidad">S/. 0</div>
+      <div class="stat-sub">Ingreso - Costo</div>
+    </div>
+  </div>
+
+  <!-- NUEVO MOVIMIENTO -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <div class="card-title" id="kd-form-titulo">📦 Registrar Venta — Café Convencional</div>
+    </div>
+    <div id="kd-form-alert"></div>
+
+    <!-- Selección de guías / compras a incluir -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:8px;">
+        1️⃣ Seleccionar Guías/Compras a incluir en esta venta
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <select id="kd-origen-sel" style="flex:1;padding:8px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.84rem;">
+          <option value="">-- Seleccionar --</option>
+        </select>
+        <button class="btn btn-primary" onclick="kardexAgregarOrigen()">+ Agregar</button>
+      </div>
+      <div id="kd-origenes-lista" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+    </div>
+
+    <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+      <div class="form-group">
+        <label>N° Venta</label>
+        <input type="text" id="kd-codigo" readonly style="background:#eee;">
+      </div>
+      <div class="form-group">
+        <label>Fecha Venta</label>
+        <input type="date" id="kd-fecha">
+      </div>
+      <div class="form-group">
+        <label>Cliente / Comprador</label>
+        <input type="text" id="kd-cliente" placeholder="Nombre del comprador...">
+      </div>
+      <div class="form-group">
+        <label>KG Acopiados (de selección)</label>
+        <input type="number" id="kd-kg-acopiados" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:700;">
+      </div>
+      <div class="form-group">
+        <label>KG Netos a Vender <span style="color:#c62828;font-size:0.7rem;">(editable)</span></label>
+        <input type="number" id="kd-kg-venta" step="0.01" oninput="calcKardex()" style="font-weight:700;border:2px solid var(--dorado);">
+      </div>
+      <div class="form-group">
+        <label>Precio Venta (S/./kg)</label>
+        <input type="number" id="kd-precio-venta" step="0.01" oninput="calcKardex()" style="font-weight:700;border:2px solid #1565c0;color:#1565c0;">
+      </div>
+      <div class="form-group">
+        <label>Costo Promedio (S/./kg)</label>
+        <input type="number" id="kd-costo-prom" readonly style="background:#fff8e1;color:#e65100;font-weight:700;">
+      </div>
+      <div class="form-group">
+        <label>Ingreso Total (S/.)</label>
+        <input type="number" id="kd-ingreso-total" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;font-size:1rem;">
+      </div>
+      <div class="form-group">
+        <label>Costo Total (S/.)</label>
+        <input type="number" id="kd-costo-total" readonly style="background:#fff8e1;color:#e65100;font-weight:800;">
+      </div>
+      <div class="form-group">
+        <label>Utilidad (S/.)</label>
+        <input type="number" id="kd-utilidad-mov" readonly style="font-weight:900;font-size:1rem;" id="kd-util-input">
+      </div>
+      <div class="form-group">
+        <label>% Margen</label>
+        <input type="text" id="kd-margen" readonly style="font-weight:700;">
+      </div>
+      <div class="form-group form-full">
+        <label>Observaciones</label>
+        <textarea id="kd-observaciones" placeholder="Empresa, destino, N° contrato..."></textarea>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-secondary" onclick="limpiarKardexForm()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarKardex()">💾 Registrar Venta</button>
+    </div>
+  </div>
+
+  <!-- LISTADO DE VENTAS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title" id="kd-lista-titulo">📋 Ventas Registradas</div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>N° Venta</th><th>Fecha</th><th>Tipo</th><th>Cliente</th>
+        <th>KG Vendidos</th><th>Precio S/./kg</th><th>Ingreso S/.</th>
+        <th>Costo S/.</th><th>Utilidad S/.</th><th>Margen %</th>
+        <th>Obs.</th><th>Acciones</th>
+      </tr></thead><tbody id="kardex-body"></tbody></table>
     </div>
   </div>
 </div>
@@ -1766,7 +1905,7 @@ tr:hover td{background:#f9f6f1;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[] };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[] };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -1948,7 +2087,7 @@ function restaurarDesdeJSON(input){
       if(!confirm(msg)){ input.value = ''; return; }
 
       // Restaurar — copiar todos los campos de datos al DB
-      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco'].forEach(key => {
+      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex'].forEach(key => {
         if(data[key] !== undefined) DB[key] = data[key];
       });
 
@@ -2212,6 +2351,7 @@ function cerrarModal(id){document.getElementById(id).classList.remove('open');}
 const secTitles={dashboard:'📊 Dashboard',tickets:'🎫 Ticket de Entrada',guias:'📋 Guía de Entrada',
   comprobantes:'🧾 Comprobante de Pagos',socios:'👥 Socios / Productores',
   prestamos:'💰 Préstamos', caja:'🏦 Caja', cafecoco:'🌰 Compra Café Coco',
+  kardex:'📦 Kárdex de Ventas',
   config:'⚙️ Configuración',exportar:'📤 Exportar Datos'};
 
 function showSection(id){
@@ -2232,6 +2372,7 @@ function showSection(id){
   if(id==='exportar') updateExportCounts();
   if(id==='prestamos') renderPrestamos();
   if(id==='caja') renderCaja();
+  if(id==='kardex'){ renderKardex(); }
   if(id==='cafecoco') renderCafeCoco();
 }
 
@@ -6164,6 +6305,290 @@ function exportarCafeCoco(){
 
 
 
+
+// ══════════════════════════════════════════
+// MÓDULO KÁRDEX DE VENTAS
+// ══════════════════════════════════════════
+let kardexTipo = 'conv'; // 'conv' = Convencional, 'coco' = Café Coco
+let kardexOrigenesTemp = []; // guías/compras seleccionadas para esta venta
+let editandoKardexIdx = -1;
+
+function switchKardexTab(tipo){
+  kardexTipo = tipo;
+  document.getElementById('kardex-tab-conv').className = tipo==='conv'?'btn btn-primary':'btn btn-secondary';
+  document.getElementById('kardex-tab-coco').className = tipo==='coco'?'btn btn-primary':'btn btn-secondary';
+  const titulo = tipo==='conv'?'Café Pergamino Convencional':'Café Coco';
+  document.getElementById('kd-form-titulo').textContent = `📦 Registrar Venta — ${titulo}`;
+  document.getElementById('kd-lista-titulo').textContent = `📋 Ventas Registradas — ${titulo}`;
+  limpiarKardexForm();
+  renderKardex();
+}
+
+// Poblar el select de orígenes (guías convencional o compras coco)
+function kardexPoblarOrigen(){
+  const sel = document.getElementById('kd-origen-sel');
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  if(kardexTipo === 'conv'){
+    // Guías convencionales no vendidas completamente
+    DB.guias
+      .filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'))
+      .forEach(g=>{
+        const kgDisp = kardexKgDisponibleGuia(g.codigo);
+        const label = `${g.codigo} — ${g.productor} — ${kgDisp.toFixed(2)} kg disp.`;
+        sel.innerHTML += `<option value="guia:${g.codigo}" data-kg="${kgDisp}" data-costo="${g.precikg||0}">${label}</option>`;
+      });
+  } else {
+    // Compras de café coco no vendidas completamente
+    DB.cafecoco.forEach(c=>{
+      const kgDisp = kardexKgDisponibleCoco(c.codigo);
+      const costoProm = parseFloat(c.kgneto||0)>0 ? parseFloat(c.total||0)/parseFloat(c.kgneto) : 0;
+      const label = `${c.codigo} — ${c.nombres} — ${kgDisp.toFixed(2)} kg disp.`;
+      sel.innerHTML += `<option value="coco:${c.codigo}" data-kg="${kgDisp}" data-costo="${costoProm.toFixed(4)}">${label}</option>`;
+    });
+  }
+}
+
+// KG disponibles de una guía (acopiados - ya vendidos en otros kardex)
+function kardexKgDisponibleGuia(codigoGuia){
+  const g = DB.guias.find(x=>x.codigo===codigoGuia);
+  if(!g) return 0;
+  const acopiado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+  const vendido  = (DB.kardex||[])
+    .filter(k=>k.tipo==='conv' && (k.origenes||[]).includes(codigoGuia))
+    .reduce((a,k)=>a+(parseFloat(k.kg_venta)||0),0);
+  return Math.max(0, acopiado - vendido);
+}
+
+function kardexKgDisponibleCoco(codigoCoco){
+  const c = DB.cafecoco.find(x=>x.codigo===codigoCoco);
+  if(!c) return 0;
+  const acopiado = parseFloat(c.kgneto||0);
+  const vendido  = (DB.kardex||[])
+    .filter(k=>k.tipo==='coco' && (k.origenes||[]).includes(codigoCoco))
+    .reduce((a,k)=>a+(parseFloat(k.kg_venta)||0),0);
+  return Math.max(0, acopiado - vendido);
+}
+
+function kardexAgregarOrigen(){
+  const sel = document.getElementById('kd-origen-sel');
+  const val = sel.value;
+  if(!val) return;
+  if(kardexOrigenesTemp.find(o=>o.ref===val)){
+    showAlert('kd-form-alert','error','Ya está agregado.'); return;
+  }
+  const opt = sel.options[sel.selectedIndex];
+  const kg   = parseFloat(opt.dataset.kg)||0;
+  const costo= parseFloat(opt.dataset.costo)||0;
+  kardexOrigenesTemp.push({ ref:val, label:opt.text, kgDisp:kg, costoProm:costo, kgAjustado:kg });
+  sel.value='';
+  kardexRenderOrigenes();
+  kardexRecalcularTotales();
+}
+
+function kardexRenderOrigenes(){
+  const cont = document.getElementById('kd-origenes-lista');
+  if(!kardexOrigenesTemp.length){ cont.innerHTML=''; return; }
+  cont.innerHTML = kardexOrigenesTemp.map((o,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;padding:6px 10px;font-size:0.8rem;">
+      <div style="flex:1;"><strong>${o.ref.split(':')[1]}</strong> — ${o.label.split('—').slice(1).join('—').trim()}</div>
+      <div style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
+        <span style="font-size:0.72rem;color:#555;">KG netos:</span>
+        <input type="number" value="${o.kgAjustado.toFixed(2)}" step="0.01"
+          style="width:80px;padding:3px 6px;border:1px solid #ffe082;border-radius:4px;font-weight:700;color:#1b5e20;"
+          onchange="kardexOrigenesTemp[${i}].kgAjustado=parseFloat(this.value)||0;kardexRecalcularTotales();"
+          title="Editable: ajusta los kg si la balanza difiere">
+        <span style="font-size:0.7rem;color:#888;">/ ${o.kgDisp.toFixed(2)} disp.</span>
+        <span style="font-size:0.7rem;color:#e65100;margin-left:4px;">Costo: S/.${o.costoProm.toFixed(4)}/kg</span>
+      </div>
+      <button onclick="kardexOrigenesTemp.splice(${i},1);kardexRenderOrigenes();kardexRecalcularTotales();"
+        style="background:#ffebee;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;color:#c62828;font-weight:700;">✕</button>
+    </div>`).join('');
+}
+
+function kardexRecalcularTotales(){
+  // Total kg acopiados de la selección (ajustados)
+  const totalKgAcop = kardexOrigenesTemp.reduce((a,o)=>a+o.kgAjustado,0);
+  // Costo promedio ponderado
+  const totalCostoPond = kardexOrigenesTemp.reduce((a,o)=>a+(o.kgAjustado*o.costoProm),0);
+  const costoProm = totalKgAcop > 0 ? totalCostoPond/totalKgAcop : 0;
+
+  document.getElementById('kd-kg-acopiados').value = totalKgAcop.toFixed(2);
+  document.getElementById('kd-costo-prom').value   = costoProm.toFixed(4);
+
+  // Si no hay kg de venta ingresado, sugerir el total
+  const kgVenta = parseFloat(document.getElementById('kd-kg-venta').value)||0;
+  if(!kgVenta && totalKgAcop > 0){
+    document.getElementById('kd-kg-venta').value = totalKgAcop.toFixed(2);
+  }
+  calcKardex();
+}
+
+function calcKardex(){
+  const kgVenta   = parseFloat(document.getElementById('kd-kg-venta').value)||0;
+  const precioV   = parseFloat(document.getElementById('kd-precio-venta').value)||0;
+  const costoProm = parseFloat(document.getElementById('kd-costo-prom').value)||0;
+
+  const ingreso  = kgVenta * precioV;
+  const costo    = kgVenta * costoProm;
+  const utilidad = ingreso - costo;
+  const margen   = ingreso > 0 ? (utilidad/ingreso*100) : 0;
+
+  document.getElementById('kd-ingreso-total').value  = ingreso.toFixed(2);
+  document.getElementById('kd-costo-total').value    = costo.toFixed(2);
+  document.getElementById('kd-utilidad-mov').value   = utilidad.toFixed(2);
+
+  const utilEl = document.getElementById('kd-utilidad-mov');
+  utilEl.style.color = utilidad >= 0 ? '#1b5e20' : '#c62828';
+  utilEl.style.background = utilidad >= 0 ? '#e8f5e9' : '#ffebee';
+
+  document.getElementById('kd-margen').value = margen.toFixed(2)+'%';
+  document.getElementById('kd-margen').style.color = margen >= 0 ? '#1b5e20' : '#c62828';
+}
+
+function guardarKardex(){
+  if(!kardexOrigenesTemp.length){ showAlert('kd-form-alert','error','Selecciona al menos una guía o compra de origen.'); return; }
+  const kgVenta = parseFloat(document.getElementById('kd-kg-venta').value)||0;
+  const precio  = parseFloat(document.getElementById('kd-precio-venta').value)||0;
+  const fecha   = document.getElementById('kd-fecha').value;
+  const cliente = document.getElementById('kd-cliente').value.trim();
+  if(!kgVenta){ showAlert('kd-form-alert','error','Ingresa los KG a vender.'); return; }
+  if(!precio)  { showAlert('kd-form-alert','error','Ingresa el precio de venta.'); return; }
+  if(!fecha)   { showAlert('kd-form-alert','error','Ingresa la fecha.'); return; }
+
+  if(!DB.kardex) DB.kardex=[];
+  const codigo = editandoKardexIdx>=0 ? DB.kardex[editandoKardexIdx].codigo
+    : nextCodigo(DB.kardex.filter(k=>k.tipo===kardexTipo), kardexTipo==='conv'?'VTA-CONV-':'VTA-COCO-');
+
+  const costoProm = parseFloat(document.getElementById('kd-costo-prom').value)||0;
+  const ingreso   = kgVenta * precio;
+  const costo     = kgVenta * costoProm;
+  const utilidad  = ingreso - costo;
+  const margen    = ingreso>0?(utilidad/ingreso*100):0;
+
+  const mov = {
+    codigo, tipo:kardexTipo, fecha, cliente,
+    origenes: kardexOrigenesTemp.map(o=>o.ref.split(':')[1]),
+    origenes_detalle: kardexOrigenesTemp.map(o=>({ref:o.ref, kgAjustado:o.kgAjustado, costoProm:o.costoProm})),
+    kg_acopiados: document.getElementById('kd-kg-acopiados').value,
+    kg_venta: kgVenta.toFixed(2),
+    precio_venta: precio.toFixed(4),
+    costo_prom: costoProm.toFixed(4),
+    ingreso: ingreso.toFixed(2),
+    costo: costo.toFixed(2),
+    utilidad: utilidad.toFixed(2),
+    margen: margen.toFixed(2),
+    observaciones: document.getElementById('kd-observaciones').value,
+    usuario: SESSION.user
+  };
+
+  if(editandoKardexIdx>=0) DB.kardex[editandoKardexIdx]=mov;
+  else DB.kardex.push(mov);
+
+  guardarDB(); limpiarKardexForm(); renderKardex();
+  showAlert('kd-form-alert','success',`✅ Venta ${codigo} registrada. Utilidad: S/. ${utilidad.toFixed(2)}`);
+}
+
+function limpiarKardexForm(){
+  kardexOrigenesTemp=[];
+  editandoKardexIdx=-1;
+  if(!DB.kardex) DB.kardex=[];
+  document.getElementById('kd-codigo').value       = nextCodigo(DB.kardex.filter(k=>k.tipo===kardexTipo), kardexTipo==='conv'?'VTA-CONV-':'VTA-COCO-');
+  document.getElementById('kd-fecha').value         = hoy();
+  document.getElementById('kd-cliente').value       = '';
+  document.getElementById('kd-kg-acopiados').value  = '';
+  document.getElementById('kd-kg-venta').value      = '';
+  document.getElementById('kd-precio-venta').value  = '';
+  document.getElementById('kd-costo-prom').value    = '';
+  document.getElementById('kd-ingreso-total').value = '';
+  document.getElementById('kd-costo-total').value   = '';
+  document.getElementById('kd-utilidad-mov').value  = '';
+  document.getElementById('kd-margen').value        = '';
+  document.getElementById('kd-observaciones').value = '';
+  document.getElementById('kd-origenes-lista').innerHTML = '';
+  document.getElementById('kd-form-alert').innerHTML = '';
+  kardexPoblarOrigen();
+}
+
+function renderKardex(){
+  if(!DB.kardex) DB.kardex=[];
+  limpiarKardexForm();
+
+  const lista = DB.kardex.filter(k=>k.tipo===kardexTipo);
+
+  // Calcular totales para stats
+  const totalVendido = lista.reduce((a,k)=>a+(parseFloat(k.kg_venta)||0),0);
+  const totalIngreso = lista.reduce((a,k)=>a+(parseFloat(k.ingreso)||0),0);
+  const totalCosto   = lista.reduce((a,k)=>a+(parseFloat(k.costo)||0),0);
+  const totalUtil    = totalIngreso - totalCosto;
+
+  // Stock disponible
+  let totalAcopiado = 0;
+  if(kardexTipo==='conv'){
+    totalAcopiado = DB.guias
+      .filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'))
+      .reduce((a,g)=>{
+        const kg=(g.tickets_detalle||[]).reduce((b,t)=>b+(parseFloat(t.pesoneto)||0),0);
+        return a+kg;
+      },0);
+  } else {
+    totalAcopiado = DB.cafecoco.reduce((a,c)=>a+(parseFloat(c.kgneto)||0),0);
+  }
+  const stock = totalAcopiado - totalVendido;
+
+  document.getElementById('kd-stock').textContent    = stock.toFixed(2)+' kg';
+  document.getElementById('kd-stock').style.color    = stock>=0?'':'#c62828';
+  document.getElementById('kd-vendido').textContent  = totalVendido.toFixed(2)+' kg';
+  document.getElementById('kd-ingreso').textContent  = 'S/. '+totalIngreso.toFixed(2);
+  document.getElementById('kd-costo').textContent    = 'S/. '+totalCosto.toFixed(2);
+  const utilEl = document.getElementById('kd-utilidad');
+  utilEl.textContent = 'S/. '+totalUtil.toFixed(2);
+  utilEl.style.color = totalUtil>=0?'#1b5e20':'#c62828';
+
+  // Tabla
+  const tb = document.getElementById('kardex-body');
+  if(!lista.length){
+    tb.innerHTML=`<tr><td colspan="12"><div class="empty-state"><span class="ico">📦</span>No hay ventas registradas aún.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = [...lista].reverse().map(k=>{
+    const ri = DB.kardex.indexOf(k);
+    const util = parseFloat(k.utilidad||0);
+    return `<tr>
+      <td class="td-codigo">${k.codigo}</td>
+      <td>${fechaDisplay(k.fecha)}</td>
+      <td><span class="badge ${k.tipo==='conv'?'badge-verde':''}" style="${k.tipo==='coco'?'background:#fff3e0;color:#e65100;':''}">${k.tipo==='conv'?'☕ Conv.':'🌰 Coco'}</span></td>
+      <td><strong>${k.cliente||'—'}</strong></td>
+      <td style="text-align:right;font-weight:700;">${parseFloat(k.kg_venta||0).toFixed(2)}</td>
+      <td style="text-align:right;">S/.${parseFloat(k.precio_venta||0).toFixed(4)}</td>
+      <td style="text-align:right;font-weight:700;color:#2e7d32;">S/.${parseFloat(k.ingreso||0).toFixed(2)}</td>
+      <td style="text-align:right;color:#e65100;">S/.${parseFloat(k.costo||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:800;color:${util>=0?'#1b5e20':'#c62828'};">S/.${util.toFixed(2)}</td>
+      <td style="text-align:center;color:${parseFloat(k.margen||0)>=0?'#1b5e20':'#c62828'};">${parseFloat(k.margen||0).toFixed(1)}%</td>
+      <td style="font-size:0.75rem;max-width:120px;">${k.observaciones||'—'}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-danger btn-sm" onclick="eliminarKardex(${ri})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('')
+  + `<tr style="background:#f0faf4;font-weight:700;font-size:0.82rem;">
+      <td colspan="4" style="text-align:right;color:#555;">TOTALES (${lista.length} ventas):</td>
+      <td style="text-align:right;">${totalVendido.toFixed(2)} kg</td>
+      <td></td>
+      <td style="text-align:right;color:#2e7d32;">S/.${totalIngreso.toFixed(2)}</td>
+      <td style="text-align:right;color:#e65100;">S/.${totalCosto.toFixed(2)}</td>
+      <td style="text-align:right;color:${totalUtil>=0?'#1b5e20':'#c62828'};">S/.${totalUtil.toFixed(2)}</td>
+      <td style="text-align:center;color:${totalUtil>=0?'#1b5e20':'#c62828'};">${totalIngreso>0?(totalUtil/totalIngreso*100).toFixed(1):0}%</td>
+      <td colspan="2"></td>
+    </tr>`;
+}
+
+function eliminarKardex(i){
+  if(!confirm('¿Eliminar esta venta del kárdex?')) return;
+  DB.kardex.splice(i,1); guardarDB(); renderKardex();
+}
+
+// Inicializar kardex
+(function(){ if(!DB.kardex) DB.kardex=[]; })();
 
 (function init(){
   cargarDB();
