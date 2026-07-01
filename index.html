@@ -325,7 +325,16 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header">
       <div class="card-title">📋 Guías de Entrada</div>
-      <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar guías desde Excel">
+          📂 Importar Excel
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
+        </label>
+        <button class="btn btn-secondary" onclick="imprimirTodasGuias()" title="Imprimir todas las guías en un solo PDF">
+          🖨️ Imprimir Todas
+        </button>
+        <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
+      </div>
     </div>
     <div class="search-bar">
       <input type="text" id="search-guia" placeholder="🔍 Buscar..." oninput="filtrarGuias()">
@@ -1030,6 +1039,41 @@ tr:hover td{background:#f9f6f1;}
   <div id="detalle-prest-content"></div>
 </div></div>
 
+<!-- ══════════ MODAL IMPRESIÓN MASIVA GUÍAS ══════════ -->
+<div class="modal-overlay" id="modal-print-masivo">
+<div class="modal" style="max-width:480px;width:94vw;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Imprimir Todas las Guías</div>
+    <button class="modal-close" onclick="cerrarModal('modal-print-masivo')">✕</button>
+  </div>
+  <div id="print-masivo-info" style="background:#f0faf4;border:1px solid #b2dfcb;border-radius:9px;padding:14px 16px;margin-bottom:16px;">
+    <div style="font-size:0.85rem;color:#2e7d32;margin-bottom:8px;font-weight:700;">📋 Resumen de guías a imprimir</div>
+    <div id="print-masivo-resumen" style="font-size:0.82rem;color:#555;line-height:1.8;"></div>
+  </div>
+  <div style="margin-bottom:16px;">
+    <div style="font-size:0.8rem;font-weight:700;color:#555;margin-bottom:10px;">⚙️ Opciones de impresión:</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;font-size:0.84rem;">
+      <input type="radio" name="print-tipo" value="todas" checked> Todas las guías (<span id="pm-count-todas">0</span>)
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;font-size:0.84rem;">
+      <input type="radio" name="print-tipo" value="pendientes"> Solo pendientes de pago (<span id="pm-count-pend">0</span>)
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;font-size:0.84rem;">
+      <input type="radio" name="print-tipo" value="pagadas"> Solo pagadas (<span id="pm-count-pag">0</span>)
+    </label>
+  </div>
+  <div style="padding:12px 14px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;font-size:0.78rem;color:#e65100;margin-bottom:16px;">
+    <strong>💡 Para guardar como PDF:</strong><br>
+    En la ventana de impresión que abre el navegador, en el campo <strong>"Impresora / Destino"</strong> selecciona <strong>"Guardar como PDF"</strong> → elige la carpeta donde quieres guardarlo.
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-print-masivo')">Cancelar</button>
+    <button class="btn btn-primary" onclick="ejecutarImpresionMasiva()" style="font-size:0.95rem;padding:10px 24px;">
+      🖨️ Imprimir / Guardar PDF
+    </button>
+  </div>
+</div></div>
+
 <!-- ══════════ MODAL SALDO INSUFICIENTE ══════════ -->
 <div class="modal-overlay" id="modal-saldo-alerta">
 <div class="modal" style="max-width:420px;width:94vw;text-align:center;padding:30px 28px 24px;">
@@ -1237,7 +1281,7 @@ tr:hover td{background:#f9f6f1;}
 
     <div class="form-group">
       <label>Certificación</label>
-      <select id="t-certificacion">
+      <select id="t-certificacion" onchange="actualizarCodigoTicketPorCertif()">
         <option value="">-- Seleccionar --</option>
         <option>ORGANICO - FAIRTRADE USA</option>
         <option>ORGANICO</option>
@@ -1475,24 +1519,31 @@ tr:hover td{background:#f9f6f1;}
   <!-- Panel de saldo de caja disponible -->
   <div id="comp-caja-panel" style="margin-bottom:14px;"></div>
 
-  <div class="form-group" style="margin-bottom:14px;">
-    <label>Seleccionar Guía de Entrada</label>
-    <select id="c-guia-sel" onchange="cargarDatosGuiaComp()" style="font-size:0.9rem;font-weight:600;padding:9px 12px;border:2px solid var(--verde-c);">
-      <option value="">-- Seleccionar Guía --</option>
-    </select>
-  </div>
-
-  <!-- Info de la guía seleccionada -->
-  <div id="comp-guia-info" style="display:none;background:#f0faf4;border:1px solid #b2dfcb;border-radius:9px;padding:12px 16px;margin-bottom:14px;">
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:0.82rem;">
-      <div><span style="color:#555;font-size:0.7rem;">Productor</span><div id="ci-productor" style="font-weight:700;"></div></div>
-      <div><span style="color:#555;font-size:0.7rem;">DNI</span><div id="ci-dni"></div></div>
-      <div><span style="color:#555;font-size:0.7rem;">Fecha Guía</span><div id="ci-fecha"></div></div>
-      <div><span style="color:#555;font-size:0.7rem;">Total Guía S/.</span><div id="ci-total" style="font-weight:800;color:#e65100;font-size:1.1rem;"></div></div>
-      <div><span style="color:#555;font-size:0.7rem;">Ya Pagado S/.</span><div id="ci-pagado" style="font-weight:700;color:#2e7d32;font-size:1rem;"></div></div>
-      <div><span style="color:#555;font-size:0.7rem;">Saldo Pendiente S/.</span><div id="ci-saldo" style="font-weight:800;font-size:1.1rem;"></div></div>
+  <div class="form-group" style="margin-bottom:10px;">
+    <label>Seleccionar Guía(s) de Entrada</label>
+    <div style="display:flex;gap:8px;align-items:flex-start;">
+      <select id="c-guia-sel" onchange="agregarGuiaComp()" style="font-size:0.9rem;font-weight:600;padding:9px 12px;border:2px solid var(--verde-c);flex:1;">
+        <option value="">-- Agregar Guía --</option>
+      </select>
     </div>
   </div>
+
+  <!-- Guías seleccionadas para el comprobante -->
+  <div id="comp-guias-seleccionadas" style="display:none;margin-bottom:14px;">
+    <div style="font-size:0.75rem;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:6px;">Guías incluidas en este comprobante:</div>
+    <div id="comp-guias-lista" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <div style="margin-top:10px;padding:10px 14px;background:#f0faf4;border:1px solid #b2dfcb;border-radius:8px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:0.82rem;">
+      <div><span style="color:#555;font-size:0.7rem;">Productor</span><div id="ci-productor" style="font-weight:700;"></div></div>
+      <div><span style="color:#555;font-size:0.7rem;">DNI</span><div id="ci-dni"></div></div>
+      <div><span style="color:#555;font-size:0.7rem;">Total Guías S/.</span><div id="ci-total" style="font-weight:800;color:#e65100;font-size:1.1rem;"></div></div>
+      <div><span style="color:#555;font-size:0.7rem;">Ya Pagado S/.</span><div id="ci-pagado" style="font-weight:700;color:#2e7d32;"></div></div>
+      <div><span style="color:#555;font-size:0.7rem;">Saldo Total S/.</span><div id="ci-saldo" style="font-weight:800;font-size:1.1rem;"></div></div>
+      <div><span style="color:#555;font-size:0.7rem;">Fecha</span><div id="ci-fecha"></div></div>
+    </div>
+  </div>
+
+  <!-- Mantener info panel antiguo oculto para compatibilidad -->
+  <div id="comp-guia-info" style="display:none;"></div>
 
   <!-- ⚠️ ALERTA DE DEUDA POR PRÉSTAMOS -->
   <div id="comp-deuda-panel" style="display:none;background:#fff3e0;border:2px solid #ffb74d;border-radius:9px;padding:14px 16px;margin-bottom:14px;">
@@ -2002,6 +2053,29 @@ function nextCodigo(lista,prefix){
   const nums=lista.map(x=>{const m=(x.codigo||'').match(/(\d+)$/);return m?parseInt(m[1]):0;});
   return prefix+String(Math.max(...nums)+1).padStart(5,'0');
 }
+
+// ── Correlativos separados por certificación ──
+// ORGÁNICO / ORGÁNICO-FAIRTRADE → serie ORG  (RCH-ORG-, GERCH-ORG-, COMP-ORG-)
+// CONVENCIONAL                  → serie CON  (RCH-CON-, GERCH-CON-, COMP-CON-)
+function prefijoPorCertif(tipo, certif){
+  const esConv = (certif||'').toUpperCase().includes('CONVENCIONAL');
+  const serie  = esConv ? 'CON' : 'ORG';
+  if(tipo==='ticket')       return `RCH-${serie}-`;
+  if(tipo==='guia')         return `GERCH-${serie}-`;
+  if(tipo==='comprobante')  return `COMP-${serie}-`;
+  return 'DOC-';
+}
+
+function nextCodigoCertif(tipo, certif){
+  const prefix = prefijoPorCertif(tipo, certif);
+  let lista = [];
+  if(tipo==='ticket')      lista = DB.tickets.filter(t=>(t.codigo||'').startsWith(prefix.slice(0,-1)));
+  if(tipo==='guia')        lista = DB.guias.filter(g=>(g.codigo||'').startsWith(prefix.slice(0,-1)));
+  if(tipo==='comprobante') lista = DB.comprobantes.filter(c=>(c.codigo||'').startsWith(prefix.slice(0,-1)));
+  if(!lista.length) return prefix+'00001';
+  const nums = lista.map(x=>{ const m=(x.codigo||'').match(/(\d+)$/); return m?parseInt(m[1]):0; });
+  return prefix+String(Math.max(...nums)+1).padStart(5,'0');
+}
 function hoy(){return new Date().toISOString().split('T')[0];}
 function ahora(){return new Date().toTimeString().slice(0,5);}
 function fechaDisplay(f){if(!f)return '';const[y,m,d]=f.split('-');return `${d}/${m}/${y}`;}
@@ -2074,6 +2148,31 @@ function validarCampañaActiva(){
 function acumuladoSocio(nombre){
   return DB.tickets.filter(t=>t.productor===nombre).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
 }
+function actualizarCodigoTicketPorCertif(){
+  // Solo actualizar si es un ticket NUEVO (no edición)
+  if(editandoTicketIdx >= 0) return;
+  const certif = document.getElementById('t-certificacion').value;
+  if(!certif) return;
+  const nuevoCodigo = nextCodigoCertif('ticket', certif);
+  document.getElementById('t-codigo').value = nuevoCodigo;
+
+  // Mostrar badge de serie
+  const esConv = certif.toUpperCase().includes('CONVENCIONAL');
+  const badge = esConv
+    ? '<span style="background:#fff3e0;color:#e65100;border:1px solid #ffb74d;padding:2px 8px;border-radius:5px;font-size:0.72rem;font-weight:700;">📦 Serie CONVENCIONAL</span>'
+    : '<span style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;padding:2px 8px;border-radius:5px;font-size:0.72rem;font-weight:700;">🌿 Serie ORGÁNICO</span>';
+
+  const codigoEl = document.getElementById('t-codigo');
+  let badgeEl = document.getElementById('t-serie-badge');
+  if(!badgeEl){
+    badgeEl = document.createElement('div');
+    badgeEl.id = 't-serie-badge';
+    badgeEl.style.marginTop='4px';
+    codigoEl.parentNode.appendChild(badgeEl);
+  }
+  badgeEl.innerHTML = badge;
+}
+
 function nextLoteSocio(productor){
   const year=new Date().getFullYear();
   const count=DB.tickets.filter(t=>t.productor===productor).length+1;
@@ -2085,10 +2184,12 @@ function abrirModalTicket(idx){
   editandoTicketIdx=(idx!==undefined)?idx:-1;
   const t=idx!==undefined?DB.tickets[idx]:null;
   document.getElementById('modal-ticket-titulo').textContent=t?'✏️ Editar Ticket':'🎫 Nuevo Ticket de Entrada';
-  document.getElementById('t-codigo').value=t?t.codigo:nextCodigo(DB.tickets,'RCH-CH-');
+  // El código se asigna al guardar, aquí mostramos preliminar
+  const certifActual = t ? t.certificacion : '';
+  document.getElementById('t-codigo').value=t?t.codigo:nextCodigoCertif('ticket', certifActual);
   document.getElementById('t-fecha').value=t?t.fecha:hoy();
   document.getElementById('t-hora').value=t?t.hora:ahora();
-  document.getElementById('t-certificacion').value=t?t.certificacion:'';
+  document.getElementById('t-certificacion').value=certifActual;
   document.getElementById('t-sacos').value=t?t.sacos:'';
   document.getElementById('t-pesobruto').value=t?t.pesobruto:'';
   document.getElementById('t-tara').value=t?t.tara:'';
@@ -2205,8 +2306,14 @@ function guardarTicket(){
   }
   let lote=document.getElementById('t-lote').value.trim();
   if(!lote && productor) lote=nextLoteSocio(productor);
+  const certif = document.getElementById('t-certificacion').value;
+  // Asegurar que el código tenga el prefijo correcto por certificación
+  let codigoTicket = document.getElementById('t-codigo').value;
+  if(editandoTicketIdx < 0){
+    codigoTicket = nextCodigoCertif('ticket', certif);
+  }
   const ticket={
-    codigo:document.getElementById('t-codigo').value, fecha,
+    codigo:codigoTicket, fecha,
     hora:document.getElementById('t-hora').value,
     productor, dni:document.getElementById('t-dni').value,
     base:document.getElementById('t-base-ticket').value,
@@ -2442,7 +2549,8 @@ function abrirModalGuia(idx){
   const g=idx!==undefined?DB.guias[idx]:null;
   guiaTicketsTemp=g?JSON.parse(JSON.stringify(g.tickets_detalle||[])):[];
   document.getElementById('modal-guia-titulo').textContent=g?'✏️ Editar Guía':'📋 Nueva Guía de Entrada';
-  document.getElementById('g-codigo').value=g?g.codigo:nextCodigo(DB.guias,'GERCH001-');
+  const certifG = g ? g.certificacion : '';
+  document.getElementById('g-codigo').value=g?g.codigo:nextCodigoCertif('guia', certifG);
   document.getElementById('g-fecha').value=g?g.fecha:hoy();
   document.getElementById('g-campana').value=g?g.campana:(DB.campana?DB.campana.nombre:'');
   document.getElementById('g-dni').value=g?g.dni:'';
@@ -2533,6 +2641,7 @@ function agregarTicketGuia(){
   if(!tk) return;
   guiaTicketsTemp.push({
     nticket:tk.codigo, sacos:tk.sacos,
+    lote:tk.lote||'',
     pesobrutokg:tk.pesobruto, tara:parseFloat(tk.tara||0).toFixed(2),
     desctohumedad:tk.deschum, pesoneto:tk.pesoneto,
     pesoneto_qq:(parseFloat(tk.pesoneto||0)/55.2).toFixed(2),
@@ -2556,6 +2665,10 @@ function agregarTicketGuia(){
     document.getElementById('g-base').value    = tk.base    || '';
     document.getElementById('g-caserio').value = tk.caserio || '';
     document.getElementById('g-certificacion').value = tk.certificacion || '';
+    // Actualizar código de guía según certificación del ticket
+    if(editandoGuiaIdx < 0){
+      document.getElementById('g-codigo').value = nextCodigoCertif('guia', tk.certificacion||'');
+    }
   }
   // Autocargar rendimiento → precios
   if(tk.exp_pct){
@@ -2695,19 +2808,32 @@ function eliminarGuia(i){
 
 // Genera el HTML de UNA copia del comprobante de guía (se usa 2 veces: Productor y Caja)
 function generarCopiaGuia(g, etiqueta, colorEtiqueta){
-  const tkRows=(g.tickets_detalle||[]).map(r=>`
+  // Buscar socio para obtener estimado
+  const socio = DB.socios.find(s=>s.nombre===g.productor);
+  const estimadoKg = socio ? parseFloat(socio.estimado_kg||0)||parseFloat(socio.estimado_qq||0)*55.2 : 0;
+
+  const tkRows=(g.tickets_detalle||[]).map(r=>{
+    // Compromiso = estimado del socio en kg (o lo que se haya guardado)
+    const compromisoVal = r.compromiso || (estimadoKg > 0 ? estimadoKg.toFixed(2) : '');
+    // Saldo restante = estimado - acumulado entregado hasta este ticket
+    const entregadoAcum = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+    const saldo = estimadoKg > 0 ? Math.max(0, estimadoKg - entregadoAcum).toFixed(2) : '';
+    return `
     <tr style="font-size:9px;">
       <td style="border:1px solid #ccc;padding:2px 4px;">${r.nticket}</td>
+      <td style="border:1px solid #ccc;padding:2px 4px;font-size:8px;color:#1565c0;">${r.lote||''}</td>
       <td style="border:1px solid #ccc;padding:2px 4px;text-align:center;">${r.sacos||0}</td>
       <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${parseFloat(r.pesobrutokg||0).toFixed(2)}</td>
       <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${parseFloat(r.tara||0).toFixed(2)}</td>
       <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${parseFloat(r.desctohumedad||0).toFixed(2)}</td>
       <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;font-weight:700;">${parseFloat(r.pesoneto||0).toFixed(2)}</td>
       <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${parseFloat(r.pesoneto_qq||0).toFixed(2)}</td>
-      <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${r.compromiso||''}</td>
-      <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${r.entregado||''}</td>
-      <td style="border:1px solid #ccc;padding:2px 4px;text-align:center;">${r.cumplimiento||''}</td>
-    </tr>`).join('');
+      <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;color:#e65100;font-weight:700;">${compromisoVal}</td>
+      <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${r.entregado||parseFloat(r.pesoneto||0).toFixed(2)}</td>
+      <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;color:${parseFloat(saldo)>0?'#c62828':'#2e7d32'};font-weight:700;">${saldo}</td>
+      <td style="border:1px solid #ccc;padding:2px 4px;text-align:center;">${r.cumplimiento||'100%'}</td>
+    </tr>`;
+  }).join('');
 
   const totalPN  = (g.tickets_detalle||[]).reduce((a,r)=>a+(parseFloat(r.pesoneto)||0),0);
   const totalQQ  = totalPN/55.2;
@@ -2715,14 +2841,14 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   const descQQ   = parseFloat(g.descuento_qq||0);
   const primaSol = totalQQ * primaQQ;
   const descSol  = totalQQ * descQQ;
+  const valorTotal = parseFloat(g.valorrecibido||0);
+  const valorLetras = numeroALetras(valorTotal);
 
   return `
   <div class="copia-guia" style="border:1.5px solid #333;border-radius:6px;padding:10px 12px;font-size:10px;page-break-inside:avoid;">
-    <!-- Etiqueta de copia -->
     <div style="text-align:right;margin-bottom:2px;">
       <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:8px;font-weight:800;letter-spacing:0.5px;padding:2px 10px;border-radius:10px;text-transform:uppercase;">${etiqueta}</span>
     </div>
-    <!-- Encabezado con logo -->
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:6px;margin-bottom:8px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
@@ -2747,15 +2873,32 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
       <div><span style="font-size:7px;color:#666;font-weight:600;">PRECIO KG: </span><strong>S/. ${parseFloat(g.precikg||0).toFixed(4)}</strong></div>
       ${primaQQ > 0 ? `<div><span style="font-size:7px;color:#666;font-weight:600;">PRIMA: </span><strong style="color:#1565c0;">+ S/. ${primaSol.toFixed(2)}</strong> <span style="font-size:6.5px;color:#1976d2;">(S/.${primaQQ.toFixed(2)}/qq)</span></div>` : ''}
       ${g.formaentrega==='Descuento' && descQQ > 0 ? `<div><span style="font-size:7px;color:#666;font-weight:600;">DESCUENTO: </span><strong style="color:#c62828;">− S/. ${descSol.toFixed(2)}</strong> <span style="font-size:6.5px;color:#d32f2f;">(S/.${descQQ.toFixed(2)}/qq)</span></div>` : ''}
+      ${estimadoKg > 0 ? `<div><span style="font-size:7px;color:#666;font-weight:600;">COMPROMISO: </span><strong style="color:#e65100;">${estimadoKg.toFixed(2)} kg</strong></div>` : ''}
       <div style="grid-column:1/-1;border-top:1px dashed #999;padding-top:4px;margin-top:2px;">
-        <span style="font-size:8px;color:#666;font-weight:700;text-transform:uppercase;">VALOR TOTAL: </span><strong style="font-size:12px;color:#1a5c2e;">S/. ${parseFloat(g.valorrecibido||0).toFixed(2)}</strong>
+        <span style="font-size:8px;color:#666;font-weight:700;text-transform:uppercase;">VALOR TOTAL: </span>
+        <strong style="font-size:12px;color:#1a5c2e;">S/. ${valorTotal.toFixed(2)}</strong>
+        <span style="font-size:8px;color:#555;margin-left:8px;font-style:italic;">(${valorLetras})</span>
       </div>
     </div>
     <div style="font-weight:700;font-size:8px;text-transform:uppercase;margin-bottom:4px;border-bottom:1px solid #ccc;padding-bottom:2px;">DETALLE DE TICKETS</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
       <thead style="background:#1a5c2e;color:#fff;">
-        <tr><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">N° Ticket</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">Sacos</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">P.Bruto</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">Tara</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">D.Hum.</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">P.Neto kg</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">P.Neto qq</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">Compromiso</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">Entregado</th><th style="border:1px solid #ccc;padding:2px 4px;font-size:8px;">Cumpl.</th></tr>
-      </thead><tbody>${tkRows||'<tr><td colspan="10" style="text-align:center;padding:5px;color:#999;">Sin tickets</td></tr>'}</tbody>
+        <tr>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">N° Ticket</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">Lote</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">Sacos</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">P.Bruto</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">Tara</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">D.Hum.</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">P.Neto kg</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">P.Neto qq</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">Compromiso kg</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">Entregado</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">Saldo</th>
+          <th style="border:1px solid #ccc;padding:2px 4px;font-size:7.5px;">Cumpl.</th>
+        </tr>
+      </thead>
+      <tbody>${tkRows||'<tr><td colspan="12" style="text-align:center;padding:5px;color:#999;">Sin tickets</td></tr>'}</tbody>
     </table>
     <div style="font-weight:700;font-size:8px;text-transform:uppercase;margin-bottom:4px;border-bottom:1px solid #ccc;padding-bottom:2px;">ANÁLISIS FÍSICO Y SENSORIAL</div>
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;font-size:9px;margin-bottom:10px;">
@@ -2813,7 +2956,10 @@ function abrirModalComprobante(idx){
   editandoCompIdx=(idx!==undefined)?idx:-1;
   const c=idx!==undefined?DB.comprobantes[idx]:null;
   document.getElementById('modal-comp-titulo').textContent=c?'✏️ Editar Comprobante':'🧾 Nuevo Comprobante de Pago';
-  document.getElementById('c-codigo').value=c?c.codigo:nextCodigo(DB.comprobantes,'COMP-');
+  // Código del comprobante según certificación de la primera guía
+  const primeraGuia = compGuiasTemp.length > 0 ? DB.guias.find(x=>x.codigo===compGuiasTemp[0]) : null;
+  const certifComp = primeraGuia ? primeraGuia.certificacion : '';
+  document.getElementById('c-codigo').value=c?c.codigo:nextCodigoCertif('comprobante', certifComp);
   document.getElementById('c-fecha').value=c?c.fecha:hoy();
   document.getElementById('c-monto').value=c?c.monto:'';
   document.getElementById('c-formapago').value=c?c.formapago:'Efectivo';
@@ -2838,7 +2984,10 @@ function abrirModalComprobante(idx){
   if(countPendientes === 0){
     selG.innerHTML='<option value="">— Sin guías con saldo pendiente —</option>';
   }
-  if(c) selG.value=c.guia_ref;
+  compGuiasTemp = [];
+  document.getElementById('comp-guias-seleccionadas').style.display='none';
+  if(c && c.guias_ref){ compGuiasTemp = Array.isArray(c.guias_ref)?c.guias_ref:[c.guia_ref]; actualizarResumenGuiasComp(); }
+  else if(c && c.guia_ref){ compGuiasTemp=[c.guia_ref]; actualizarResumenGuiasComp(); }
   document.getElementById('comp-guia-info').style.display='none';
   document.getElementById('comp-deuda-panel').style.display='none';
   document.getElementById('comp-descuento-resumen').style.display='none';
@@ -2864,7 +3013,87 @@ function abrirModalComprobante(idx){
   abrirModal('modal-comprobante');
 }
 
+// Array de guías seleccionadas para el comprobante
+let compGuiasTemp = [];
+
+function agregarGuiaComp(){
+  const sel = document.getElementById('c-guia-sel');
+  const codigo = sel.value;
+  if(!codigo) return;
+  sel.value = '';
+
+  if(compGuiasTemp.find(g=>g===codigo)){ showAlert('comp-form-alert','error','Esa guía ya está agregada.'); return; }
+
+  const g = DB.guias.find(x=>x.codigo===codigo);
+  if(!g) return;
+
+  // Verificar mismo productor
+  if(compGuiasTemp.length > 0){
+    const primera = DB.guias.find(x=>x.codigo===compGuiasTemp[0]);
+    if(primera && primera.productor !== g.productor){
+      showAlert('comp-form-alert','error','Solo puedes agregar guías del mismo productor en un comprobante.');
+      return;
+    }
+  }
+
+  compGuiasTemp.push(codigo);
+
+  // Actualizar código del comprobante según certificación de la primera guía
+  if(compGuiasTemp.length === 1 && editandoCompIdx < 0){
+    document.getElementById('c-codigo').value = nextCodigoCertif('comprobante', g.certificacion||'');
+  }
+
+  actualizarResumenGuiasComp();
+  mostrarDeudaSocio(g.productor);
+}
+
+function quitarGuiaComp(codigo){
+  compGuiasTemp = compGuiasTemp.filter(c=>c!==codigo);
+  actualizarResumenGuiasComp();
+}
+
+function actualizarResumenGuiasComp(){
+  const panel = document.getElementById('comp-guias-seleccionadas');
+  const lista = document.getElementById('comp-guias-lista');
+
+  if(!compGuiasTemp.length){ panel.style.display='none'; return; }
+  panel.style.display='block';
+
+  let totalGuias=0, totalPagado=0, productor='', dni='', fecha='';
+
+  lista.innerHTML = compGuiasTemp.map(cod=>{
+    const g = DB.guias.find(x=>x.codigo===cod);
+    if(!g) return '';
+    const tot = parseFloat(g.valorrecibido||0);
+    const pag = totalPagadoGuia(cod);
+    const sal = tot - pag;
+    totalGuias += sal; totalPagado += pag;
+    if(!productor){ productor=g.productor; dni=g.dni; fecha=fechaDisplay(g.fecha); }
+    return `<div style="display:flex;align-items:center;gap:8px;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:6px 10px;font-size:0.8rem;">
+      <div style="flex:1;"><strong>${cod}</strong> — ${g.productor} — Saldo: <strong style="color:#c62828;">S/. ${sal.toFixed(2)}</strong></div>
+      <button onclick="quitarGuiaComp('${cod}')" style="background:#ffebee;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;color:#c62828;font-weight:700;">✕</button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('ci-productor').textContent = productor||'—';
+  document.getElementById('ci-dni').textContent = dni||'—';
+  document.getElementById('ci-fecha').textContent = fecha||'—';
+  document.getElementById('ci-total').textContent = 'S/. '+totalGuias.toFixed(2);
+  document.getElementById('ci-pagado').textContent = 'S/. '+totalPagado.toFixed(2);
+  const saldoEl = document.getElementById('ci-saldo');
+  saldoEl.textContent = 'S/. '+totalGuias.toFixed(2);
+  saldoEl.style.color = totalGuias<=0?'#2e7d32':'#c62828';
+
+  // Auto-llenar monto si es pago total
+  const tipoPago = document.getElementById('c-tipopago').value;
+  if(tipoPago==='total') document.getElementById('c-monto').value = totalGuias.toFixed(2);
+  calcSaldoComp();
+}
+
 function cargarDatosGuiaComp(){
+  // Compatibilidad: si hay guías en compGuiasTemp, usar actualizarResumenGuiasComp
+  actualizarResumenGuiasComp();
+}
   const sel=document.getElementById('c-guia-sel');
   const codigo=sel.value;
   const info=document.getElementById('comp-guia-info');
@@ -4520,7 +4749,203 @@ function cargarGdriveClientIdEnConfig(){
   if(estado && id) estado.innerHTML = '<span style="color:#2e7d32;">✅ Client ID configurado</span>';
 }
 
-// ── Migrar egresos de Café Coco existentes que no tienen recibo en caja ──
+// ══════════════════════════════════════════
+// IMPRESIÓN MASIVA DE GUÍAS
+// ══════════════════════════════════════════
+function imprimirTodasGuias(){
+  if(!DB.guias || !DB.guias.length){
+    alert('No hay guías registradas para imprimir.');
+    return;
+  }
+
+  const total    = DB.guias.length;
+  const pend     = DB.guias.filter(g=>!g.estado_pago||g.estado_pago==='Pendiente'||g.estado_pago==='Pago Parcial').length;
+  const pagadas  = DB.guias.filter(g=>g.estado_pago==='Pagado Total').length;
+
+  document.getElementById('pm-count-todas').textContent = total;
+  document.getElementById('pm-count-pend').textContent  = pend;
+  document.getElementById('pm-count-pag').textContent   = pagadas;
+
+  document.getElementById('print-masivo-resumen').innerHTML = `
+    <div>📋 Total guías: <strong>${total}</strong></div>
+    <div>⏳ Pendientes/Parciales: <strong style="color:#e65100;">${pend}</strong></div>
+    <div>✅ Pagadas: <strong style="color:#2e7d32;">${pagadas}</strong></div>
+    <div style="margin-top:6px;font-size:0.75rem;color:#888;">Campaña: ${DB.campana?DB.campana.nombre:'—'}</div>`;
+
+  abrirModal('modal-print-masivo');
+}
+
+function ejecutarImpresionMasiva(){
+  const tipo = document.querySelector('input[name="print-tipo"]:checked').value;
+
+  let guiasAImprimir = [...DB.guias];
+  if(tipo === 'pendientes'){
+    guiasAImprimir = DB.guias.filter(g=>!g.estado_pago||g.estado_pago==='Pendiente'||g.estado_pago==='Pago Parcial');
+  } else if(tipo === 'pagadas'){
+    guiasAImprimir = DB.guias.filter(g=>g.estado_pago==='Pagado Total');
+  }
+
+  if(!guiasAImprimir.length){
+    alert('No hay guías con ese filtro para imprimir.');
+    return;
+  }
+
+  cerrarModal('modal-print-masivo');
+
+  // Generar HTML de todas las guías
+  const todasLasCopias = guiasAImprimir.map((g, idx) => {
+    const copiaP = generarCopiaGuia(g, '📄 Copia Productor', '#1a5c2e');
+    const copiaC = generarCopiaGuia(g, '🏦 Copia Caja', '#c8951a');
+    const esUltima = idx === guiasAImprimir.length - 1;
+    return `
+      <div class="guia-bloque" style="page-break-after:${esUltima?'avoid':'always'};">
+        ${copiaP}
+        <div style="border-top:2px dashed #999;margin:14px 0;"></div>
+        ${copiaC}
+      </div>`;
+  }).join('\n');
+
+  // Portada
+  const portada = `
+    <div style="page-break-after:always;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial,sans-serif;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;margin-bottom:20px;">
+      <div style="font-size:24px;font-weight:900;color:#1a5c2e;margin-bottom:8px;">RAÍCES DE CHIRINOS — APARCH</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px;">GUÍAS DE ENTRADA</div>
+      <div style="font-size:14px;color:#555;margin-bottom:4px;">Campaña: ${DB.campana?DB.campana.nombre:'—'}</div>
+      <div style="font-size:13px;color:#888;margin-bottom:4px;">Total: ${guiasAImprimir.length} guía(s)</div>
+      <div style="font-size:12px;color:#aaa;">Generado: ${new Date().toLocaleDateString('es-PE')} ${new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</div>
+      <div style="font-size:12px;color:#aaa;margin-top:4px;">Filtro: ${tipo==='todas'?'Todas':tipo==='pendientes'?'Pendientes/Parciales':'Pagadas'}</div>
+    </div>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Guías APARCH — ${DB.campana?DB.campana.nombre:''}</title>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; }
+    @page { size: A4; margin: 8mm; }
+    @media print {
+      .guia-bloque { break-inside: avoid; }
+      body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+    table { border-collapse: collapse; width: 100%; }
+    .copia-guia { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  ${portada}
+  ${todasLasCopias}
+  <script>
+    window.onload = function(){
+      setTimeout(function(){ window.print(); }, 800);
+    };
+  <\/script>
+</body>
+</html>`);
+  w.document.close();
+}
+
+// ══════════════════════════════════════════
+// NÚMERO A LETRAS (soles peruanos)
+// ══════════════════════════════════════════
+function numeroALetras(monto){
+  const entero = Math.floor(monto);
+  const decimales = Math.round((monto - entero) * 100);
+  const centavos = decimales > 0 ? ` CON ${String(decimales).padStart(2,'0')}/100 CÉNTIMOS` : ' CON 00/100';
+  const letras = _numLetras(entero);
+  return `${letras}${centavos} SOLES`;
+}
+function _numLetras(n){
+  if(n===0) return 'CERO';
+  const u=['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE','DIEZ','ONCE','DOCE','TRECE','CATORCE','QUINCE','DIECISÉIS','DIECISIETE','DIECIOCHO','DIECINUEVE'];
+  const d=['','','VEINTE','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
+  const c=['','CIEN','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
+  if(n<20) return u[n];
+  if(n<100) return n%10===0?d[Math.floor(n/10)]:(n<30?'VEINTI'+u[n%10].toLowerCase().replace(/^./,m=>m.toUpperCase()):d[Math.floor(n/10)]+' Y '+u[n%10]);
+  if(n===100) return 'CIEN';
+  if(n<1000) return (n%100===0?c[Math.floor(n/100)]:c[Math.floor(n/100)].replace('IENTOS','IENTOS')+' '+_numLetras(n%100));
+  if(n<1000) return c[Math.floor(n/100)]+(n%100>0?' '+_numLetras(n%100):'');
+  if(n<2000) return 'MIL'+(n%1000>0?' '+_numLetras(n%1000):'');
+  if(n<1000000) return _numLetras(Math.floor(n/1000))+' MIL'+(n%1000>0?' '+_numLetras(n%1000):'');
+  if(n<2000000) return 'UN MILLÓN'+(n%1000000>0?' '+_numLetras(n%1000000):'');
+  return _numLetras(Math.floor(n/1000000))+' MILLONES'+(n%1000000>0?' '+_numLetras(n%1000000):'');
+}
+
+// ══════════════════════════════════════════
+// IMPORTAR GUÍAS DESDE EXCEL
+// ══════════════════════════════════════════
+function importarGuiasExcel(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      if(rows.length < 2){ alert('El Excel no tiene datos.'); return; }
+
+      const headers = rows[0].map(h=>(h||'').toString().toLowerCase().trim());
+      const find = (keys) => { for(const k of keys){ const i=headers.findIndex(h=>h.includes(k)); if(i>=0) return i; } return -1; };
+
+      const cols = {
+        codigo:      find(['n° guía','nro guia','codigo','guia']),
+        fecha:       find(['fecha']),
+        productor:   find(['productor','nombre']),
+        dni:         find(['dni']),
+        base:        find(['base']),
+        caserio:     find(['caserio','caserío']),
+        certificacion:find(['certif','certificacion']),
+        formaentrega:find(['entrega','forma']),
+        rend_export: find(['rend','rendimiento']),
+        precioqq:    find(['precio qq','precioqq']),
+        precikg:     find(['precio kg','precikg']),
+        prima_qq:    find(['prima']),
+        descuento_qq:find(['descuento']),
+        valorrecibido:find(['valor','total']),
+      };
+
+      let importadas = 0, omitidas = 0;
+      rows.slice(1).forEach(row => {
+        if(!row.length || !row[0]) return;
+        const get = (c) => c>=0 && row[c]!==undefined ? String(row[c]).trim() : '';
+        const codigo = get(cols.codigo) || nextCodigo(DB.guias, 'GERCH001-');
+
+        // No duplicar
+        if(DB.guias.find(g=>g.codigo===codigo)){ omitidas++; return; }
+
+        DB.guias.push({
+          codigo, fecha: get(cols.fecha)||hoy(),
+          campana: DB.campana?DB.campana.nombre:'',
+          productor: get(cols.productor), dni: get(cols.dni),
+          base: get(cols.base), caserio: get(cols.caserio),
+          producto: 'CAFE PERGAMINO',
+          certificacion: get(cols.certificacion),
+          formaentrega: get(cols.formaentrega)||'Venta Directa',
+          rend_export: get(cols.rend_export),
+          precioqq: get(cols.precioqq), precikg: get(cols.precikg),
+          prima_qq: get(cols.prima_qq)||'0',
+          descuento_qq: get(cols.descuento_qq)||'0',
+          valorrecibido: get(cols.valorrecibido),
+          estado_pago: 'Pendiente', total_pagado: '0',
+          tickets_detalle: []
+        });
+        importadas++;
+      });
+
+      guardarDB(); renderGuias();
+      alert(`✅ Importación completada:\n• ${importadas} guías importadas\n• ${omitidas} omitidas (ya existían)`);
+    }catch(err){
+      alert('❌ Error al leer el Excel: '+err.message);
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function migrarEgresosCafeCoco(){
   if(!DB.cafecoco || !DB.cafecoco.length){
     alert('No hay compras de Café Coco registradas.');
