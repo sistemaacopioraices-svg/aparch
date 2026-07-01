@@ -2,9 +2,6 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-  <meta name="description" content="APARCH — Sistema de Acopio Raíces de Chirinos">
-  <meta name="theme-color" content="#1a5c2e">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>APARCH — Sistema de Acopio</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -4838,11 +4835,38 @@ function guardarCafeCoco(){
   const dni = document.getElementById('cc-dni').value.trim();
   const nombres = document.getElementById('cc-nombres').value.trim();
   const kgBruto = parseFloat(document.getElementById('cc-kgbruto').value)||0;
+  const total = parseFloat(document.getElementById('cc-total').value)||0;
 
   if(!fecha){ showAlert('cc-form-alert','error','Ingrese la fecha.'); return; }
   if(!dni){ showAlert('cc-form-alert','error','Ingrese el DNI.'); return; }
   if(!nombres){ showAlert('cc-form-alert','error','Ingrese los nombres.'); return; }
   if(kgBruto <= 0){ showAlert('cc-form-alert','error','Ingrese el peso bruto.'); return; }
+
+  // Verificar saldo de caja si hay monto a pagar
+  const idxCajaAbierta = cajaAbiertaActual();
+  const apCaja = idxCajaAbierta >= 0 ? DB.aperturas[idxCajaAbierta] : null;
+
+  if(apCaja && total > 0 && editandoCafeCocoIdx < 0){
+    const saldoCaja = saldoActualApertura(apCaja.codigo);
+    if(total > saldoCaja + 0.01){
+      const det = document.getElementById('sa-detalle');
+      if(det) det.innerHTML = `
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ef9a9a;">
+          <span style="color:#555;">🏦 Caja abierta</span><strong>${apCaja.codigo}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ef9a9a;">
+          <span style="color:#555;">💵 Saldo disponible</span><strong style="color:#2e7d32;">S/. ${saldoCaja.toFixed(2)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ef9a9a;">
+          <span style="color:#555;">🌰 Total compra coco</span><strong style="color:#c62828;">S/. ${total.toFixed(2)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;margin-top:4px;">
+          <span style="color:#555;">⚠️ Faltante</span><strong style="color:#c62828;font-size:1rem;">S/. ${(total-saldoCaja).toFixed(2)}</strong>
+        </div>`;
+      abrirModal('modal-saldo-alerta');
+      return;
+    }
+  }
 
   const compra = {
     codigo: document.getElementById('cc-codigo').value,
@@ -4852,20 +4876,51 @@ function guardarCafeCoco(){
     tara: document.getElementById('cc-tara').value,
     kgneto: document.getElementById('cc-kgneto').value,
     preciokg: document.getElementById('cc-preciokg').value,
-    total: document.getElementById('cc-total').value,
+    total: total.toFixed(2),
     observacion: document.getElementById('cc-observacion').value,
-    usuario: SESSION.user
+    usuario: SESSION.user,
+    apertura_ref: apCaja ? apCaja.codigo : '',
+    recibo_egreso_ref: ''
   };
 
   if(!DB.cafecoco) DB.cafecoco=[];
+
+  // Generar recibo de egreso automáticamente en caja
+  if(apCaja && total > 0 && editandoCafeCocoIdx < 0){
+    if(!DB.recibos) DB.recibos=[];
+    const codigoRecibo = nextCodigo(DB.recibos, 'EGR-');
+    DB.recibos.push({
+      codigo: codigoRecibo,
+      tipo: 'egreso',
+      fecha,
+      persona: nombres,
+      concepto: `Compra Café Coco ${compra.codigo} — ${parseFloat(compra.kgneto).toFixed(2)} kg neto`,
+      monto: total.toFixed(2),
+      formapago: 'Efectivo',
+      observaciones: `Generado automáticamente desde Compra Café Coco ${compra.codigo}`,
+      apertura_ref: apCaja.codigo,
+      usuario: SESSION.user
+    });
+    compra.recibo_egreso_ref = codigoRecibo;
+  }
+
   if(editandoCafeCocoIdx >= 0) DB.cafecoco[editandoCafeCocoIdx] = compra;
   else DB.cafecoco.push(compra);
 
   guardarDB(); cerrarModal('modal-cafecoco'); renderCafeCoco(); showSection('cafecoco');
+
+  if(apCaja && total > 0 && editandoCafeCocoIdx < 0){
+    setTimeout(()=>alert(`✅ Compra registrada.\n🏦 Se descontó S/. ${total.toFixed(2)} de la caja ${apCaja.codigo}.`), 200);
+  }
 }
 
 function eliminarCafeCoco(idx){
-  if(!confirm('¿Eliminar esta compra de café coco?')) return;
+  if(!confirm('¿Eliminar esta compra de café coco? También se eliminará el egreso de caja vinculado.')) return;
+  const compra = DB.cafecoco[idx];
+  if(compra && compra.recibo_egreso_ref && DB.recibos){
+    const idxR = DB.recibos.findIndex(r=>r.codigo===compra.recibo_egreso_ref);
+    if(idxR >= 0) DB.recibos.splice(idxR,1);
+  }
   DB.cafecoco.splice(idx,1); guardarDB(); renderCafeCoco();
 }
 
