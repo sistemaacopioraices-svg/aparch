@@ -3128,35 +3128,8 @@ function actualizarResumenGuiasComp(){
 }
 
 function cargarDatosGuiaComp(){
-  // Compatibilidad: si hay guías en compGuiasTemp, usar actualizarResumenGuiasComp
+  // Compatibilidad: usar actualizarResumenGuiasComp para múltiples guías
   actualizarResumenGuiasComp();
-}
-  const sel=document.getElementById('c-guia-sel');
-  const codigo=sel.value;
-  const info=document.getElementById('comp-guia-info');
-  if(!codigo){info.style.display='none';document.getElementById('comp-deuda-panel').style.display='none';return;}
-  const g=DB.guias.find(x=>x.codigo===codigo);
-  if(!g){info.style.display='none';return;}
-  const total=parseFloat(g.valorrecibido||0);
-  const pagado=totalPagadoGuia(codigo);
-  const saldo=total-pagado;
-  document.getElementById('ci-productor').textContent=g.productor||'—';
-  document.getElementById('ci-dni').textContent=g.dni||'—';
-  document.getElementById('ci-fecha').textContent=fechaDisplay(g.fecha);
-  document.getElementById('ci-total').textContent='S/. '+total.toFixed(2);
-  document.getElementById('ci-pagado').textContent='S/. '+pagado.toFixed(2);
-  const saldoEl=document.getElementById('ci-saldo');
-  saldoEl.textContent='S/. '+saldo.toFixed(2);
-  saldoEl.style.color=saldo<=0?'#2e7d32':'#c62828';
-  info.style.display='block';
-  // Si pago total, llenar monto con saldo
-  const tipoPago=document.getElementById('c-tipopago').value;
-  if(tipoPago==='total') document.getElementById('c-monto').value=saldo.toFixed(2);
-
-  // ── Mostrar préstamos pendientes del socio ──
-  mostrarDeudaSocio(g.productor);
-
-  calcSaldoComp();
 }
 
 // ── Detecta préstamos vigentes/vencidos del socio y los muestra para descuento ──
