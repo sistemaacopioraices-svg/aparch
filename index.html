@@ -2347,6 +2347,19 @@ function nextCodigoCertif(tipo, certif){
 }
 function hoy(){return new Date().toISOString().split('T')[0];}
 function ahora(){return new Date().toTimeString().slice(0,5);}
+// Convierte "YYYY-MM-DD" a número serial de Excel SIN pasar por Date (evita desfase de zona horaria)
+function fechaToExcel(str){
+  if(!str) return '';
+  const [y,m,d] = str.split('-').map(Number);
+  if(!y||!m||!d) return str;
+  // Fórmula de número serial Excel (días desde 1900-01-01, con bug compatibilidad 1900)
+  const a = Math.floor((14 - m) / 12);
+  const yy = y + 4800 - a;
+  const mm = m + 12 * a - 3;
+  const jdn = d + Math.floor((153*mm+2)/5) + 365*yy + Math.floor(yy/4) - Math.floor(yy/100) + Math.floor(yy/400) - 32045;
+  const serial = jdn - 2415018.5 + 1; // offset Excel (con bug 1900)
+  return serial;
+}
 function fechaDisplay(f){if(!f)return '';const[y,m,d]=f.split('-');return `${d}/${m}/${y}`;}
 function showAlert(id,tipo,msg){
   const el=document.getElementById(id);
@@ -4490,7 +4503,7 @@ function exportarReporteCaja(){
     // Saldo inicial (apertura de caja)
     const saldoInicial = parseFloat(ap.saldo_inicial||0);
     filas.push([
-      ap.fecha ? new Date(ap.fecha+'T00:00:00') : '',
+      ap.fecha ? fechaToExcel(ap.fecha) : '',
       ap.codigo,
       ap.usuario || 'ADMIN',
       'SALDO INICIAL — APERTURA DE CAJA',
@@ -4506,7 +4519,7 @@ function exportarReporteCaja(){
       const egr = m.egreso  || 0;
       saldo = saldo + ing - egr;
       filas.push([
-        m.fecha ? new Date(m.fecha+'T00:00:00') : '',
+        m.fecha ? fechaToExcel(m.fecha) : '',
         m.comprobante,
         m.persona,
         m.concepto,
@@ -4519,7 +4532,7 @@ function exportarReporteCaja(){
     // Fila de cierre si la caja está cerrada
     if(ap.estado === 'Cerrada' && ap.fecha_cierre){
       filas.push([
-        new Date(ap.fecha_cierre+'T00:00:00'),
+        fechaToExcel(ap.fecha_cierre),
         '',
         ap.usuario_cierre || ap.usuario || '',
         'CIERRE DE CAJA',
