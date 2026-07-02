@@ -2346,18 +2346,17 @@ function nextCodigoCertif(tipo, certif){
 }
 function hoy(){return new Date().toISOString().split('T')[0];}
 function ahora(){return new Date().toTimeString().slice(0,5);}
-// Convierte "YYYY-MM-DD" a número serial de Excel SIN pasar por Date (evita desfase de zona horaria)
+// Convierte "YYYY-MM-DD" a número serial Excel sin zona horaria
 function fechaToExcel(str){
   if(!str) return '';
-  const [y,m,d] = str.split('-').map(Number);
+  const parts = str.split('-');
+  if(parts.length !== 3) return str;
+  const y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
   if(!y||!m||!d) return str;
-  // Fórmula de número serial Excel (días desde 1900-01-01, con bug compatibilidad 1900)
-  const a = Math.floor((14 - m) / 12);
-  const yy = y + 4800 - a;
-  const mm = m + 12 * a - 3;
-  const jdn = d + Math.floor((153*mm+2)/5) + 365*yy + Math.floor(yy/4) - Math.floor(yy/100) + Math.floor(yy/400) - 32045;
-  const serial = jdn - 2415018.5 + 1; // offset Excel (con bug 1900)
-  return serial;
+  // Número serial Excel: días desde 1900-01-01 (con bug compatible 1900=29/02)
+  const fecha = new Date(Date.UTC(y, m-1, d));
+  const inicio = new Date(Date.UTC(1899, 11, 30)); // 30/12/1899 en UTC
+  return Math.round((fecha - inicio) / 86400000);
 }
 function fechaDisplay(f){if(!f)return '';const[y,m,d]=f.split('-');return `${d}/${m}/${y}`;}
 function showAlert(id,tipo,msg){
@@ -3798,39 +3797,42 @@ function calcSaldoComp(){
 }
 
 function guardarComprobante(){
-  const guiaCod=document.getElementById('c-guia-sel').value;
-  if(!guiaCod){showAlert('comp-form-alert','error','Seleccione una guía.');return;}
-  const g=DB.guias.find(x=>x.codigo===guiaCod);
-  if(!g){showAlert('comp-form-alert','error','Guía no encontrada.');return;}
-  const monto=parseFloat(document.getElementById('c-monto').value)||0;
-  const tipo=document.getElementById('c-tipopago').value;
-  if(tipo!=='pendiente' && monto<=0){showAlert('comp-form-alert','error','Ingrese un monto válido.');return;}
+  // ── Validar que haya al menos una guía seleccionada ──
+  if(!compGuiasTemp || !compGuiasTemp.length){
+    showAlert('comp-form-alert','error','Seleccione al menos una guía de entrada.');
+    return;
+  }
 
-  // Descuentos de préstamos pendientes de aplicar (seleccionados en el panel de deuda)
-  const descuentos = window._descuentosPendientes || [];
+  // Usar la primera guía para datos del productor
+  const guiaCod = compGuiasTemp[0];
+  const g = DB.guias.find(x=>x.codigo===guiaCod);
+  if(!g){ showAlert('comp-form-alert','error','Guía no encontrada.'); return; }
+
+  const monto = parseFloat(document.getElementById('c-monto').value)||0;
+  const tipo  = document.getElementById('c-tipopago').value;
+  if(tipo!=='pendiente' && monto<=0){ showAlert('comp-form-alert','error','Ingrese un monto válido.'); return; }
+
+  // Descuentos de préstamos
+  const descuentos     = window._descuentosPendientes || [];
   const totalDescuento = descuentos.reduce((a,d)=>a+d.monto,0);
 
-  // ── Monto efectivo que sale de CAJA (el descuento de préstamo no sale de caja, es una compensación) ──
   const montoEfectivoCaja = monto;
-  const montoAnterior = editandoCompIdx>=0 ? parseFloat(DB.comprobantes[editandoCompIdx].monto||0) : 0;
-  const diferenciaCaja = montoEfectivoCaja - montoAnterior;
+  const montoAnterior     = editandoCompIdx>=0 ? parseFloat(DB.comprobantes[editandoCompIdx].monto||0) : 0;
+  const diferenciaCaja    = montoEfectivoCaja - montoAnterior;
 
-  // ── Validar saldo de caja disponible ──
+  // ── Validar saldo de caja ──
   const idxCajaAbierta = cajaAbiertaActual();
   let apCaja = null;
 
   if(idxCajaAbierta >= 0 && montoEfectivoCaja > 0){
     apCaja = DB.aperturas[idxCajaAbierta];
     const saldoCajaDisponible = saldoActualApertura(apCaja.codigo);
-
     if(diferenciaCaja > saldoCajaDisponible + 0.01){
-      // ── SALDO INSUFICIENTE → BLOQUEAR COMPLETAMENTE ──
       const detalle = document.getElementById('sa-detalle');
       if(detalle){
         detalle.innerHTML = `
           <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ef9a9a;">
-            <span style="color:#555;">🏦 Caja abierta</span>
-            <strong>${apCaja.codigo}</strong>
+            <span style="color:#555;">🏦 Caja abierta</span><strong>${apCaja.codigo}</strong>
           </div>
           <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ef9a9a;">
             <span style="color:#555;">💵 Saldo disponible</span>
@@ -3842,76 +3844,77 @@ function guardarComprobante(){
           </div>
           <div style="display:flex;justify-content:space-between;padding:4px 0;margin-top:4px;">
             <span style="color:#555;">⚠️ Faltante</span>
-            <strong style="color:#c62828;font-size:1rem;">S/. ${(montoEfectivoCaja - saldoCajaDisponible).toFixed(2)}</strong>
+            <strong style="color:#c62828;font-size:1rem;">S/. ${(montoEfectivoCaja-saldoCajaDisponible).toFixed(2)}</strong>
           </div>`;
       }
       abrirModal('modal-saldo-alerta');
-      return; // BLOQUEO TOTAL — no continúa
+      return;
     }
   } else if(montoEfectivoCaja > 0 && idxCajaAbierta < 0){
-    // ── SIN CAJA ABIERTA → PREGUNTAR CON MODAL BONITO ──
     window._cajaCallback = function(continuar){
       window._cajaCallback = null;
       if(!continuar) return;
       _ejecutarGuardadoComprobante(apCaja);
     };
     abrirModal('modal-sin-caja');
-    return; // espera la respuesta del modal
+    return;
   }
 
   _ejecutarGuardadoComprobante(apCaja);
 }
 
-// Función interna que ejecuta el guardado real (separada para callback asíncrono)
 function _ejecutarGuardadoComprobante(apCaja){
-  // Recalcular todo lo que se necesita del formulario
-  const guiaCod=document.getElementById('c-guia-sel').value;
-  const g=DB.guias.find(x=>x.codigo===guiaCod);
+  const guiaCod   = compGuiasTemp[0];
+  const g         = DB.guias.find(x=>x.codigo===guiaCod);
   if(!g) return;
-  const monto=parseFloat(document.getElementById('c-monto').value)||0;
-  const tipo=document.getElementById('c-tipopago').value;
-  const montoEfectivoCaja = monto;
-  const descuentos = window._descuentosPendientes || [];
+  const monto     = parseFloat(document.getElementById('c-monto').value)||0;
+  const tipo      = document.getElementById('c-tipopago').value;
+  const descuentos     = window._descuentosPendientes || [];
   const totalDescuento = descuentos.reduce((a,d)=>a+d.monto,0);
+  const montoEfectivoCaja = monto;
 
-  const comp={
-    codigo:document.getElementById('c-codigo').value,
-    fecha:document.getElementById('c-fecha').value,
-    guia_ref:guiaCod, productor:g.productor, dni:g.dni,
-    total_guia:g.valorrecibido, monto:monto.toFixed(2),
-    tipopago:tipo, formapago:document.getElementById('c-formapago').value,
-    observaciones:document.getElementById('c-observaciones').value,
+  // Calcular total de todas las guías seleccionadas
+  const totalTodasGuias = compGuiasTemp.reduce((a,cod)=>{
+    const guia = DB.guias.find(x=>x.codigo===cod);
+    return a + (guia ? parseFloat(guia.valorrecibido||0) : 0);
+  }, 0);
+
+  const comp = {
+    codigo:    document.getElementById('c-codigo').value,
+    fecha:     document.getElementById('c-fecha').value,
+    // Compatibilidad hacia atrás: guia_ref = primera guía
+    guia_ref:  guiaCod,
+    guias_ref: [...compGuiasTemp],
+    productor: g.productor, dni: g.dni,
+    total_guia: totalTodasGuias.toFixed(2),
+    monto: monto.toFixed(2),
+    tipopago:  tipo,
+    formapago: document.getElementById('c-formapago').value,
+    observaciones: document.getElementById('c-observaciones').value,
     descuento_prestamos: totalDescuento.toFixed(2),
     prestamos_descontados: descuentos.map(d=>({codigo:DB.prestamos[d.prestamoIdx]?.codigo, monto:d.monto})),
     apertura_ref: apCaja ? apCaja.codigo : (editandoCompIdx>=0 ? DB.comprobantes[editandoCompIdx].apertura_ref : ''),
     recibo_egreso_ref: editandoCompIdx>=0 ? DB.comprobantes[editandoCompIdx].recibo_egreso_ref : '',
-    estado:'Activo'
+    estado: 'Activo'
   };
 
-  // ── Generar / actualizar el recibo de egreso vinculado en Caja ──
+  // Generar recibo de egreso en caja
   if(apCaja && montoEfectivoCaja > 0){
     if(!DB.recibos) DB.recibos=[];
     if(comp.recibo_egreso_ref){
-      // Ya existe un recibo vinculado (edición) → actualizarlo
       const idxRecibo = DB.recibos.findIndex(r=>r.codigo===comp.recibo_egreso_ref);
-      if(idxRecibo >= 0){
-        DB.recibos[idxRecibo].monto = montoEfectivoCaja.toFixed(2);
-        DB.recibos[idxRecibo].fecha = comp.fecha;
-      }
+      if(idxRecibo >= 0){ DB.recibos[idxRecibo].monto = montoEfectivoCaja.toFixed(2); DB.recibos[idxRecibo].fecha = comp.fecha; }
     } else {
-      // Crear nuevo recibo de egreso
       const codigoRecibo = nextCodigo(DB.recibos, 'EGR-');
+      const guiasDesc = compGuiasTemp.join(', ');
       DB.recibos.push({
-        codigo: codigoRecibo,
-        tipo: 'egreso',
-        fecha: comp.fecha,
+        codigo: codigoRecibo, tipo: 'egreso', fecha: comp.fecha,
         persona: g.productor,
-        concepto: `Pago Guía de Entrada ${guiaCod} (Comprobante ${comp.codigo})`,
+        concepto: `Pago Guía(s) ${guiasDesc} (Comprobante ${comp.codigo})`,
         monto: montoEfectivoCaja.toFixed(2),
         formapago: comp.formapago,
-        observaciones: `Generado automáticamente al pagar la guía ${guiaCod}`,
-        apertura_ref: apCaja.codigo,
-        usuario: SESSION.user
+        observaciones: `Generado automáticamente`,
+        apertura_ref: apCaja.codigo, usuario: SESSION.user
       });
       comp.recibo_egreso_ref = codigoRecibo;
     }
@@ -3920,43 +3923,39 @@ function _ejecutarGuardadoComprobante(apCaja){
   if(editandoCompIdx>=0) DB.comprobantes[editandoCompIdx]=comp;
   else DB.comprobantes.push(comp);
 
-  // Actualizar estado de pago en guía
-  let tpRecalc=0;
-  DB.comprobantes.forEach((c,ci)=>{if(c.guia_ref===guiaCod&&c.estado!=='Anulado'){if(ci===editandoCompIdx) tpRecalc+=monto; else tpRecalc+=parseFloat(c.monto||0);}});
-  // El descuento también cuenta como "pagado" desde la perspectiva de la guía
-  const tpRecalcConDescuento = tpRecalc + totalDescuento;
-  const totalGuia=parseFloat(g.valorrecibido||0);
-  const saldoFinal=totalGuia-tpRecalcConDescuento;
-  const gIdx=DB.guias.indexOf(g);
-  if(tipo==='pendiente' && totalDescuento<=0) DB.guias[gIdx].estado_pago='Pendiente';
-  else if(saldoFinal<=0.01) DB.guias[gIdx].estado_pago='Pagado Total';
-  else DB.guias[gIdx].estado_pago='Pago Parcial';
-  DB.guias[gIdx].total_pagado=tpRecalcConDescuento;
+  // Actualizar estado de TODAS las guías incluidas
+  compGuiasTemp.forEach(cod=>{
+    const guia = DB.guias.find(x=>x.codigo===cod);
+    if(!guia) return;
+    let tpRecalc = DB.comprobantes.filter(c=>c.estado!=='Anulado' && (c.guia_ref===cod || (c.guias_ref||[]).includes(cod)))
+      .reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
+    const totG = parseFloat(guia.valorrecibido||0);
+    const saldoG = totG - tpRecalc - totalDescuento;
+    const gIdx = DB.guias.indexOf(guia);
+    if(tipo==='pendiente' && totalDescuento<=0) DB.guias[gIdx].estado_pago='Pendiente';
+    else if(saldoG<=0.01) DB.guias[gIdx].estado_pago='Pagado Total';
+    else DB.guias[gIdx].estado_pago='Pago Parcial';
+    DB.guias[gIdx].total_pagado = tpRecalc;
+  });
 
-  // ── Aplicar abonos a los préstamos descontados ──
+  // Aplicar abonos a préstamos
   if(descuentos.length){
     descuentos.forEach(d=>{
       const p = DB.prestamos[d.prestamoIdx];
       if(!p) return;
       if(!p.abonos) p.abonos=[];
-      p.abonos.push({
-        fecha: comp.fecha,
-        monto: d.monto.toFixed(2),
-        tipo: 'parcial',
-        formapago: 'Descuento en Guía',
-        obs: `Descontado automáticamente de la guía ${guiaCod} (comprobante ${comp.codigo})`,
-        usuario: SESSION.user
-      });
+      p.abonos.push({ fecha:comp.fecha, monto:d.monto.toFixed(2), tipo:'parcial',
+        formapago:'Descuento en Guía', obs:`Descontado de guía(s) ${compGuiasTemp.join(', ')}`, usuario:SESSION.user });
     });
-    window._descuentosPendientes = null; // limpiar
+    window._descuentosPendientes = null;
   }
 
   guardarDB(); cerrarModal('modal-comprobante'); renderComprobantes(); showSection('comprobantes');
 
-  let msgFinal = '';
-  if(totalDescuento > 0) msgFinal += `💰 Se descontaron S/. ${totalDescuento.toFixed(2)} de los préstamos seleccionados.\n`;
-  if(apCaja && montoEfectivoCaja > 0) msgFinal += `🏦 Se registró un egreso de S/. ${montoEfectivoCaja.toFixed(2)} en la caja ${apCaja.codigo}.`;
-  if(msgFinal) setTimeout(()=>alert(`✅ Comprobante registrado.\n${msgFinal}`), 200);
+  let msg='';
+  if(totalDescuento>0) msg+=`💰 Descuento préstamos: S/. ${totalDescuento.toFixed(2)}\n`;
+  if(apCaja && montoEfectivoCaja>0) msg+=`🏦 Egreso en caja ${apCaja.codigo}: S/. ${montoEfectivoCaja.toFixed(2)}`;
+  if(msg) setTimeout(()=>alert(`✅ Comprobante registrado.\n${msg}`),200);
 }
 
 function renderComprobantes(filtro){
@@ -4479,19 +4478,25 @@ function exportarReporteCaja(){
   DB.aperturas.forEach((ap, apIdx) => {
     const nombreHoja = (ap.codigo + ' ' + (ap.fecha||'')).slice(0,31);
 
-    // Recopilar todos los movimientos de esta apertura ordenados por fecha
+    // Recopilar todos los movimientos ordenados por fecha y luego por orden de inserción
     const movimientos = (DB.recibos||[])
-      .filter(r => r.apertura_ref === ap.codigo)
-      .map(r => ({
+      .map((r, idx) => ({
         fecha:        r.fecha || ap.fecha,
         comprobante:  r.codigo || '',
         persona:      r.persona || '',
         concepto:     r.concepto || '',
         ingreso:      r.tipo === 'ingreso' ? parseFloat(r.monto||0) : null,
         egreso:       r.tipo === 'egreso'  ? parseFloat(r.monto||0) : null,
-        orden:        r.fecha + (r.codigo||'')
+        _apertura:    r.apertura_ref,
+        _idx:         idx  // orden de inserción original
       }))
-      .sort((a,b) => a.orden.localeCompare(b.orden));
+      .filter(m => m._apertura === ap.codigo)
+      .sort((a,b) => {
+        // Primero por fecha, luego por orden de inserción
+        if(a.fecha < b.fecha) return -1;
+        if(a.fecha > b.fecha) return 1;
+        return a._idx - b._idx;
+      });
 
     // ── Construir filas del Excel ──
     const filas = [];
@@ -5729,7 +5734,26 @@ function migrarEgresosCafeCoco(silencioso){
   if(!DB.cafecoco || !DB.cafecoco.length) return;
   const idxCaja = cajaAbiertaActual();
   const apCaja  = idxCaja >= 0 ? DB.aperturas[idxCaja] : null;
-  const sinRecibo = DB.cafecoco.filter(c => !c.recibo_egreso_ref && parseFloat(c.total||0) > 0);
+
+  // Buscar compras que NO tienen recibo vinculado Y tampoco existe un recibo con su código en DB.recibos
+  const sinRecibo = DB.cafecoco.filter(c => {
+    if(parseFloat(c.total||0) <= 0) return false;
+    // Ya tiene referencia directa
+    if(c.recibo_egreso_ref) return false;
+    // Verificar que no existe ya un recibo creado para esta compra (por concepto)
+    const yaExiste = (DB.recibos||[]).some(r =>
+      r.tipo === 'egreso' &&
+      (r.concepto||'').includes(c.codigo)
+    );
+    if(yaExiste){
+      // Vincular la referencia si falta
+      const rec = (DB.recibos||[]).find(r => r.tipo==='egreso' && (r.concepto||'').includes(c.codigo));
+      if(rec){ c.recibo_egreso_ref = rec.codigo; }
+      return false;
+    }
+    return true;
+  });
+
   if(!sinRecibo.length) return;
 
   if(!silencioso){
@@ -5744,6 +5768,10 @@ function migrarEgresosCafeCoco(silencioso){
   let creados = 0;
   DB.cafecoco.forEach((compra, idx)=>{
     if(compra.recibo_egreso_ref || parseFloat(compra.total||0) <= 0) return;
+    // Doble verificación: no crear si ya existe uno con este código
+    const yaExiste = DB.recibos.some(r => r.tipo==='egreso' && (r.concepto||'').includes(compra.codigo));
+    if(yaExiste) return;
+
     const codigoRecibo = nextCodigo(DB.recibos, 'EGR-');
     DB.recibos.push({
       codigo: codigoRecibo, tipo: 'egreso',
