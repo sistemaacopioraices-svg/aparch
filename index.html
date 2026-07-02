@@ -892,7 +892,6 @@ tr:hover td{background:#f9f6f1;}
       <div style="display:flex;gap:8px;">
         <button class="btn btn-primary" id="btn-abrir-caja" onclick="abrirModalAperturaCaja()">🔓 Abrir Caja</button>
         <button class="btn btn-danger" id="btn-cerrar-caja" onclick="cerrarCajaActual()" style="display:none;">🔒 Cerrar Caja</button>
-        <button class="btn btn-dorado btn-sm" onclick="migrarEgresosCafeCoco()" title="Crear egresos en caja para compras de Café Coco que no tienen recibo vinculado">🌰 Vincular Café Coco</button>
       </div>
     </div>
     <div class="table-wrap">
@@ -1055,11 +1054,11 @@ tr:hover td{background:#f9f6f1;}
       </div>
       <div class="form-group">
         <label>KG Acopiados (de selección)</label>
-        <input type="number" id="kd-kg-acopiados" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:700;">
+        <input type="text" id="kd-kg-acopiados" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:700;">
       </div>
       <div class="form-group">
         <label>KG Netos a Vender <span style="color:#c62828;font-size:0.7rem;">(editable)</span></label>
-        <input type="number" id="kd-kg-venta" step="0.01" oninput="calcKardex()" style="font-weight:700;border:2px solid var(--dorado);">
+        <input type="number" id="kd-kg-venta" step="0.01" oninput="calcKardex()" style="font-weight:800;border:2px solid var(--dorado);font-size:1rem;">
       </div>
       <div class="form-group">
         <label>Precio Venta (S/./kg)</label>
@@ -1067,19 +1066,19 @@ tr:hover td{background:#f9f6f1;}
       </div>
       <div class="form-group">
         <label>Costo Promedio (S/./kg)</label>
-        <input type="number" id="kd-costo-prom" readonly style="background:#fff8e1;color:#e65100;font-weight:700;">
+        <input type="text" id="kd-costo-prom" readonly style="background:#fff8e1;color:#e65100;font-weight:700;">
       </div>
       <div class="form-group">
         <label>Ingreso Total (S/.)</label>
-        <input type="number" id="kd-ingreso-total" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;font-size:1rem;">
+        <input type="text" id="kd-ingreso-total" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;font-size:1.05rem;">
       </div>
       <div class="form-group">
         <label>Costo Total (S/.)</label>
-        <input type="number" id="kd-costo-total" readonly style="background:#fff8e1;color:#e65100;font-weight:800;">
+        <input type="text" id="kd-costo-total" readonly style="background:#fff8e1;color:#e65100;font-weight:800;">
       </div>
       <div class="form-group">
         <label>Utilidad (S/.)</label>
-        <input type="number" id="kd-utilidad-mov" readonly style="font-weight:900;font-size:1rem;" id="kd-util-input">
+        <input type="text" id="kd-utilidad-mov" readonly style="font-weight:900;font-size:1.05rem;">
       </div>
       <div class="form-group">
         <label>% Margen</label>
@@ -2394,7 +2393,7 @@ function showSection(id){
   if(id==='config'){ renderTablaPreciosConfig(); renderUsuarios(); actualizarCampaña(); cargarGdriveClientIdEnConfig(); actualizarEstadoSheets(); }
   if(id==='exportar') updateExportCounts();
   if(id==='prestamos') renderPrestamos();
-  if(id==='caja') renderCaja();
+  if(id==='caja'){ migrarEgresosCafeCoco(true); renderCaja(); }
   if(id==='kardex'){ renderKardex(); }
   if(id==='cafecoco') renderCafeCoco();
 }
@@ -5726,61 +5725,44 @@ function importarGuiasExcel(input){
   reader.readAsArrayBuffer(file);
 }
 
-function migrarEgresosCafeCoco(){
-  if(!DB.cafecoco || !DB.cafecoco.length){
-    alert('No hay compras de Café Coco registradas.');
-    return;
-  }
-
+function migrarEgresosCafeCoco(silencioso){
+  if(!DB.cafecoco || !DB.cafecoco.length) return;
   const idxCaja = cajaAbiertaActual();
   const apCaja  = idxCaja >= 0 ? DB.aperturas[idxCaja] : null;
-
-  // Encontrar compras sin recibo vinculado
   const sinRecibo = DB.cafecoco.filter(c => !c.recibo_egreso_ref && parseFloat(c.total||0) > 0);
+  if(!sinRecibo.length) return;
 
-  if(!sinRecibo.length){
-    alert('✅ Todas las compras de Café Coco ya tienen egreso de caja vinculado.');
-    return;
+  if(!silencioso){
+    const totalMonto = sinRecibo.reduce((a,c)=>a+(parseFloat(c.total)||0),0);
+    const msg = `🌰 VINCULAR CAFÉ COCO A CAJA\n\nSe encontraron ${sinRecibo.length} compra(s):\n` +
+      sinRecibo.map(c=>`• ${c.codigo} — ${c.nombres} — S/. ${parseFloat(c.total).toFixed(2)}`).join('\n') +
+      `\n\nTotal: S/. ${totalMonto.toFixed(2)}\n¿Continuar?`;
+    if(!confirm(msg)) return;
   }
-
-  const totalMonto = sinRecibo.reduce((a,c)=>a+(parseFloat(c.total)||0),0);
-  const msg = `🌰 VINCULAR CAFÉ COCO A CAJA\n\n` +
-    `Se encontraron ${sinRecibo.length} compra(s) sin egreso de caja:\n` +
-    sinRecibo.map(c=>`• ${c.codigo} — ${c.nombres} — S/. ${parseFloat(c.total).toFixed(2)}`).join('\n') +
-    `\n\nTotal a registrar como egreso: S/. ${totalMonto.toFixed(2)}\n` +
-    (apCaja ? `Caja: ${apCaja.codigo}` : '⚠️ No hay caja abierta — se vincularán sin apertura') +
-    `\n\n¿Continuar?`;
-
-  if(!confirm(msg)) return;
 
   if(!DB.recibos) DB.recibos=[];
   let creados = 0;
-
   DB.cafecoco.forEach((compra, idx)=>{
     if(compra.recibo_egreso_ref || parseFloat(compra.total||0) <= 0) return;
-
     const codigoRecibo = nextCodigo(DB.recibos, 'EGR-');
     DB.recibos.push({
-      codigo: codigoRecibo,
-      tipo: 'egreso',
-      fecha: compra.fecha,
-      persona: compra.nombres,
+      codigo: codigoRecibo, tipo: 'egreso',
+      fecha: compra.fecha, persona: compra.nombres,
       concepto: `Compra Café Coco ${compra.codigo} — ${parseFloat(compra.kgneto||0).toFixed(2)} kg neto`,
-      monto: parseFloat(compra.total).toFixed(2),
-      formapago: 'Efectivo',
-      observaciones: `Vinculado automáticamente desde migración — Compra ${compra.codigo}`,
+      monto: parseFloat(compra.total).toFixed(2), formapago: 'Efectivo',
+      observaciones: `Vinculado automáticamente — Compra ${compra.codigo}`,
       apertura_ref: apCaja ? apCaja.codigo : (compra.apertura_ref||''),
-      usuario: SESSION.user
+      usuario: SESSION.user || 'sistema'
     });
-
     DB.cafecoco[idx].recibo_egreso_ref = codigoRecibo;
     if(apCaja) DB.cafecoco[idx].apertura_ref = apCaja.codigo;
     creados++;
   });
 
-  guardarDB();
-  renderCaja();
-  alert(`✅ Se crearon ${creados} egreso(s) de caja para las compras de Café Coco.\n\nAhora aparecen en la lista de Recibos y se descuentan del saldo de caja.`);
+  if(creados > 0){
+    guardarDB();
+    if(!silencioso){ alert(`✅ Se vincularon ${creados} compra(s) de Café Coco a caja.`); renderCaja(); }
+  }
 }
 
 function cajaAbiertaActual(){
@@ -6610,40 +6592,66 @@ function kardexAgregarOrigen(){
   kardexRecalcularTotales();
 }
 
+function fmtMonto(n){ 
+  const redondeado = Math.round(parseFloat(n||0) * 10) / 10;
+  return redondeado.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}); 
+}
+function fmtKg(n){ return parseFloat(n||0).toFixed(2); }
+
 function kardexRenderOrigenes(){
   const cont = document.getElementById('kd-origenes-lista');
   if(!kardexOrigenesTemp.length){ cont.innerHTML=''; return; }
   cont.innerHTML = kardexOrigenesTemp.map((o,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:6px;padding:6px 10px;font-size:0.8rem;">
-      <div style="flex:1;"><strong>${o.ref.split(':')[1]}</strong> — ${o.label.split('—').slice(1).join('—').trim()}</div>
-      <div style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
-        <span style="font-size:0.72rem;color:#555;">KG netos:</span>
-        <input type="number" value="${o.kgAjustado.toFixed(2)}" step="0.01"
-          style="width:80px;padding:3px 6px;border:1px solid #ffe082;border-radius:4px;font-weight:700;color:#1b5e20;"
-          onchange="kardexOrigenesTemp[${i}].kgAjustado=parseFloat(this.value)||0;kardexRecalcularTotales();"
-          title="Editable: ajusta los kg si la balanza difiere">
-        <span style="font-size:0.7rem;color:#888;">/ ${o.kgDisp.toFixed(2)} disp.</span>
-        <span style="font-size:0.7rem;color:#e65100;margin-left:4px;">Costo: S/.${o.costoProm.toFixed(4)}/kg</span>
+    <div style="background:#fff;border:2px solid #ffe082;border-radius:8px;padding:10px 12px;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:0.82rem;color:#1a5c2e;">${o.ref.split(':')[1]}</div>
+          <div style="font-size:0.72rem;color:#666;">${o.label.split('—').slice(1).join('—').trim()}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:2px;">Disponible</div>
+            <div style="font-weight:700;color:#555;font-size:0.82rem;">${fmtKg(o.kgDisp)} kg</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:0.65rem;color:#e65100;text-transform:uppercase;margin-bottom:2px;">✏️ KG a incluir</div>
+            <input type="number" value="${fmtKg(o.kgAjustado)}" step="0.01" min="0" max="${o.kgDisp}"
+              style="width:100px;padding:5px 8px;border:2px solid #1a5c2e;border-radius:6px;font-weight:800;color:#1a5c2e;font-size:0.9rem;text-align:right;"
+              oninput="kardexOrigenesTemp[${i}].kgAjustado=parseFloat(this.value)||0;kardexRecalcularTotales();"
+              title="Editable: ajusta los kg si la balanza difiere">
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:2px;">Costo/kg</div>
+            <div style="font-weight:700;color:#e65100;font-size:0.82rem;">S/.${parseFloat(o.costoProm).toFixed(4)}</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:2px;">Subtotal costo</div>
+            <div style="font-weight:700;color:#c62828;font-size:0.82rem;" id="kd-subtotal-${i}">S/.${fmtMonto(o.kgAjustado*o.costoProm)}</div>
+          </div>
+        </div>
+        <button onclick="kardexOrigenesTemp.splice(${i},1);kardexRenderOrigenes();kardexRecalcularTotales();"
+          style="background:#ffebee;border:1px solid #ef9a9a;border-radius:6px;padding:4px 10px;cursor:pointer;color:#c62828;font-weight:700;flex-shrink:0;">✕</button>
       </div>
-      <button onclick="kardexOrigenesTemp.splice(${i},1);kardexRenderOrigenes();kardexRecalcularTotales();"
-        style="background:#ffebee;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;color:#c62828;font-weight:700;">✕</button>
     </div>`).join('');
 }
 
 function kardexRecalcularTotales(){
-  // Total kg acopiados de la selección (ajustados)
   const totalKgAcop = kardexOrigenesTemp.reduce((a,o)=>a+o.kgAjustado,0);
-  // Costo promedio ponderado
   const totalCostoPond = kardexOrigenesTemp.reduce((a,o)=>a+(o.kgAjustado*o.costoProm),0);
   const costoProm = totalKgAcop > 0 ? totalCostoPond/totalKgAcop : 0;
 
-  document.getElementById('kd-kg-acopiados').value = totalKgAcop.toFixed(2);
+  document.getElementById('kd-kg-acopiados').value = fmtKg(totalKgAcop);
   document.getElementById('kd-costo-prom').value   = costoProm.toFixed(4);
 
-  // Si no hay kg de venta ingresado, sugerir el total
+  // Actualizar subtotales individuales
+  kardexOrigenesTemp.forEach((o,i)=>{
+    const el = document.getElementById(`kd-subtotal-${i}`);
+    if(el) el.textContent = 'S/.'+fmtMonto(o.kgAjustado*o.costoProm);
+  });
+
   const kgVenta = parseFloat(document.getElementById('kd-kg-venta').value)||0;
   if(!kgVenta && totalKgAcop > 0){
-    document.getElementById('kd-kg-venta').value = totalKgAcop.toFixed(2);
+    document.getElementById('kd-kg-venta').value = fmtKg(totalKgAcop);
   }
   calcKardex();
 }
@@ -6653,14 +6661,15 @@ function calcKardex(){
   const precioV   = parseFloat(document.getElementById('kd-precio-venta').value)||0;
   const costoProm = parseFloat(document.getElementById('kd-costo-prom').value)||0;
 
-  const ingreso  = kgVenta * precioV;
-  const costo    = kgVenta * costoProm;
-  const utilidad = ingreso - costo;
+  const ingreso  = Math.round(kgVenta * precioV * 10) / 10;
+  const costo    = Math.round(kgVenta * costoProm * 10) / 10;
+  const utilidad = Math.round((ingreso - costo) * 10) / 10;
   const margen   = ingreso > 0 ? (utilidad/ingreso*100) : 0;
 
-  document.getElementById('kd-ingreso-total').value  = ingreso.toFixed(2);
-  document.getElementById('kd-costo-total').value    = costo.toFixed(2);
-  document.getElementById('kd-utilidad-mov').value   = utilidad.toFixed(2);
+  // Montos con formato 50,000.00 — usar campos de texto para display
+  document.getElementById('kd-ingreso-total').value  = fmtMonto(ingreso);
+  document.getElementById('kd-costo-total').value    = fmtMonto(costo);
+  document.getElementById('kd-utilidad-mov').value   = fmtMonto(utilidad);
 
   const utilEl = document.getElementById('kd-utilidad-mov');
   utilEl.style.color = utilidad >= 0 ? '#1b5e20' : '#c62828';
@@ -6685,9 +6694,9 @@ function guardarKardex(){
     : nextCodigo(DB.kardex.filter(k=>k.tipo===kardexTipo), kardexTipo==='conv'?'VTA-CONV-':'VTA-COCO-');
 
   const costoProm = parseFloat(document.getElementById('kd-costo-prom').value)||0;
-  const ingreso   = kgVenta * precio;
-  const costo     = kgVenta * costoProm;
-  const utilidad  = ingreso - costo;
+  const ingreso   = Math.round(kgVenta * precio * 10) / 10;
+  const costo     = Math.round(kgVenta * costoProm * 10) / 10;
+  const utilidad  = Math.round((ingreso - costo) * 10) / 10;
   const margen    = ingreso>0?(utilidad/ingreso*100):0;
 
   const mov = {
@@ -6758,13 +6767,13 @@ function renderKardex(){
   }
   const stock = totalAcopiado - totalVendido;
 
-  document.getElementById('kd-stock').textContent    = stock.toFixed(2)+' kg';
+  document.getElementById('kd-stock').textContent    = fmtKg(stock)+' kg';
   document.getElementById('kd-stock').style.color    = stock>=0?'':'#c62828';
-  document.getElementById('kd-vendido').textContent  = totalVendido.toFixed(2)+' kg';
-  document.getElementById('kd-ingreso').textContent  = 'S/. '+totalIngreso.toFixed(2);
-  document.getElementById('kd-costo').textContent    = 'S/. '+totalCosto.toFixed(2);
+  document.getElementById('kd-vendido').textContent  = fmtKg(totalVendido)+' kg';
+  document.getElementById('kd-ingreso').textContent  = 'S/. '+fmtMonto(totalIngreso);
+  document.getElementById('kd-costo').textContent    = 'S/. '+fmtMonto(totalCosto);
   const utilEl = document.getElementById('kd-utilidad');
-  utilEl.textContent = 'S/. '+totalUtil.toFixed(2);
+  utilEl.textContent = 'S/. '+fmtMonto(totalUtil);
   utilEl.style.color = totalUtil>=0?'#1b5e20':'#c62828';
 
   // Tabla
@@ -6781,11 +6790,11 @@ function renderKardex(){
       <td>${fechaDisplay(k.fecha)}</td>
       <td><span class="badge ${k.tipo==='conv'?'badge-verde':''}" style="${k.tipo==='coco'?'background:#fff3e0;color:#e65100;':''}">${k.tipo==='conv'?'☕ Conv.':'🌰 Coco'}</span></td>
       <td><strong>${k.cliente||'—'}</strong></td>
-      <td style="text-align:right;font-weight:700;">${parseFloat(k.kg_venta||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;">${fmtKg(k.kg_venta)}</td>
       <td style="text-align:right;">S/.${parseFloat(k.precio_venta||0).toFixed(4)}</td>
-      <td style="text-align:right;font-weight:700;color:#2e7d32;">S/.${parseFloat(k.ingreso||0).toFixed(2)}</td>
-      <td style="text-align:right;color:#e65100;">S/.${parseFloat(k.costo||0).toFixed(2)}</td>
-      <td style="text-align:right;font-weight:800;color:${util>=0?'#1b5e20':'#c62828'};">S/.${util.toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;color:#2e7d32;">S/.${fmtMonto(k.ingreso)}</td>
+      <td style="text-align:right;color:#e65100;">S/.${fmtMonto(k.costo)}</td>
+      <td style="text-align:right;font-weight:800;color:${util>=0?'#1b5e20':'#c62828'};">S/.${fmtMonto(util)}</td>
       <td style="text-align:center;color:${parseFloat(k.margen||0)>=0?'#1b5e20':'#c62828'};">${parseFloat(k.margen||0).toFixed(1)}%</td>
       <td style="font-size:0.75rem;max-width:120px;">${k.observaciones||'—'}</td>
       <td><div style="display:flex;gap:3px;">
@@ -6795,11 +6804,11 @@ function renderKardex(){
   }).join('')
   + `<tr style="background:#f0faf4;font-weight:700;font-size:0.82rem;">
       <td colspan="4" style="text-align:right;color:#555;">TOTALES (${lista.length} ventas):</td>
-      <td style="text-align:right;">${totalVendido.toFixed(2)} kg</td>
+      <td style="text-align:right;">${fmtKg(totalVendido)} kg</td>
       <td></td>
-      <td style="text-align:right;color:#2e7d32;">S/.${totalIngreso.toFixed(2)}</td>
-      <td style="text-align:right;color:#e65100;">S/.${totalCosto.toFixed(2)}</td>
-      <td style="text-align:right;color:${totalUtil>=0?'#1b5e20':'#c62828'};">S/.${totalUtil.toFixed(2)}</td>
+      <td style="text-align:right;color:#2e7d32;">S/.${fmtMonto(totalIngreso)}</td>
+      <td style="text-align:right;color:#e65100;">S/.${fmtMonto(totalCosto)}</td>
+      <td style="text-align:right;color:${totalUtil>=0?'#1b5e20':'#c62828'};">S/.${fmtMonto(totalUtil)}</td>
       <td style="text-align:center;color:${totalUtil>=0?'#1b5e20':'#c62828'};">${totalIngreso>0?(totalUtil/totalIngreso*100).toFixed(1):0}%</td>
       <td colspan="2"></td>
     </tr>`;
