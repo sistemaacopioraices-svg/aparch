@@ -6000,6 +6000,7 @@ function renderAperturas(){
     const badgeEstado = ap.estado === 'Abierta'
       ? 'background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;'
       : 'background:#f5f5f5;color:#616161;border:1px solid #e0e0e0;';
+    const recibosCount = (DB.recibos||[]).filter(r=>r.apertura_ref===ap.codigo).length;
     return `<tr>
       <td class="td-codigo">${ap.codigo}</td>
       <td>${fechaDisplay(ap.fecha)}</td>
@@ -6012,10 +6013,34 @@ function renderAperturas(){
       <td style="font-size:0.78rem;">${ap.fecha_cierre ? fechaDisplay(ap.fecha_cierre)+' '+ap.hora_cierre : '—'}</td>
       <td><span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:0.7rem;font-weight:700;${badgeEstado}">${ap.estado}</span></td>
       <td>
-        <button class="btn btn-secondary btn-sm" onclick="verPrintCierre(${ri})" title="Ver arqueo">📄</button>
+        <div style="display:flex;gap:3px;">
+          <button class="btn btn-secondary btn-sm" onclick="verPrintCierre(${ri})" title="Ver arqueo">📄</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarApertura(${ri})" title="Eliminar apertura${recibosCount>0?' ('+recibosCount+' recibos)':''}">🗑️</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
+}
+
+function eliminarApertura(idx){
+  const ap = DB.aperturas[idx];
+  if(!ap) return;
+  const recibos = (DB.recibos||[]).filter(r=>r.apertura_ref===ap.codigo);
+  const msg = `⚠️ ELIMINAR APERTURA DE CAJA\n\n` +
+    `Apertura: ${ap.codigo}\nFecha: ${fechaDisplay(ap.fecha)}\nSaldo Inicial: S/. ${parseFloat(ap.saldo_inicial||0).toFixed(2)}\n` +
+    (recibos.length > 0 ? `\n🗑️ También se eliminarán ${recibos.length} recibo(s) vinculados a esta apertura.\n` : '') +
+    `\n¿Confirmar eliminación?`;
+  if(!confirm(msg)) return;
+
+  // Eliminar recibos vinculados
+  if(recibos.length > 0){
+    DB.recibos = (DB.recibos||[]).filter(r=>r.apertura_ref!==ap.codigo);
+  }
+  // Eliminar apertura
+  DB.aperturas.splice(idx, 1);
+  guardarDB();
+  renderCaja();
+  alert(`✅ Apertura ${ap.codigo} eliminada correctamente.`);
 }
 
 function renderRecibos(filtro, tipoF){
