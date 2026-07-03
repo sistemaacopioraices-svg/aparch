@@ -304,7 +304,7 @@ tr:hover td{background:#f9f6f1;}
     <div class="stat-card" style="border-left-color:#1565c0;">
       <div class="stat-label">📈 Precio Promedio</div>
       <div class="stat-val" id="dash-precio-prom">S/. 0</div>
-      <div class="stat-sub">por KG neto</div>
+      <div class="stat-sub">Solo café convencional/kg</div>
     </div>
     <div class="stat-card cafe">
       <div class="stat-label">👥 Socios</div>
@@ -2353,6 +2353,10 @@ function fmt(n, dec=2){
 }
 function fmtS(n, dec=2){ return 'S/. '+fmt(n,dec); }
 function fmtKg(n){ return fmt(n,2)+' kg'; }
+// Redondea al décimo más cercano: 648.43 → 648.40, 10.24 → 10.20
+function redondearPago(n){ return Math.round(parseFloat(n||0) * 10) / 10; }
+function fmtPago(n){ return fmt(redondearPago(n), 2); }
+function fmtSPago(n){ return 'S/. '+fmtPago(n); }
 
 // ── Fecha local Perú (UTC-5) sin desfase ──
 function hoy(){
@@ -2427,8 +2431,18 @@ function renderDashboard(){
     .filter(c=>c.estado!=='Anulado')
     .reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
 
-  // Precio promedio = total pagado / kg netos
-  const precioProm = kgNetos > 0 ? totalPagado/kgNetos : 0;
+  // Precio promedio SOLO café convencional: total pagado en guías CONV / kg netos CONV
+  const guiasConv = DB.guias.filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'));
+  const codigosConv = new Set(guiasConv.map(g=>g.codigo));
+  const kgConv = DB.tickets.filter(t=>(t.certificacion||'').toUpperCase().includes('CONVENCIONAL'))
+    .reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+  const pagadoConv = DB.comprobantes
+    .filter(c=>c.estado!=='Anulado' && (
+      codigosConv.has(c.guia_ref) ||
+      (c.guias_ref||[]).some(r=>codigosConv.has(r))
+    ))
+    .reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
+  const precioProm = kgConv > 0 ? pagadoConv/kgConv : 0;
 
   document.getElementById('dash-kg-netos').textContent   = fmt(kgNetos,1);
   document.getElementById('dash-qq-netos').textContent   = fmt(qqNetos,2);
@@ -3350,7 +3364,7 @@ function renderGuias(filtro, desde, hasta, estado){
       <td style="text-align:center;font-weight:700;color:#1b5e20;">${g.rend_export||'—'}%</td>
       <td style="text-align:right;">S/.${fmt(g.precioqq)}</td>
       <td style="text-align:right;">S/.${fmt(g.precikg,4)}</td>
-      <td style="text-align:right;font-weight:800;color:#e65100;">S/.${fmt(g.valorrecibido)}</td>
+      <td style="text-align:right;font-weight:800;color:#e65100;">S/.${fmtPago(g.valorrecibido)}</td>
       <td><span class="badge ${badgeEp}">${ep}</span></td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-secondary btn-sm" onclick="abrirModalGuia(${ri})">✏️</button>
@@ -3414,7 +3428,7 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
       <td style="text-align:right;">${parseFloat(r.pesoneto_qq||0).toFixed(2)}</td>
       <td style="text-align:right;color:#e65100;font-weight:700;">${compromisoVal}</td>
       <td style="text-align:right;">${fmt(r.entregado||r.pesoneto)}</td>
-      <td style="text-align:right;color:${saldo&&parseFloat(saldo)>0?'#c62828':'#2e7d32'};font-weight:700;">${saldo?fmt(saldo):'—'}</td>
+      <td style="text-align:right;color:${saldo&&parseFloat(saldo)>0?'#c62828':'#2e7d32'};font-weight:700;">${saldo?fmtPago(saldo):'—'}</td>
       <td style="text-align:center;font-weight:700;">${r.cumplimiento||'100%'}</td>
     </tr>`;
   }).join('');
@@ -3467,7 +3481,7 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     <div style="background:#1a5c2e;color:#fff;border-radius:6px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
       <div>
         <div style="font-size:7.5px;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px;">Valor Total a Recibir</div>
-        <div style="font-size:20px;font-weight:900;">S/. ${fmt(valorTotal)}</div>
+        <div style="font-size:20px;font-weight:900;">S/. ${fmtPago(valorTotal)}</div>
       </div>
       <div style="text-align:right;font-size:8px;opacity:0.9;max-width:55%;font-style:italic;line-height:1.4;">
         ${valorLetras}
@@ -3598,7 +3612,7 @@ function abrirModalComprobante(idx){
     const esGuiaActual = c && ((c.guia_ref===g.codigo)||(c.guias_ref||[]).includes(g.codigo));
     if(saldo <= 0.01 && !esGuiaActual) return;
     const badge = saldo <= 0.01 ? ' ✅ PAGADA' : '';
-    selG.innerHTML+=`<option value="${g.codigo}">${g.codigo} — ${g.productor} | Saldo: S/.${fmt(saldo)}${badge}</option>`;
+    selG.innerHTML+=`<option value="${g.codigo}">${g.codigo} — ${g.productor} | Saldo: S/.${fmtPago(saldo)}${badge}</option>`;
     countPendientes++;
   });
   if(countPendientes === 0){
@@ -3682,7 +3696,7 @@ function quitarGuiaComp(codigo){
     if(saldo > 0.01){
       const opt = document.createElement('option');
       opt.value = codigo;
-      opt.textContent = `${codigo} — ${g.productor} | Saldo: S/.${fmt(saldo)}`;
+      opt.textContent = `${codigo} — ${g.productor} | Saldo: S/.${fmtPago(saldo)}`;
       sel.appendChild(opt);
     }
   }
@@ -3715,15 +3729,15 @@ function actualizarResumenGuiasComp(){
   document.getElementById('ci-productor').textContent = productor||'—';
   document.getElementById('ci-dni').textContent = dni||'—';
   document.getElementById('ci-fecha').textContent = fecha||'—';
-  document.getElementById('ci-total').textContent = fmtS(totalGuias);
-  document.getElementById('ci-pagado').textContent = 'S/. '+fmt(totalPagado);
+  document.getElementById('ci-total').textContent = fmtSPago(totalGuias);
+  document.getElementById('ci-pagado').textContent = 'S/. '+fmtPago(totalPagado);
   const saldoEl = document.getElementById('ci-saldo');
-  saldoEl.textContent = fmtS(totalGuias);
+  saldoEl.textContent = fmtSPago(totalGuias);
   saldoEl.style.color = totalGuias<=0?'#2e7d32':'#c62828';
 
   // Auto-llenar monto si es pago total
   const tipoPago = document.getElementById('c-tipopago').value;
-  if(tipoPago==='total') document.getElementById('c-monto').value = totalGuias.toFixed(2);
+  if(tipoPago==='total') document.getElementById('c-monto').value = redondearPago(totalGuias).toFixed(2);
   calcSaldoComp();
 }
 
@@ -4039,9 +4053,9 @@ function renderComprobantes(filtro){
       <td class="td-codigo">${c.codigo}</td><td>${fechaDisplay(c.fecha)}</td>
       <td><span class="tag">${c.guia_ref||'—'}</span></td>
       <td><strong>${c.productor||'—'}</strong></td>
-      <td style="text-align:right;">S/.${fmt(c.total_guia)}</td>
+      <td style="text-align:right;">S/.${fmtPago(c.total_guia)}</td>
       <td style="text-align:right;color:#2e7d32;font-weight:700;">S/.${pagado.toFixed(2)}</td>
-      <td style="text-align:right;font-weight:800;font-size:0.9rem;">S/.${fmt(c.monto)}</td>
+      <td style="text-align:right;font-weight:800;font-size:0.9rem;">S/.${fmtPago(c.monto)}</td>
       <td style="text-align:right;font-weight:700;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/.${saldo.toFixed(2)}</td>
       <td>${c.formapago||'—'}${c.apertura_ref?` <span class="tag" title="Egreso registrado en caja ${c.apertura_ref}">🏦</span>`:''}</td>
       <td><span class="badge ${badgeTipo}">${tipo==='total'?'Pago Total':tipo==='parcial'?'Parcial':'Pendiente'}</span></td>
@@ -4122,15 +4136,15 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;text-align:center;">
       <div style="border:1px solid #ccc;padding:8px;border-radius:6px;background:#f9f9f9;">
         <div style="font-size:7px;color:#666;text-transform:uppercase;margin-bottom:3px;">Total Guía${nGuias>1?'s':''}</div>
-        <div style="font-size:13px;font-weight:900;color:#e65100;">S/. ${fmt(tot)}</div>
+        <div style="font-size:13px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
       </div>
       <div style="border:2px solid #1a5c2e;padding:8px;border-radius:6px;background:#f0faf4;">
         <div style="font-size:7px;color:#2e7d32;text-transform:uppercase;margin-bottom:3px;">Este Pago</div>
-        <div style="font-size:16px;font-weight:900;color:#1a5c2e;">S/. ${fmt(c.monto)}</div>
+        <div style="font-size:16px;font-weight:900;color:#1a5c2e;">S/. ${fmtPago(c.monto)}</div>
       </div>
       <div style="border:1px solid ${saldo<=0.01?'#a5d6a7':'#ef9a9a'};padding:8px;border-radius:6px;background:${saldo<=0.01?'#e8f5e9':'#fce4ec'};">
         <div style="font-size:7px;color:#666;text-transform:uppercase;margin-bottom:3px;">Saldo</div>
-        <div style="font-size:13px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmt(saldo)}</div>
+        <div style="font-size:13px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
       </div>
     </div>
     ${parseFloat(c.descuento_prestamos||0)>0?`
@@ -6089,7 +6103,7 @@ function renderCaja(){
 
     banner.innerHTML = `<div class="alert alert-success" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span>🔓 <strong>Caja Abierta:</strong> ${ap.codigo} — Apertura: ${fechaDisplay(ap.fecha)} ${ap.hora} por <strong>${ap.usuario}</strong></span>
-      <span style="font-weight:800;font-size:1rem;">Saldo actual: S/. ${fmt(saldo)}</span>
+      <span style="font-weight:800;font-size:1rem;">Saldo actual: S/. ${fmtPago(saldo)}</span>
     </div>`;
     btnAbrir.style.display = 'none';
     btnCerrar.style.display = 'inline-flex';
@@ -6193,7 +6207,7 @@ function renderRecibos(filtro, tipoF){
       <td style="font-size:0.8rem;max-width:160px;">${r.concepto||'—'}</td>
       <td style="font-size:0.8rem;"><strong>${r.persona||'—'}</strong></td>
       <td style="font-size:0.78rem;">${r.formapago||'—'}</td>
-      <td style="text-align:right;font-weight:800;color:${esIngreso?'#2e7d32':'#c62828'};">${esIngreso?'+':'−'}S/. ${fmt(r.monto)}</td>
+      <td style="text-align:right;font-weight:800;color:${esIngreso?'#2e7d32':'#c62828'};">${esIngreso?'+':'−'}S/. ${fmtPago(r.monto)}</td>
       <td><span class="tag">${r.apertura_ref||'—'}</span></td>
       <td style="font-size:0.76rem;">${r.usuario||'—'}</td>
       <td><div style="display:flex;gap:3px;">
@@ -6241,7 +6255,7 @@ function verPrintRecibo(idx){
     </table>
     <div style="border:2px solid ${colorPrincipal};border-radius:8px;padding:12px;text-align:center;margin:14px 0;background:${esIngreso?'#f0faf4':'#fdf2f0'};">
       <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">${esIngreso?'MONTO RECIBIDO':'MONTO PAGADO'}</div>
-      <div style="font-size:26px;font-weight:900;color:${colorPrincipal};">S/. ${fmt(r.monto)}</div>
+      <div style="font-size:26px;font-weight:900;color:${colorPrincipal};">S/. ${fmtPago(r.monto)}</div>
     </div>
     ${r.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${r.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px;">
