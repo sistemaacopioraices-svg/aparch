@@ -5485,22 +5485,33 @@ async function sheetsCargarManual(){
   const el = document.getElementById('sheets-alert');
   if(el) el.innerHTML = '<div class="alert alert-info" style="margin:0;">⏳ Cargando desde Google Sheets...</div>';
   try{
+    // Usar GET con parámetro accion=cargar (el Apps Script v2 lo soporta)
     const res = await fetch(url+'?accion=cargar', { method:'GET', mode:'cors' });
+    if(!res.ok) throw new Error('HTTP '+res.status+' — actualiza el Apps Script a la v2');
     const data = await res.json();
     if(!data.ok || !data.db){ throw new Error(data.msg||'No se recibieron datos'); }
 
     const db = data.db;
     const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
-    if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos locales actuales.\n¿Continuar?`)) return;
+    if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos actuales.\n¿Continuar?`)) return;
 
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex'].forEach(key=>{
       if(db[key]!==undefined) DB[key]=db[key];
     });
     guardarDB(); marcarRespaldado();
+
+    const fechaUlt = new Date().toLocaleString('es-PE');
+    localStorage.setItem('sheets_ultimo_sync', fechaUlt);
+    actualizarEstadoSheets();
     renderDashboard(); updateExportCounts(); actualizarCampaña();
-    if(el) el.innerHTML = `<div class="alert alert-success" style="margin:0;">✅ Datos cargados desde Google Sheets.<br>${info}</div>`;
-  }catch(e){
-    if(el) el.innerHTML = `<div class="alert alert-error" style="margin:0;">❌ Error al cargar: ${e.message}<br><small>Verifica que la URL del script sea correcta y tenga permisos de acceso.</small></div>`;
+    if(document.getElementById('cfg-precio-base')) document.getElementById('cfg-precio-base').value = DB.precioBase||790;
+    if(el) el.innerHTML = `<div class="alert alert-success" style="margin:0;">✅ Datos cargados: <strong>${(db.tickets||[]).length} tickets</strong>, <strong>${(db.guias||[]).length} guías</strong>, <strong>${(db.socios||[]).length} socios</strong></div>`;
+
+  }catch(err){
+    if(el) el.innerHTML = `<div class="alert alert-error" style="margin:0;">
+      ❌ Error: <strong>${err.message}</strong><br>
+      <small>Para solucionar: descarga <strong>aparch_script_v2.gs</strong> desde el sistema, reemplaza el código en Google Apps Script y vuelve a implementar como aplicación web.</small>
+    </div>`;
   }
 }
 
