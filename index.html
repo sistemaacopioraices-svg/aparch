@@ -3562,7 +3562,13 @@ function imprimirGuia(){
 // COMPROBANTES
 // ══════════════════════════════════════════
 function totalPagadoGuia(guiaCodigo){
-  return DB.comprobantes.filter(c=>c.guia_ref===guiaCodigo && c.estado!=='Anulado').reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
+  // Busca en guia_ref (una guía) Y en guias_ref (múltiples guías)
+  return DB.comprobantes
+    .filter(c => c.estado !== 'Anulado' && (
+      c.guia_ref === guiaCodigo ||
+      (Array.isArray(c.guias_ref) && c.guias_ref.includes(guiaCodigo))
+    ))
+    .reduce((a,c) => a + (parseFloat(c.monto)||0), 0);
 }
 
 function abrirModalComprobante(idx){
