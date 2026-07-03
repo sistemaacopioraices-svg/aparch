@@ -2344,7 +2344,22 @@ function nextCodigoCertif(tipo, certif){
   const nums = lista.map(x=>{ const m=(x.codigo||'').match(/(\d+)$/); return m?parseInt(m[1]):0; });
   return prefix+String(Math.max(...nums)+1).padStart(5,'0');
 }
-function hoy(){return new Date().toISOString().split('T')[0];}
+// ── Formato global de montos con coma ──
+function fmt(n, dec=2){
+  const v = Math.round(parseFloat(n||0) * Math.pow(10,dec)) / Math.pow(10,dec);
+  return v.toLocaleString('es-PE',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+function fmtS(n, dec=2){ return 'S/. '+fmt(n,dec); }  // con prefijo S/.
+function fmtKg(n){ return fmt(n,2)+' kg'; }
+
+// ── Fecha local Perú (UTC-5) sin desfase ──
+function hoy(){
+  const d = new Date();
+  const lima = new Date(d.getTime() - (d.getTimezoneOffset()*60000) + (-5*3600000 - (-d.getTimezoneOffset()*60000)));
+  // Usar offset real del navegador para obtener fecha local correcta
+  const local = new Date(d.getTime());
+  return local.toLocaleDateString('en-CA'); // formato YYYY-MM-DD
+}
 function ahora(){return new Date().toTimeString().slice(0,5);}
 // Convierte "YYYY-MM-DD" a número serial Excel sin zona horaria
 function fechaToExcel(str){
@@ -2413,10 +2428,10 @@ function renderDashboard(){
   // Precio promedio = total pagado / kg netos
   const precioProm = kgNetos > 0 ? totalPagado/kgNetos : 0;
 
-  document.getElementById('dash-kg-netos').textContent   = kgNetos.toFixed(1);
-  document.getElementById('dash-qq-netos').textContent   = qqNetos.toFixed(2);
-  document.getElementById('dash-total-pagado').textContent = 'S/. '+totalPagado.toFixed(2);
-  document.getElementById('dash-precio-prom').textContent  = 'S/. '+precioProm.toFixed(4);
+  document.getElementById('dash-kg-netos').textContent   = fmt(kgNetos,1);
+  document.getElementById('dash-qq-netos').textContent   = fmt(qqNetos,2);
+  document.getElementById('dash-total-pagado').textContent = fmtS(totalPagado);
+  document.getElementById('dash-precio-prom').textContent  = fmtS(precioProm,4);
   document.getElementById('dash-socios').textContent       = DB.socios.length;
 
   // ── ÚLTIMOS TICKETS ──
@@ -2431,7 +2446,7 @@ function renderDashboard(){
       <td style="font-size:0.78rem;">${t.base||'—'}</td>
       <td><span class="badge badge-verde" style="font-size:0.65rem;">${(t.certificacion||'—').replace('ORGANICO - FAIRTRADE USA','ORG-FT').replace('ORGANICO','ORG').replace('CONVENCIONAL','CONV')}</span></td>
       <td style="font-size:0.78rem;color:#1565c0;">${t.lote||'—'}</td>
-      <td style="font-weight:700;color:#1b5e20;">${parseFloat(t.pesoneto||0).toFixed(2)}</td>
+      <td style="font-weight:700;color:#1b5e20;">${fmt(t.pesoneto)}</td>
     </tr>`).join('');
   }
 
@@ -2886,11 +2901,11 @@ function renderTickets(filtro){
       <td style="font-size:0.78rem;"><strong>${t.productor||'—'}</strong></td>
       <td><span class="badge badge-verde">${t.certificacion||'—'}</span></td>
       <td style="text-align:center;">${t.sacos||0}</td>
-      <td style="text-align:right;">${parseFloat(t.pesobruto||0).toFixed(2)}</td>
-      <td style="text-align:right;color:#0d47a1;">${parseFloat(t.tara||0).toFixed(2)}</td>
+      <td style="text-align:right;">${fmt(t.pesobruto)}</td>
+      <td style="text-align:right;color:#0d47a1;">${fmt(t.tara)}</td>
       <td style="text-align:center;">${parseFloat(t.humedad||0).toFixed(2)}%</td>
-      <td style="text-align:right;">${parseFloat(t.deschum||0).toFixed(2)}</td>
-      <td style="text-align:right;"><strong style="color:#1b5e20;">${parseFloat(t.pesoneto||0).toFixed(2)}</strong></td>
+      <td style="text-align:right;">${fmt(t.deschum)}</td>
+      <td style="text-align:right;"><strong style="color:#1b5e20;">${fmt(t.pesoneto)}</strong></td>
       <td style="text-align:center;color:#2e7d32;font-weight:600;">${t.exp_g||0}g/${parseFloat(t.exp_pct||0).toFixed(0)}%</td>
       <td style="text-align:center;color:#e65100;font-weight:600;">${t.seg_g||0}g/${parseFloat(t.seg_pct||0).toFixed(0)}%</td>
       <td style="text-align:center;color:#880e4f;font-weight:600;">${t.cas_g||0}g/${parseFloat(t.cas_pct||0).toFixed(0)}%</td>
@@ -2964,11 +2979,11 @@ function verPrintTicket(idx){
       <tr><td style="color:#444;">Base / Caserío</td><td style="font-weight:700;">: ${t.base||'—'} / ${t.caserio||'—'}</td></tr>
       <tr><td style="color:#444;">Certificación</td><td style="font-weight:900;text-transform:uppercase;">: ${t.certificacion||'—'}</td></tr>
       <tr><td style="color:#444;">Nro. Sacos</td><td style="font-weight:700;">: ${t.sacos||0}</td></tr>
-      <tr><td style="color:#444;">Peso Bruto</td><td style="font-weight:900;font-size:14px;">: ${parseFloat(t.pesobruto||0).toFixed(2)}</td></tr>
-      <tr><td style="color:#444;">Tara (${t.sacos||0}×0.25)</td><td style="font-weight:700;color:#0d47a1;">: ${parseFloat(t.tara||0).toFixed(2)}</td></tr>
+      <tr><td style="color:#444;">Peso Bruto</td><td style="font-weight:900;font-size:14px;">: ${fmt(t.pesobruto)}</td></tr>
+      <tr><td style="color:#444;">Tara (${t.sacos||0}×0.25)</td><td style="font-weight:700;color:#0d47a1;">: ${fmt(t.tara)}</td></tr>
       <tr><td style="color:#444;">% Humedad</td><td style="font-weight:900;font-size:14px;">: ${parseFloat(t.humedad||0).toFixed(2)}</td></tr>
-      <tr><td style="color:#444;">Desc. Humedad</td><td style="font-weight:700;">: ${parseFloat(t.deschum||0).toFixed(2)}</td></tr>
-      <tr><td style="color:#444;">Peso Neto</td><td style="font-weight:900;font-size:15px;color:#1a5c2e;">: ${parseFloat(t.pesoneto||0).toFixed(2)}</td></tr>
+      <tr><td style="color:#444;">Desc. Humedad</td><td style="font-weight:700;">: ${fmt(t.deschum)}</td></tr>
+      <tr><td style="color:#444;">Peso Neto</td><td style="font-weight:900;font-size:15px;color:#1a5c2e;">: ${fmt(t.pesoneto)}</td></tr>
       <tr><td style="color:#444;">Export.</td><td style="font-weight:900;font-size:14px;">: ${eG} / ${eP} %</td></tr>
       <tr><td style="color:#444;">Segunda</td><td style="font-weight:700;">: ${sG} / ${sP} %</td></tr>
       <tr><td style="color:#444;">Cascara</td><td style="font-weight:700;">: ${cG} / ${cP} %</td></tr>
@@ -3148,7 +3163,7 @@ function abrirModalGuia(idx){
   DB.tickets.forEach(t=>{
     if(ticketsUsados.has(t.codigo)) return; // ya tiene guía → omitir
     const rStr=t.exp_pct?` | Rend: ${parseFloat(t.exp_pct).toFixed(0)}%`:'';
-    selT.innerHTML+=`<option value="${t.codigo}">${t.codigo} | ${t.productor||'?'} | PN: ${parseFloat(t.pesoneto||0).toFixed(2)} kg${rStr}</option>`;
+    selT.innerHTML+=`<option value="${t.codigo}">${t.codigo} | ${t.productor||'?'} | PN: ${fmt(t.pesoneto)} kg${rStr}</option>`;
     countDisp++;
   });
   if(DB.tickets.length > 0 && countDisp === 0){
@@ -3331,9 +3346,9 @@ function renderGuias(filtro, desde, hasta, estado){
       <td>${g.producto||'—'}</td><td><span class="badge badge-verde" style="font-size:0.65rem;">${g.certificacion||'—'}</span></td>
       <td>${g.base||'—'}</td><td>${g.formaentrega||'—'}</td>
       <td style="text-align:center;font-weight:700;color:#1b5e20;">${g.rend_export||'—'}%</td>
-      <td style="text-align:right;">S/.${parseFloat(g.precioqq||0).toFixed(2)}</td>
-      <td style="text-align:right;">S/.${parseFloat(g.precikg||0).toFixed(4)}</td>
-      <td style="text-align:right;font-weight:800;color:#e65100;">S/.${parseFloat(g.valorrecibido||0).toFixed(2)}</td>
+      <td style="text-align:right;">S/.${fmt(g.precioqq)}</td>
+      <td style="text-align:right;">S/.${fmt(g.precikg,4)}</td>
+      <td style="text-align:right;font-weight:800;color:#e65100;">S/.${fmt(g.valorrecibido)}</td>
       <td><span class="badge ${badgeEp}">${ep}</span></td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-secondary btn-sm" onclick="abrirModalGuia(${ri})">✏️</button>
@@ -3442,8 +3457,8 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
       <div><span style="font-size:7px;color:#666;font-weight:600;">QQ NETOS: </span><strong>${totalQQ.toFixed(2)}</strong></div>
       <div><span style="font-size:7px;color:#666;font-weight:600;">PRECIO QQ: </span><strong>S/. ${parseFloat(g.precioqq||0).toFixed(2)}</strong></div>
       <div><span style="font-size:7px;color:#666;font-weight:600;">PRECIO KG: </span><strong>S/. ${parseFloat(g.precikg||0).toFixed(4)}</strong></div>
-      ${primaQQ > 0 ? `<div><span style="font-size:7px;color:#666;font-weight:600;">PRIMA: </span><strong style="color:#1565c0;">+ S/. ${primaSol.toFixed(2)}</strong> <span style="font-size:6.5px;color:#1976d2;">(S/.${primaQQ.toFixed(2)}/qq)</span></div>` : ''}
-      ${g.formaentrega==='Descuento' && descQQ > 0 ? `<div><span style="font-size:7px;color:#666;font-weight:600;">DESCUENTO: </span><strong style="color:#c62828;">− S/. ${descSol.toFixed(2)}</strong> <span style="font-size:6.5px;color:#d32f2f;">(S/.${descQQ.toFixed(2)}/qq)</span></div>` : ''}
+      ${primaQQ > 0 ? `<div><span style="font-size:7px;color:#666;font-weight:600;">PRIMA: </span><strong style="color:#1565c0;">+ S/. ${fmt(primaSol)}</strong> <span style="font-size:6.5px;color:#1976d2;">(S/.${primaQQ.toFixed(2)}/qq)</span></div>` : ''}
+      ${g.formaentrega==='Descuento' && descQQ > 0 ? `<div><span style="font-size:7px;color:#666;font-weight:600;">DESCUENTO: </span><strong style="color:#c62828;">− S/. ${fmt(descSol)}</strong> <span style="font-size:6.5px;color:#d32f2f;">(S/.${descQQ.toFixed(2)}/qq)</span></div>` : ''}
       ${estimadoKg > 0 ? `<div><span style="font-size:7px;color:#666;font-weight:600;">COMPROMISO: </span><strong style="color:#e65100;">${estimadoKg.toFixed(2)} kg</strong></div>` : ''}
       <div style="grid-column:1/-1;border-top:1px dashed #999;padding-top:4px;margin-top:2px;">
         <span style="font-size:8px;color:#666;font-weight:700;text-transform:uppercase;">VALOR TOTAL: </span>
@@ -3650,7 +3665,7 @@ function actualizarResumenGuiasComp(){
   document.getElementById('ci-dni').textContent = dni||'—';
   document.getElementById('ci-fecha').textContent = fecha||'—';
   document.getElementById('ci-total').textContent = 'S/. '+totalGuias.toFixed(2);
-  document.getElementById('ci-pagado').textContent = 'S/. '+totalPagado.toFixed(2);
+  document.getElementById('ci-pagado').textContent = 'S/. '+fmt(totalPagado);
   const saldoEl = document.getElementById('ci-saldo');
   saldoEl.textContent = 'S/. '+totalGuias.toFixed(2);
   saldoEl.style.color = totalGuias<=0?'#2e7d32':'#c62828';
@@ -3690,7 +3705,7 @@ function mostrarDeudaSocio(nombreSocio){
       <td style="text-align:center;"><input type="checkbox" class="comp-deuda-check" data-idx="${i}" data-saldo="${sald}" onchange="calcDeudaSeleccionada()"></td>
       <td class="td-codigo">${p.codigo}</td>
       <td>${cfg.ico} ${cfg.nombre}</td>
-      <td style="text-align:right;font-weight:700;color:#c62828;">S/. ${sald.toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;color:#c62828;">S/. ${fmt(sald)}</td>
       <td>
         <input type="number" class="comp-deuda-monto" data-idx="${i}" max="${sald}" min="0" step="0.01"
           value="${sald.toFixed(2)}" style="width:90px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;" disabled
@@ -3973,9 +3988,9 @@ function renderComprobantes(filtro){
       <td class="td-codigo">${c.codigo}</td><td>${fechaDisplay(c.fecha)}</td>
       <td><span class="tag">${c.guia_ref||'—'}</span></td>
       <td><strong>${c.productor||'—'}</strong></td>
-      <td style="text-align:right;">S/.${parseFloat(c.total_guia||0).toFixed(2)}</td>
+      <td style="text-align:right;">S/.${fmt(c.total_guia)}</td>
       <td style="text-align:right;color:#2e7d32;font-weight:700;">S/.${pagado.toFixed(2)}</td>
-      <td style="text-align:right;font-weight:800;font-size:0.9rem;">S/.${parseFloat(c.monto||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:800;font-size:0.9rem;">S/.${fmt(c.monto)}</td>
       <td style="text-align:right;font-weight:700;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/.${saldo.toFixed(2)}</td>
       <td>${c.formapago||'—'}${c.apertura_ref?` <span class="tag" title="Egreso registrado en caja ${c.apertura_ref}">🏦</span>`:''}</td>
       <td><span class="badge ${badgeTipo}">${tipo==='total'?'Pago Total':tipo==='parcial'?'Parcial':'Pendiente'}</span></td>
@@ -4039,7 +4054,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
       </div>
       <div style="border:1px solid ${saldo<=0.01?'#a5d6a7':'#ef9a9a'};padding:8px;border-radius:6px;background:${saldo<=0.01?'#e8f5e9':'#fce4ec'};">
         <div style="font-size:7px;color:#666;text-transform:uppercase;margin-bottom:3px;">Saldo</div>
-        <div style="font-size:14px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${saldo.toFixed(2)}</div>
+        <div style="font-size:14px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmt(saldo)}</div>
       </div>
     </div>
     ${parseFloat(c.descuento_prestamos||0)>0 ? `
@@ -4225,7 +4240,7 @@ function verTicketsSocio(nombre){
   const tickets = DB.tickets.filter(t => t.productor === nombre);
   if(!tickets.length){ alert('Sin tickets para este socio.'); return; }
   const lista = tickets.map(t =>
-    `• ${t.codigo} — ${fechaDisplay(t.fecha)} — PN: ${parseFloat(t.pesoneto||0).toFixed(2)} kg — Lote: ${t.lote||'—'}${t.guia_asignada?' — Guía: '+t.guia_asignada:' — SIN GUÍA'}`
+    `• ${t.codigo} — ${fechaDisplay(t.fecha)} — PN: ${fmt(t.pesoneto)} kg — Lote: ${t.lote||'—'}${t.guia_asignada?' — Guía: '+t.guia_asignada:' — SIN GUÍA'}`
   ).join('\n');
   alert(`Tickets de ${nombre}:\n\n${lista}`);
 }
@@ -5001,13 +5016,13 @@ function renderPrestamos(filtro, tipoF, estadoF){
           ${cfg.ico} ${p.tipo==='adelanto_cafe'?'Adelanto Café':p.tipo==='prestamo_cosecha'?'Cosecha':'Salud'}
         </span>
       </td>
-      <td style="text-align:right;font-weight:700;">S/. ${parseFloat(p.monto||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;">S/. ${fmt(p.monto)}</td>
       <td style="text-align:center;font-size:0.76rem;">${p.tasaDesc||'—'}</td>
       <td style="text-align:center;">${p.plazo} ${p.plazoUnidad}</td>
-      <td style="text-align:right;color:#e65100;">S/. ${parseFloat(p.interes||0).toFixed(2)}</td>
-      <td style="text-align:right;font-weight:700;color:#1b5e20;">S/. ${parseFloat(p.total||0).toFixed(2)}</td>
-      <td style="text-align:right;color:#2e7d32;">S/. ${paid.toFixed(2)}</td>
-      <td style="text-align:right;font-weight:800;color:${sald<=0.01?'#2e7d32':'#c62828'};">S/. ${sald.toFixed(2)}</td>
+      <td style="text-align:right;color:#e65100;">S/. ${fmt(p.interes)}</td>
+      <td style="text-align:right;font-weight:700;color:#1b5e20;">S/. ${fmt(p.total)}</td>
+      <td style="text-align:right;color:#2e7d32;">S/. ${fmt(paid)}</td>
+      <td style="text-align:right;font-weight:800;color:${sald<=0.01?'#2e7d32':'#c62828'};">S/. ${fmt(sald)}</td>
       <td style="text-align:center;font-size:0.76rem;">${fechaDisplay(p.vencimiento)}</td>
       <td><span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:0.7rem;font-weight:700;${estBadge}">${est}</span></td>
       <td>
@@ -5074,7 +5089,7 @@ function guardarAbono(){
   if(!monto)  { showAlert('abono-alert','error','Ingrese el monto del abono.'); return; }
   if(!fecha)  { showAlert('abono-alert','error','Ingrese la fecha.'); return; }
   const sald = saldoPrestamo(idx);
-  if(monto > sald + 0.01){ showAlert('abono-alert','error',`El abono (S/. ${monto.toFixed(2)}) supera el saldo (S/. ${sald.toFixed(2)}).`); return; }
+  if(monto > sald + 0.01){ showAlert('abono-alert','error',`El abono (S/. ${monto.toFixed(2)}) supera el saldo (S/. ${fmt(sald)}).`); return; }
 
   if(!DB.prestamos[idx].abonos) DB.prestamos[idx].abonos=[];
   DB.prestamos[idx].abonos.push({
@@ -5133,8 +5148,8 @@ function verDetallePrestamo(idx){
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;">
-    <div style="background:#e8f5e9;border-radius:8px;padding:12px;"><div style="font-size:0.7rem;color:#555;">Pagado</div><div style="font-size:1.4rem;font-weight:900;color:#2e7d32;">S/. ${paid.toFixed(2)}</div></div>
-    <div style="background:#ffebee;border-radius:8px;padding:12px;"><div style="font-size:0.7rem;color:#555;">Saldo</div><div style="font-size:1.4rem;font-weight:900;color:#c62828;">S/. ${sald.toFixed(2)}</div></div>
+    <div style="background:#e8f5e9;border-radius:8px;padding:12px;"><div style="font-size:0.7rem;color:#555;">Pagado</div><div style="font-size:1.4rem;font-weight:900;color:#2e7d32;">S/. ${fmt(paid)}</div></div>
+    <div style="background:#ffebee;border-radius:8px;padding:12px;"><div style="font-size:0.7rem;color:#555;">Saldo</div><div style="font-size:1.4rem;font-weight:900;color:#c62828;">S/. ${fmt(sald)}</div></div>
     <div style="background:#f5f5f5;border-radius:8px;padding:12px;"><div style="font-size:0.7rem;color:#555;">Avance</div><div style="font-size:1.4rem;font-weight:900;color:#1565c0;">${pct.toFixed(0)}%</div></div>
   </div>
   <div style="height:10px;border-radius:5px;background:#eee;overflow:hidden;margin-bottom:14px;">
@@ -5872,7 +5887,7 @@ function cerrarCajaActual(){
     `Saldo Inicial: S/. ${parseFloat(ap.saldo_inicial).toFixed(2)}\n` +
     `Ingresos: S/. ${ingresos.toFixed(2)}\n` +
     `Egresos: S/. ${egresos.toFixed(2)}\n` +
-    `Saldo Final: S/. ${saldoFinal.toFixed(2)}\n\n` +
+    `Saldo Final: S/. ${fmt(saldoFinal)}\n\n` +
     `¿Confirmar cierre de caja?`;
   if(!confirm(msg)) return;
 
@@ -5994,16 +6009,16 @@ function renderCaja(){
 
     banner.innerHTML = `<div class="alert alert-success" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span>🔓 <strong>Caja Abierta:</strong> ${ap.codigo} — Apertura: ${fechaDisplay(ap.fecha)} ${ap.hora} por <strong>${ap.usuario}</strong></span>
-      <span style="font-weight:800;font-size:1rem;">Saldo actual: S/. ${saldo.toFixed(2)}</span>
+      <span style="font-weight:800;font-size:1rem;">Saldo actual: S/. ${fmt(saldo)}</span>
     </div>`;
     btnAbrir.style.display = 'none';
     btnCerrar.style.display = 'inline-flex';
 
-    document.getElementById('caja-stat-inicial').textContent = 'S/. '+parseFloat(ap.saldo_inicial).toFixed(2);
+    document.getElementById('caja-stat-inicial').textContent = fmtS(ap.saldo_inicial);
     document.getElementById('caja-stat-fecha-apertura').textContent = fechaDisplay(ap.fecha)+' '+ap.hora;
     document.getElementById('caja-stat-ingresos').textContent = 'S/. '+ingresos.toFixed(2);
     document.getElementById('caja-stat-egresos').textContent  = 'S/. '+egresos.toFixed(2);
-    document.getElementById('caja-stat-saldo').textContent    = 'S/. '+saldo.toFixed(2);
+    document.getElementById('caja-stat-saldo').textContent    = fmtS(saldo);
   } else {
     banner.innerHTML = `<div class="alert alert-warning">🔒 No hay ninguna caja abierta actualmente. Abre una caja para empezar a registrar recibos.</div>`;
     btnAbrir.style.display = 'inline-flex';
@@ -6040,10 +6055,10 @@ function renderAperturas(){
       <td>${fechaDisplay(ap.fecha)}</td>
       <td>${ap.hora||'—'}</td>
       <td style="font-size:0.78rem;">${ap.usuario||'—'}</td>
-      <td style="text-align:right;">S/. ${parseFloat(ap.saldo_inicial||0).toFixed(2)}</td>
-      <td style="text-align:right;color:#2e7d32;">+S/. ${ingresos.toFixed(2)}</td>
-      <td style="text-align:right;color:#c62828;">−S/. ${egresos.toFixed(2)}</td>
-      <td style="text-align:right;font-weight:800;">S/. ${saldoFinal.toFixed(2)}</td>
+      <td style="text-align:right;">S/. ${fmt(ap.saldo_inicial)}</td>
+      <td style="text-align:right;color:#2e7d32;">+S/. ${fmt(ingresos)}</td>
+      <td style="text-align:right;color:#c62828;">−S/. ${fmt(egresos)}</td>
+      <td style="text-align:right;font-weight:800;">S/. ${fmt(saldoFinal)}</td>
       <td style="font-size:0.78rem;">${ap.fecha_cierre ? fechaDisplay(ap.fecha_cierre)+' '+ap.hora_cierre : '—'}</td>
       <td><span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:0.7rem;font-weight:700;${badgeEstado}">${ap.estado}</span></td>
       <td>
@@ -6061,7 +6076,7 @@ function eliminarApertura(idx){
   if(!ap) return;
   const recibos = (DB.recibos||[]).filter(r=>r.apertura_ref===ap.codigo);
   const msg = `⚠️ ELIMINAR APERTURA DE CAJA\n\n` +
-    `Apertura: ${ap.codigo}\nFecha: ${fechaDisplay(ap.fecha)}\nSaldo Inicial: S/. ${parseFloat(ap.saldo_inicial||0).toFixed(2)}\n` +
+    `Apertura: ${ap.codigo}\nFecha: ${fechaDisplay(ap.fecha)}\nSaldo Inicial: S/. ${fmt(ap.saldo_inicial)}\n` +
     (recibos.length > 0 ? `\n🗑️ También se eliminarán ${recibos.length} recibo(s) vinculados a esta apertura.\n` : '') +
     `\n¿Confirmar eliminación?`;
   if(!confirm(msg)) return;
@@ -6098,7 +6113,7 @@ function renderRecibos(filtro, tipoF){
       <td style="font-size:0.8rem;max-width:160px;">${r.concepto||'—'}</td>
       <td style="font-size:0.8rem;"><strong>${r.persona||'—'}</strong></td>
       <td style="font-size:0.78rem;">${r.formapago||'—'}</td>
-      <td style="text-align:right;font-weight:800;color:${esIngreso?'#2e7d32':'#c62828'};">${esIngreso?'+':'−'}S/. ${parseFloat(r.monto||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:800;color:${esIngreso?'#2e7d32':'#c62828'};">${esIngreso?'+':'−'}S/. ${fmt(r.monto)}</td>
       <td><span class="tag">${r.apertura_ref||'—'}</span></td>
       <td style="font-size:0.76rem;">${r.usuario||'—'}</td>
       <td><div style="display:flex;gap:3px;">
@@ -6146,7 +6161,7 @@ function verPrintRecibo(idx){
     </table>
     <div style="border:2px solid ${colorPrincipal};border-radius:8px;padding:12px;text-align:center;margin:14px 0;background:${esIngreso?'#f0faf4':'#fdf2f0'};">
       <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">${esIngreso?'MONTO RECIBIDO':'MONTO PAGADO'}</div>
-      <div style="font-size:26px;font-weight:900;color:${colorPrincipal};">S/. ${parseFloat(r.monto||0).toFixed(2)}</div>
+      <div style="font-size:26px;font-weight:900;color:${colorPrincipal};">S/. ${fmt(r.monto)}</div>
     </div>
     ${r.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${r.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px;">
@@ -6413,7 +6428,7 @@ function renderCafeCoco(filtro){
   const precioProm = totalKg > 0 ? totalMonto/totalKg : 0;
   document.getElementById('cc-stat-total').textContent = DB.cafecoco.length;
   document.getElementById('cc-stat-kg').textContent = totalKg.toFixed(1);
-  document.getElementById('cc-stat-monto').textContent = 'S/. '+totalMonto.toFixed(2);
+  document.getElementById('cc-stat-monto').textContent = 'S/. '+fmt(totalMonto);
   document.getElementById('cc-stat-productores').textContent = 'S/. '+precioProm.toFixed(4);
 
   const tb = document.getElementById('cafecoco-body');
@@ -6429,11 +6444,11 @@ function renderCafeCoco(filtro){
       <td style="font-family:monospace;font-size:0.78rem;">${c.dni||'—'}</td>
       <td><strong>${c.nombres||'—'}</strong></td>
       <td style="text-align:center;">${c.sacos||0}</td>
-      <td style="text-align:right;">${parseFloat(c.kgbruto||0).toFixed(2)}</td>
+      <td style="text-align:right;">${fmt(c.kgbruto)}</td>
       <td style="text-align:right;color:#0d47a1;">${parseFloat(c.tara||0).toFixed(2)}</td>
-      <td style="text-align:right;font-weight:700;color:#1b5e20;">${parseFloat(c.kgneto||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;color:#1b5e20;">${fmt(c.kgneto)}</td>
       <td style="text-align:right;">S/. ${parseFloat(c.preciokg||0).toFixed(2)}</td>
-      <td style="text-align:right;font-weight:800;color:#e65100;">S/. ${parseFloat(c.total||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:800;color:#e65100;">S/. ${fmt(c.total)}</td>
       <td style="font-size:0.74rem;max-width:140px;">${c.observacion||'—'}</td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-secondary btn-sm" onclick="abrirModalCafeCoco(${ri})">✏️</button>
@@ -6469,15 +6484,15 @@ function verPrintCafeCoco(idx){
       <tr><td style="width:42%;color:#444;">DNI</td><td style="font-weight:800;">: ${c.dni||'—'}</td></tr>
       <tr><td style="color:#444;">Nombres</td><td style="font-weight:800;text-transform:uppercase;">: ${c.nombres||'—'}</td></tr>
       <tr><td style="color:#444;">N° Sacos</td><td style="font-weight:700;">: ${c.sacos||0}</td></tr>
-      <tr><td style="color:#444;">Kg Bruto</td><td style="font-weight:700;">: ${parseFloat(c.kgbruto||0).toFixed(2)}</td></tr>
+      <tr><td style="color:#444;">Kg Bruto</td><td style="font-weight:700;">: ${fmt(c.kgbruto)}</td></tr>
       <tr><td style="color:#444;">Tara</td><td style="font-weight:700;">: ${parseFloat(c.tara||0).toFixed(2)}</td></tr>
-      <tr><td style="color:#444;">Kg Neto</td><td style="font-weight:900;font-size:13px;color:#1b5e20;">: ${parseFloat(c.kgneto||0).toFixed(2)}</td></tr>
+      <tr><td style="color:#444;">Kg Neto</td><td style="font-weight:900;font-size:13px;color:#1b5e20;">: ${fmt(c.kgneto)}</td></tr>
       <tr><td style="color:#444;">Precio por Kg</td><td style="font-weight:700;">: S/. ${parseFloat(c.preciokg||0).toFixed(2)}</td></tr>
       <tr><td style="color:#444;">Usuario</td><td style="font-weight:700;text-transform:uppercase;">: ${c.usuario||'—'}</td></tr>
     </table>
     <div style="border:2px solid #6b3a2a;border-radius:8px;padding:12px;text-align:center;margin:14px 0;background:#fbf2ee;">
       <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">TOTAL A PAGAR</div>
-      <div style="font-size:26px;font-weight:900;color:#6b3a2a;">S/. ${parseFloat(c.total||0).toFixed(2)}</div>
+      <div style="font-size:26px;font-weight:900;color:#6b3a2a;">S/. ${fmt(c.total)}</div>
     </div>
     ${c.observacion ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observación:</b> ${c.observacion}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px;">
