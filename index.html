@@ -255,6 +255,9 @@ tr:hover td{background:#f9f6f1;}
     <span class="ico">📦</span> Kárdex de Ventas
   </a>
   <div class="nav-section">Configuración</div>
+  <a class="nav-item admin-only" onclick="showSection('masivo')" href="#">
+    <span class="ico">⚡</span> Generación Masiva
+  </a>
   <a class="nav-item" onclick="showSection('socios')" href="#">
     <span class="ico">👥</span> Socios / Productores
   </a>
@@ -472,6 +475,141 @@ tr:hover td{background:#f9f6f1;}
 </div>
 
 <!-- CONFIGURACIÓN -->
+<!-- ══════════ GENERACIÓN MASIVA ══════════ -->
+<div class="section admin-only" id="sec-masivo">
+  <div class="card" style="border:2px solid #1a5c2e;margin-bottom:16px;">
+    <div class="card-header" style="background:linear-gradient(135deg,#1a5c2e,#2d7a45);color:#fff;border-radius:8px 8px 0 0;margin:-1px -1px 16px -1px;padding:16px 20px;">
+      <div>
+        <div class="card-title" style="color:#fff;font-size:1.1rem;">⚡ Generación Masiva Automática — Café Orgánico</div>
+        <div style="font-size:0.78rem;opacity:0.85;margin-top:4px;">Ingresa los totales de acopio y el sistema genera tickets, guías y comprobantes automáticamente distribuyendo entre socios orgánicos</div>
+      </div>
+    </div>
+
+    <div id="masivo-alert"></div>
+
+    <!-- PASO 1: PARÁMETROS GENERALES -->
+    <div style="background:#f0faf4;border:1px solid #b2dfcb;border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="font-weight:800;font-size:0.88rem;color:#1a5c2e;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">📋 Paso 1 — Totales del Acopio</div>
+      <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+        <div class="form-group">
+          <label>Total Sacos</label>
+          <input type="number" id="mas-sacos" placeholder="370" oninput="masCalcPreliminar()">
+        </div>
+        <div class="form-group">
+          <label>Total KG Brutos</label>
+          <input type="number" id="mas-kgbruto" step="0.01" placeholder="25530" oninput="masCalcPreliminar()">
+        </div>
+        <div class="form-group">
+          <label>Total KG Netos</label>
+          <input type="number" id="mas-kgneto" step="0.01" placeholder="ej: 24800" oninput="masCalcPreliminar()">
+        </div>
+        <div class="form-group">
+          <label>Valor Total a Pagar (S/.)</label>
+          <input type="number" id="mas-valor" step="0.01" placeholder="430700" oninput="masCalcPreliminar()">
+        </div>
+        <div class="form-group">
+          <label>Precio Promedio QQ (calculado)</label>
+          <input type="text" id="mas-precio-qq" readonly style="background:#e8f5e9;font-weight:700;color:#1a5c2e;">
+        </div>
+        <div class="form-group">
+          <label>Precio Promedio KG (calculado)</label>
+          <input type="text" id="mas-precio-kg" readonly style="background:#e8f5e9;font-weight:700;color:#1a5c2e;">
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 2: FECHAS Y PARÁMETROS DE DISTRIBUCIÓN -->
+    <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="font-weight:800;font-size:0.88rem;color:#333;margin-bottom:12px;text-transform:uppercase;">📅 Paso 2 — Fechas y Parámetros</div>
+      <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+        <div class="form-group">
+          <label>Fecha Inicio</label>
+          <input type="date" id="mas-fecha-ini">
+        </div>
+        <div class="form-group">
+          <label>Fecha Fin</label>
+          <input type="date" id="mas-fecha-fin">
+        </div>
+        <div class="form-group">
+          <label>QQ por guía (mín)</label>
+          <input type="number" id="mas-qq-min" value="2" step="0.1" min="0.5" max="10">
+        </div>
+        <div class="form-group">
+          <label>QQ por guía (máx)</label>
+          <input type="number" id="mas-qq-max" value="5" step="0.1" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <label>Rendimiento % (mín)</label>
+          <input type="number" id="mas-rend-min" value="65" min="50" max="85">
+        </div>
+        <div class="form-group">
+          <label>Rendimiento % (máx)</label>
+          <input type="number" id="mas-rend-max" value="78" min="50" max="85">
+        </div>
+        <div class="form-group">
+          <label>Humedad %</label>
+          <input type="number" id="mas-humedad" value="12" min="10" max="25">
+        </div>
+        <div class="form-group">
+          <label>Forma de entrega</label>
+          <select id="mas-forma">
+            <option>Venta Directa</option>
+            <option>En Campo</option>
+            <option>Descuento</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Prima Fairtrade (S/./qq)</label>
+          <input type="number" id="mas-prima" value="0" step="0.01" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Campaña</label>
+          <input type="text" id="mas-campana" readonly style="background:#eee;">
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 3: SOCIOS -->
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div style="font-weight:800;font-size:0.88rem;color:#e65100;text-transform:uppercase;">👥 Paso 3 — Socios Orgánicos a Incluir</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="masSeleccionarTodos()">✅ Todos</button>
+          <button class="btn btn-secondary btn-sm" onclick="masDeseleccionarTodos()">☐ Ninguno</button>
+        </div>
+      </div>
+      <div id="mas-socios-lista" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px;max-height:250px;overflow-y:auto;border:1px solid #ffe082;border-radius:6px;padding:8px;background:#fff;"></div>
+      <div style="margin-top:8px;font-size:0.75rem;color:#888;" id="mas-socios-count">Cargando socios...</div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div id="mas-preview" style="display:none;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:14px;margin-bottom:16px;">
+      <div style="font-weight:800;font-size:0.88rem;color:#1a5c2e;margin-bottom:10px;text-transform:uppercase;">👁️ Vista Previa de la Distribución</div>
+      <div id="mas-preview-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;"></div>
+      <div id="mas-preview-tabla" style="max-height:320px;overflow-y:auto;"></div>
+    </div>
+
+    <!-- BOTONES -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="masLimpiar()">🔄 Limpiar</button>
+      <button class="btn" onclick="masGenerarPreview()" style="background:#f0b429;color:#1a5c2e;font-weight:800;font-size:0.95rem;padding:10px 22px;">
+        👁️ Previsualizar Distribución
+      </button>
+      <button class="btn btn-primary" onclick="masGenerarTodo()" style="font-size:0.95rem;padding:10px 24px;" id="btn-mas-generar" disabled>
+        ⚡ GENERAR Tickets + Guías + Comprobantes
+      </button>
+    </div>
+  </div>
+
+  <!-- RESULTADO -->
+  <div id="mas-resultado" style="display:none;" class="card">
+    <div class="card-header">
+      <div class="card-title">✅ Resultado de la Generación</div>
+    </div>
+    <div id="mas-resultado-body"></div>
+  </div>
+</div>
+
 <div class="section admin-only" id="sec-config">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
 
@@ -2403,7 +2541,7 @@ function cerrarModal(id){document.getElementById(id).classList.remove('open');}
 const secTitles={dashboard:'📊 Dashboard',tickets:'🎫 Ticket de Entrada',guias:'📋 Guía de Entrada',
   comprobantes:'🧾 Comprobante de Pagos',socios:'👥 Socios / Productores',
   prestamos:'💰 Préstamos', caja:'🏦 Caja', cafecoco:'🌰 Compra Café Coco',
-  kardex:'📦 Kárdex de Ventas',
+  kardex:'📦 Kárdex de Ventas', masivo:'⚡ Generación Masiva',
   config:'⚙️ Configuración',exportar:'📤 Exportar Datos'};
 
 function showSection(id){
@@ -2425,6 +2563,7 @@ function showSection(id){
   if(id==='prestamos') renderPrestamos();
   if(id==='caja'){ migrarEgresosCafeCoco(true); renderCaja(); }
   if(id==='kardex'){ renderKardex(); }
+  if(id==='masivo'){ renderMasivo(); }
   if(id==='cafecoco') renderCafeCoco();
 }
 
@@ -6790,7 +6929,427 @@ function exportarCafeCoco(){
 
 
 // ══════════════════════════════════════════
-// MÓDULO KÁRDEX DE VENTAS
+// MÓDULO GENERACIÓN MASIVA AUTOMÁTICA
+// ══════════════════════════════════════════
+let _masDistribucion = []; // guarda la distribución calculada
+
+function renderMasivo(){
+  // Llenar campaña
+  const campEl = document.getElementById('mas-campana');
+  if(campEl && DB.campana) campEl.value = DB.campana.nombre||'2026';
+
+  // Llenar fechas por defecto
+  const hoyStr = hoy();
+  if(!document.getElementById('mas-fecha-ini').value) document.getElementById('mas-fecha-ini').value = hoyStr;
+  if(!document.getElementById('mas-fecha-fin').value) document.getElementById('mas-fecha-fin').value = hoyStr;
+
+  // Cargar socios orgánicos
+  const sociosOrg = DB.socios.filter(s=>{
+    const c = (s.certificacion||s.certif||'').toUpperCase();
+    return c.includes('ORGANICO') || c.includes('ORGÁNICO') || c.includes('FAIRTRADE');
+  });
+
+  const lista = document.getElementById('mas-socios-lista');
+  if(!lista) return;
+
+  if(!sociosOrg.length){
+    lista.innerHTML = '<div style="color:#999;padding:10px;text-align:center;">No hay socios con certificación orgánica registrados.<br>Ve a 👥 Socios y carga el archivo LPA.</div>';
+    document.getElementById('mas-socios-count').textContent = '0 socios orgánicos';
+    return;
+  }
+
+  lista.innerHTML = sociosOrg.map((s,i)=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid #ffe082;border-radius:5px;cursor:pointer;background:#fffde7;font-size:0.78rem;">
+      <input type="checkbox" class="mas-socio-cb" value="${s.nombre}" data-dni="${s.dni||''}" data-base="${s.base||''}" data-caserio="${s.caserio||''}" data-certif="${s.certificacion||''}" data-estimado="${s.estimado_kg||parseFloat(s.estimado_qq||0)*55.2||0}" checked>
+      <div>
+        <div style="font-weight:700;">${s.nombre}</div>
+        <div style="color:#888;font-size:0.7rem;">${s.base||'—'} · ${s.caserio||'—'} · Est: ${s.estimado_qq||'—'} qq</div>
+      </div>
+    </label>`).join('');
+
+  document.getElementById('mas-socios-count').textContent = `${sociosOrg.length} socios orgánicos`;
+}
+
+function masCalcPreliminar(){
+  const kgNeto = parseFloat(document.getElementById('mas-kgneto').value)||0;
+  const valor  = parseFloat(document.getElementById('mas-valor').value)||0;
+  if(kgNeto > 0 && valor > 0){
+    const qqTotal = kgNeto/55.2;
+    const precioQQ = valor/qqTotal;
+    const precioKG = valor/kgNeto;
+    document.getElementById('mas-precio-qq').value = 'S/. '+fmt(precioQQ);
+    document.getElementById('mas-precio-kg').value = 'S/. '+fmt(precioKG,4);
+  }
+}
+
+function masSeleccionarTodos(){
+  document.querySelectorAll('.mas-socio-cb').forEach(cb=>cb.checked=true);
+}
+function masDeseleccionarTodos(){
+  document.querySelectorAll('.mas-socio-cb').forEach(cb=>cb.checked=false);
+}
+
+function masGenerarPreview(){
+  const alertEl = document.getElementById('masivo-alert');
+  alertEl.innerHTML = '';
+
+  // Validar entradas
+  const totalSacos  = parseFloat(document.getElementById('mas-sacos').value)||0;
+  const totalKGBrut = parseFloat(document.getElementById('mas-kgbruto').value)||0;
+  const totalKGNeto = parseFloat(document.getElementById('mas-kgneto').value)||0;
+  const totalValor  = parseFloat(document.getElementById('mas-valor').value)||0;
+  const fechaIni    = document.getElementById('mas-fecha-ini').value;
+  const fechaFin    = document.getElementById('mas-fecha-fin').value;
+  const qqMin       = parseFloat(document.getElementById('mas-qq-min').value)||2;
+  const qqMax       = parseFloat(document.getElementById('mas-qq-max').value)||5;
+  const rendMin     = parseFloat(document.getElementById('mas-rend-min').value)||65;
+  const rendMax     = parseFloat(document.getElementById('mas-rend-max').value)||78;
+  const humedad     = parseFloat(document.getElementById('mas-humedad').value)||12;
+  const prima       = parseFloat(document.getElementById('mas-prima').value)||0;
+  const formaEnt    = document.getElementById('mas-forma').value;
+
+  if(!totalSacos||!totalKGBrut||!totalKGNeto||!totalValor){
+    alertEl.innerHTML='<div class="alert alert-error">⚠️ Completa todos los totales (sacos, kg bruto, kg neto, valor).</div>'; return;
+  }
+  if(!fechaIni||!fechaFin){
+    alertEl.innerHTML='<div class="alert alert-error">⚠️ Selecciona las fechas.</div>'; return;
+  }
+
+  const sociosCbs = [...document.querySelectorAll('.mas-socio-cb:checked')];
+  if(!sociosCbs.length){
+    alertEl.innerHTML='<div class="alert alert-error">⚠️ Selecciona al menos un socio.</div>'; return;
+  }
+
+  const socios = sociosCbs.map(cb=>({
+    nombre:    cb.value,
+    dni:       cb.dataset.dni,
+    base:      cb.dataset.base,
+    caserio:   cb.dataset.caserio,
+    certif:    cb.dataset.certif,
+    estimado:  parseFloat(cb.dataset.estimado)||0
+  }));
+
+  // Calcular precios
+  const qqTotal   = totalKGNeto/55.2;
+  const precioQQ  = totalValor/qqTotal;
+  const precioKG  = totalValor/totalKGNeto;
+
+  // Distribuir KG entre socios proporcionalmente a su estimado (o equitativo si no tienen)
+  const totalEstimado = socios.reduce((a,s)=>a+(s.estimado||0),0);
+  let distribucion = [];
+  let kgRestante   = totalKGNeto;
+  let sacosRestantes = totalSacos;
+  let kgBrutoRestante = totalKGBrut;
+  let valorRestante = totalValor;
+
+  // Generar fechas distribuidas entre fechaIni y fechaFin
+  const dIni  = new Date(fechaIni+'T12:00:00');
+  const dFin  = new Date(fechaFin+'T12:00:00');
+  const diffDias = Math.max(0, Math.round((dFin-dIni)/86400000));
+
+  // Generar guías dividiendo por qqMin-qqMax por guía
+  let guiaIdx = 0;
+  socios.forEach((socio, si) => {
+    // KG proporcional al estimado o equitativo
+    const prop = totalEstimado > 0 ? (socio.estimado||0)/totalEstimado : 1/socios.length;
+    let kgSocio = si===socios.length-1 ? kgRestante : Math.round(totalKGNeto*prop*100)/100;
+    kgSocio = Math.min(kgSocio, kgRestante);
+
+    // Dividir el KG del socio en guías de qqMin a qqMax
+    let kgSocioRestante = kgSocio;
+    while(kgSocioRestante > 0.1){
+      const qqEstaGuia = Math.min(
+        qqMin + Math.random()*(qqMax-qqMin),
+        kgSocioRestante/55.2
+      );
+      const kgNetoGuia = Math.round(Math.min(qqEstaGuia*55.2, kgSocioRestante)*100)/100;
+      const qqNetoGuia = kgNetoGuia/55.2;
+
+      // Rend aleatorio dentro del rango
+      const rend   = Math.round(rendMin + Math.random()*(rendMax-rendMin));
+      const kgBrutoGuia = Math.round(kgNetoGuia*(100/rend)*100)/100;
+      const tara   = Math.round(kgNetoGuia*0.01*100)/100; // 1% tara aprox
+      const sacos  = Math.max(1, Math.round(kgBrutoGuia/70)); // ~70kg/saco
+
+      // Valor proporcional
+      const valorGuia = guiaIdx===0 ? 0 : Math.round(qqNetoGuia*precioQQ*10)/10; // se ajusta al final
+
+      // Fecha distribuida
+      const diaOffset = Math.round((guiaIdx/(Math.max(1,socios.length*2)))*diffDias);
+      const fechaGuia = new Date(dIni.getTime() + diaOffset*86400000)
+        .toLocaleDateString('en-CA');
+
+      distribucion.push({
+        socio: socio.nombre, dni: socio.dni, base: socio.base,
+        caserio: socio.caserio, certif: socio.certif||'ORGANICO - FAIRTRADE USA',
+        kgNeto: kgNetoGuia, qqNeto: qqNetoGuia, kgBruto: kgBrutoGuia,
+        tara, sacos, rend, humedad,
+        precioQQ: Math.round(precioQQ*100)/100,
+        precioKG: Math.round(precioKG*10000)/10000,
+        prima, formaEnt, fecha: fechaGuia,
+        valor: Math.round(qqNetoGuia*precioQQ*10)/10,
+        ticket_lote: ''
+      });
+
+      kgSocioRestante = Math.round((kgSocioRestante-kgNetoGuia)*100)/100;
+      guiaIdx++;
+    }
+    kgRestante = Math.round((kgRestante-kgSocio)*100)/100;
+  });
+
+  // Ajustar el último valor para que cuadre con el total
+  if(distribucion.length > 0){
+    const sumValor = distribucion.reduce((a,d)=>a+d.valor,0);
+    const diff = Math.round((totalValor-sumValor)*10)/10;
+    distribucion[distribucion.length-1].valor = Math.round((distribucion[distribucion.length-1].valor+diff)*10)/10;
+  }
+
+  _masDistribucion = distribucion;
+
+  // Mostrar preview
+  const prev = document.getElementById('mas-preview');
+  prev.style.display = 'block';
+
+  const totKGPrev = distribucion.reduce((a,d)=>a+d.kgNeto,0);
+  const totValPrev = distribucion.reduce((a,d)=>a+d.valor,0);
+  const totSacPrev = distribucion.reduce((a,d)=>a+d.sacos,0);
+
+  document.getElementById('mas-preview-stats').innerHTML = `
+    <div style="background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid #a5d6a7;">
+      <div style="font-size:0.7rem;color:#666;">Guías a generar</div>
+      <div style="font-size:1.5rem;font-weight:900;color:#1a5c2e;">${distribucion.length}</div>
+    </div>
+    <div style="background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid #a5d6a7;">
+      <div style="font-size:0.7rem;color:#666;">Socios incluidos</div>
+      <div style="font-size:1.5rem;font-weight:900;color:#1a5c2e;">${socios.length}</div>
+    </div>
+    <div style="background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid #a5d6a7;">
+      <div style="font-size:0.7rem;color:#666;">KG Netos total</div>
+      <div style="font-size:1.2rem;font-weight:900;color:#1a5c2e;">${fmt(totKGPrev)}</div>
+    </div>
+    <div style="background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid #a5d6a7;">
+      <div style="font-size:0.7rem;color:#666;">Valor total</div>
+      <div style="font-size:1.2rem;font-weight:900;color:#e65100;">S/. ${fmtPago(totValPrev)}</div>
+    </div>
+    <div style="background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid #a5d6a7;">
+      <div style="font-size:0.7rem;color:#666;">Sacos estimados</div>
+      <div style="font-size:1.2rem;font-weight:900;">${totSacPrev}</div>
+    </div>`;
+
+  document.getElementById('mas-preview-tabla').innerHTML = `
+    <table style="width:100%;font-size:0.75rem;border-collapse:collapse;">
+      <thead style="background:#1a5c2e;color:#fff;position:sticky;top:0;">
+        <tr>
+          <th style="padding:5px 6px;">Socio</th>
+          <th style="padding:5px 6px;">Base</th>
+          <th style="padding:5px 6px;">Fecha</th>
+          <th style="padding:5px 6px;text-align:right;">Sacos</th>
+          <th style="padding:5px 6px;text-align:right;">KG Bruto</th>
+          <th style="padding:5px 6px;text-align:right;">KG Neto</th>
+          <th style="padding:5px 6px;text-align:right;">QQ</th>
+          <th style="padding:5px 6px;text-align:right;">Rend%</th>
+          <th style="padding:5px 6px;text-align:right;">Valor S/.</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${distribucion.map((d,i)=>`
+        <tr style="background:${i%2===0?'#f9f9f9':'#fff'};">
+          <td style="padding:4px 6px;font-weight:600;">${d.socio}</td>
+          <td style="padding:4px 6px;font-size:0.7rem;">${d.base}</td>
+          <td style="padding:4px 6px;">${fechaDisplay(d.fecha)}</td>
+          <td style="padding:4px 6px;text-align:right;">${d.sacos}</td>
+          <td style="padding:4px 6px;text-align:right;">${fmt(d.kgBruto)}</td>
+          <td style="padding:4px 6px;text-align:right;font-weight:700;color:#1a5c2e;">${fmt(d.kgNeto)}</td>
+          <td style="padding:4px 6px;text-align:right;">${d.qqNeto.toFixed(2)}</td>
+          <td style="padding:4px 6px;text-align:right;">${d.rend}%</td>
+          <td style="padding:4px 6px;text-align:right;font-weight:700;color:#e65100;">S/. ${fmtPago(d.valor)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  document.getElementById('btn-mas-generar').disabled = false;
+  alertEl.innerHTML = `<div class="alert alert-success">✅ Distribución calculada: ${distribucion.length} guías para ${socios.length} socios. Revisa la tabla y haz clic en GENERAR.</div>`;
+}
+
+async function masGenerarTodo(){
+  if(!_masDistribucion.length){ alert('Primero genera la vista previa.'); return; }
+
+  if(!confirm(`⚡ GENERACIÓN MASIVA\n\nSe crearán:\n✅ ${_masDistribucion.length} Tickets de entrada\n✅ ${_masDistribucion.length} Guías de entrada\n✅ ${_masDistribucion.length} Comprobantes de pago\n\n¿Confirmar?`)) return;
+
+  const btn = document.getElementById('btn-mas-generar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Generando...';
+
+  if(!DB.tickets) DB.tickets=[];
+  if(!DB.guias) DB.guias=[];
+  if(!DB.comprobantes) DB.comprobantes=[];
+
+  const campana = DB.campana?.nombre || '2026';
+  const cajaIdx = cajaAbiertaActual();
+  const apCaja  = cajaIdx >= 0 ? DB.aperturas[cajaIdx] : null;
+  const prima   = parseFloat(document.getElementById('mas-prima').value)||0;
+
+  let ticketsCreados=0, guiasCreadas=0, compsCreados=0;
+  const resumen = [];
+
+  for(const d of _masDistribucion){
+    // 1. Crear TICKET
+    const codTicket = nextCodigoCertif('ticket', d.certif);
+    const lote = `LT${String(DB.tickets.length+1).padStart(3,'0')}-${campana}`;
+    const descHum = d.humedad > 12 ? Math.round((d.humedad-12)*d.kgNeto*0.01*100)/100 : 0;
+
+    const ticket = {
+      codigo: codTicket, fecha: d.fecha, hora: '08:00',
+      productor: d.socio, dni: d.dni, base: d.base, caserio: d.caserio,
+      certificacion: d.certif, sacos: d.sacos,
+      pesobruto: d.kgBruto, tara: d.tara, humedad: d.humedad,
+      deschum: descHum, pesoneto: d.kgNeto,
+      exportacion: d.rend, segunda: 12, cascara: Math.round(100-d.rend-12),
+      exp_g: Math.round(d.kgNeto*d.rend/100*10)/10,
+      exp_pct: d.rend, seg_g: Math.round(d.kgNeto*0.12*10)/10,
+      seg_pct: 12, cas_g: 0, cas_pct: 0,
+      defectos: 0, lote, observaciones: 'Generado automáticamente',
+      usuario: SESSION.user, guia_asignada: ''
+    };
+    DB.tickets.push(ticket);
+    ticketsCreados++;
+
+    // 2. Crear GUÍA
+    const codGuia = nextCodigoCertif('guia', d.certif);
+    const primaVal = prima > 0 ? prima : 0;
+    const guia = {
+      codigo: codGuia, fecha: d.fecha, campana,
+      productor: d.socio, dni: d.dni, base: d.base, caserio: d.caserio,
+      producto: 'CAFE PERGAMINO', certificacion: d.certif,
+      formaentrega: d.formaEnt, prima_qq: primaVal, descuento_qq: 0,
+      rend_export: d.rend, precioqq: d.precioQQ, precikg: d.precioKG,
+      valorrecibido: d.valor, exportacion: d.rend, segunda: 12,
+      cascara: Math.round(100-d.rend-12), humedadanalisis: d.humedad,
+      taza: '', estado_pago: 'Pendiente', total_pagado: 0,
+      tickets_detalle: [{
+        nticket: codTicket, lote, sacos: d.sacos,
+        pesobrutokg: d.kgBruto, tara: d.tara, desctohumedad: descHum,
+        pesoneto: d.kgNeto, pesoneto_qq: d.qqNeto.toFixed(4),
+        compromiso: '', entregado: d.kgNeto, cumplimiento: '100%'
+      }]
+    };
+    // Marcar ticket como asignado
+    DB.tickets[DB.tickets.length-1].guia_asignada = codGuia;
+    DB.guias.push(guia);
+    guiasCreadas++;
+
+    // 3. Crear COMPROBANTE
+    const codComp = nextCodigoCertif('comprobante', d.certif);
+    const comp = {
+      codigo: codComp, fecha: d.fecha,
+      guia_ref: codGuia, guias_ref: [codGuia],
+      productor: d.socio, dni: d.dni,
+      total_guia: d.valor, monto: d.valor,
+      tipopago: 'total', formapago: 'Efectivo',
+      observaciones: 'Generado automáticamente',
+      descuento_prestamos: 0,
+      apertura_ref: apCaja ? apCaja.codigo : '',
+      recibo_egreso_ref: '', estado: 'Activo'
+    };
+
+    // Egreso en caja si hay caja abierta
+    if(apCaja){
+      const codEgr = nextCodigo(DB.recibos, 'EGR-');
+      DB.recibos.push({
+        codigo: codEgr, tipo: 'egreso', fecha: d.fecha,
+        persona: d.socio,
+        concepto: `Pago Guía ${codGuia} (${codComp})`,
+        monto: d.valor, formapago: 'Efectivo',
+        observaciones: 'Generado masivamente',
+        apertura_ref: apCaja.codigo, usuario: SESSION.user
+      });
+      comp.recibo_egreso_ref = codEgr;
+    }
+
+    // Actualizar estado de la guía
+    DB.guias[DB.guias.length-1].estado_pago = 'Pagado Total';
+    DB.guias[DB.guias.length-1].total_pagado = d.valor;
+
+    DB.comprobantes.push(comp);
+    compsCreados++;
+
+    resumen.push({ socio: d.socio, ticket: codTicket, guia: codGuia, comp: codComp, valor: d.valor, kg: d.kgNeto });
+  }
+
+  guardarDB();
+  btn.textContent = '⚡ GENERAR Tickets + Guías + Comprobantes';
+  btn.disabled = false;
+
+  // Mostrar resultado
+  const resEl = document.getElementById('mas-resultado');
+  resEl.style.display = 'block';
+  const totalValGen = resumen.reduce((a,r)=>a+r.valor,0);
+  const totalKGGen  = resumen.reduce((a,r)=>a+r.kg,0);
+  document.getElementById('mas-resultado-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+      <div style="background:#e8f5e9;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:0.75rem;color:#555;">🎫 Tickets creados</div>
+        <div style="font-size:2rem;font-weight:900;color:#1a5c2e;">${ticketsCreados}</div>
+      </div>
+      <div style="background:#e8f5e9;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:0.75rem;color:#555;">📋 Guías creadas</div>
+        <div style="font-size:2rem;font-weight:900;color:#1a5c2e;">${guiasCreadas}</div>
+      </div>
+      <div style="background:#e8f5e9;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:0.75rem;color:#555;">🧾 Comprobantes</div>
+        <div style="font-size:2rem;font-weight:900;color:#1a5c2e;">${compsCreados}</div>
+      </div>
+    </div>
+    <div style="background:#f0faf4;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;">
+      <strong>KG Netos totales:</strong> ${fmt(totalKGGen)} kg &nbsp;|&nbsp;
+      <strong>Valor total pagado:</strong> S/. ${fmtPago(totalValGen)} &nbsp;|&nbsp;
+      ${apCaja?`<strong>Caja:</strong> ${apCaja.codigo}`:'<span style="color:#e65100;">Sin caja abierta — egresos NO generados</span>'}
+    </div>
+    <table style="width:100%;font-size:0.75rem;border-collapse:collapse;">
+      <thead style="background:#1a5c2e;color:#fff;">
+        <tr>
+          <th style="padding:5px 8px;">Socio</th>
+          <th style="padding:5px 8px;">🎫 Ticket</th>
+          <th style="padding:5px 8px;">📋 Guía</th>
+          <th style="padding:5px 8px;">🧾 Comprobante</th>
+          <th style="padding:5px 8px;text-align:right;">KG Neto</th>
+          <th style="padding:5px 8px;text-align:right;">Valor S/.</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${resumen.map((r,i)=>`
+        <tr style="background:${i%2===0?'#f9f9f9':'#fff'};">
+          <td style="padding:4px 8px;font-weight:600;font-size:0.7rem;">${r.socio}</td>
+          <td style="padding:4px 8px;color:#1565c0;font-size:0.7rem;">${r.ticket}</td>
+          <td style="padding:4px 8px;color:#1a5c2e;font-size:0.7rem;">${r.guia}</td>
+          <td style="padding:4px 8px;color:#c8951a;font-size:0.7rem;">${r.comp}</td>
+          <td style="padding:4px 8px;text-align:right;font-weight:700;">${fmt(r.kg)}</td>
+          <td style="padding:4px 8px;text-align:right;font-weight:700;color:#e65100;">S/. ${fmtPago(r.valor)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="showSection('tickets')">🎫 Ver Tickets</button>
+      <button class="btn btn-primary" onclick="showSection('guias')">📋 Ver Guías</button>
+      <button class="btn btn-primary" onclick="showSection('comprobantes')">🧾 Ver Comprobantes</button>
+    </div>`;
+
+  document.getElementById('masivo-alert').innerHTML = `<div class="alert alert-success" style="font-size:1rem;">✅ ¡Generación completada! ${ticketsCreados} tickets, ${guiasCreadas} guías y ${compsCreados} comprobantes creados.</div>`;
+  _masDistribucion = [];
+  document.getElementById('btn-mas-generar').disabled = true;
+}
+
+function masLimpiar(){
+  ['mas-sacos','mas-kgbruto','mas-kgneto','mas-valor','mas-precio-qq','mas-precio-kg'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('mas-preview').style.display='none';
+  document.getElementById('mas-resultado').style.display='none';
+  document.getElementById('masivo-alert').innerHTML='';
+  document.getElementById('btn-mas-generar').disabled=true;
+  _masDistribucion=[];
+  masSeleccionarTodos();
+}
 // ══════════════════════════════════════════
 let kardexTipo = 'conv'; // 'conv' = Convencional, 'coco' = Café Coco
 let kardexOrigenesTemp = []; // guías/compras seleccionadas para esta venta
