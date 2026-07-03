@@ -3543,17 +3543,17 @@ function imprimirGuia(){
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>Guía APARCH</title><style>
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:Arial,sans-serif;margin:0;padding:8mm;background:#fff;}
+    body{font-family:Arial,sans-serif;background:#fff;}
     table{border-collapse:collapse;width:100%;}
-    td,th{font-size:8px;}
-    @page{size:A4 portrait;margin:6mm;}
+    td,th{font-size:7.5px;padding:2px 3px;}
+    @page{size:A4 portrait;margin:5mm;}
     @media print{
-      body{padding:4mm;}
-      #print-zona-guia{display:flex;flex-direction:column;min-height:calc(100vh - 8mm);}
-      #print-zona-guia > div:first-child{flex:1;}
-      #print-zona-guia > div:last-child{flex:1;}
       body{print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+      #print-zona-guia{display:flex;flex-direction:column;height:calc(297mm - 10mm);}
+      #print-zona-guia > div:first-child{flex:1;min-height:0;overflow:hidden;}
+      #print-zona-guia > div:last-child{flex:1;min-height:0;overflow:hidden;}
     }
+    .copia-div{display:flex;flex-direction:column;}
   </style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
   w.document.close();
 }
@@ -3583,16 +3583,17 @@ function abrirModalComprobante(idx){
   selG.innerHTML='<option value="">-- Seleccionar Guía --</option>';
   let countPendientes = 0;
   DB.guias.forEach(g=>{
-    const tp=totalPagadoGuia(g.codigo);
-    const tot=parseFloat(g.valorrecibido||0);
-    const saldo=tot-tp;
-    // Mostrar si tiene saldo > 0.01, O si es la guía del comprobante que se está editando
-    const esGuiaActual = c && c.guia_ref === g.codigo;
-    if(saldo > 0.01 || esGuiaActual){
-      const badge = saldo <= 0.01 ? ' ✅' : '';
-      selG.innerHTML+=`<option value="${g.codigo}">${g.codigo} — ${g.productor} | Saldo: S/.${fmt(saldo)}${badge}</option>`;
-      countPendientes++;
-    }
+    const tp  = totalPagadoGuia(g.codigo);
+    const tot = parseFloat(g.valorrecibido||0);
+    const saldo = parseFloat((tot - tp).toFixed(2));
+    // Ocultar guías ya agregadas en el comprobante actual
+    if(compGuiasTemp.includes(g.codigo)) return;
+    // Ocultar guías totalmente pagadas (salvo que sea la guía del comp editando)
+    const esGuiaActual = c && ((c.guia_ref===g.codigo)||(c.guias_ref||[]).includes(g.codigo));
+    if(saldo <= 0.01 && !esGuiaActual) return;
+    const badge = saldo <= 0.01 ? ' ✅ PAGADA' : '';
+    selG.innerHTML+=`<option value="${g.codigo}">${g.codigo} — ${g.productor} | Saldo: S/.${fmt(saldo)}${badge}</option>`;
+    countPendientes++;
   });
   if(countPendientes === 0){
     selG.innerHTML='<option value="">— Sin guías con saldo pendiente —</option>';
@@ -3656,12 +3657,29 @@ function agregarGuiaComp(){
     document.getElementById('c-codigo').value = nextCodigoCertif('comprobante', g.certificacion||'');
   }
 
+  // Quitar la guía recién agregada del selector
+  const opt = sel.querySelector(`option[value="${codigo}"]`);
+  if(opt) opt.remove();
+
   actualizarResumenGuiasComp();
   mostrarDeudaSocio(g.productor);
 }
 
 function quitarGuiaComp(codigo){
   compGuiasTemp = compGuiasTemp.filter(c=>c!==codigo);
+  // Regresar la guía al selector
+  const g = DB.guias.find(x=>x.codigo===codigo);
+  if(g){
+    const sel = document.getElementById('c-guia-sel');
+    const tp = totalPagadoGuia(codigo);
+    const saldo = parseFloat(g.valorrecibido||0) - tp;
+    if(saldo > 0.01){
+      const opt = document.createElement('option');
+      opt.value = codigo;
+      opt.textContent = `${codigo} — ${g.productor} | Saldo: S/.${fmt(saldo)}`;
+      sel.appendChild(opt);
+    }
+  }
   actualizarResumenGuiasComp();
 }
 
@@ -4043,13 +4061,24 @@ function eliminarComp(i){
 }
 
 function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta){
+  // Lista de guías incluidas
+  const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
+  const nGuias = guiasRef.length;
+  const guiasHtml = guiasRef.map(cod=>{
+    const g = DB.guias.find(x=>x.codigo===cod);
+    const valG = g ? parseFloat(g.valorrecibido||0) : 0;
+    return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dashed #e0e0e0;font-size:8.5px;">
+      <span style="color:#1565c0;font-weight:700;">${cod}</span>
+      <span>${g?g.productor:''}</span>
+      <span style="font-weight:700;">S/. ${fmt(valG)}</span>
+    </div>`;
+  }).join('');
+
   return `
   <div class="copia-guia" style="border:1.5px solid #333;border-radius:6px;padding:12px 14px;font-size:10px;page-break-inside:avoid;">
-    <!-- Etiqueta -->
     <div style="text-align:right;margin-bottom:4px;">
       <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:8px;font-weight:800;letter-spacing:0.5px;padding:2px 10px;border-radius:10px;text-transform:uppercase;">${etiqueta}</span>
     </div>
-    <!-- Encabezado con logo -->
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:10px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
@@ -4057,61 +4086,79 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
         <div style="font-size:9.5px;font-weight:700;">COMPROBANTE DE PAGO</div>
         <div style="font-size:15px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
       </div>
-      <div style="width:42px;flex-shrink:0;"></div>
+      <div style="text-align:right;font-size:8px;color:#555;flex-shrink:0;">
+        <div><strong>Fecha:</strong> ${fechaDisplay(c.fecha)}</div>
+        <div style="background:#e8f5e9;color:#1a5c2e;font-weight:800;padding:2px 6px;border-radius:4px;margin-top:3px;">
+          ${nGuias} GUÍA${nGuias>1?'S':''} INCLUIDA${nGuias>1?'S':''}
+        </div>
+      </div>
     </div>
-    <!-- Datos principales -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 12px;margin-bottom:10px;">
-      <div><span style="font-size:7px;color:#666;font-weight:600;">FECHA: </span><strong>${fechaDisplay(c.fecha)}</strong></div>
-      <div><span style="font-size:7px;color:#666;font-weight:600;">GUÍA REF.: </span><strong>${c.guia_ref||'—'}</strong></div>
-      <div><span style="font-size:7px;color:#666;font-weight:600;">TIPO PAGO: </span><strong>${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
-      <div style="grid-column:1/-1;"><span style="font-size:7px;color:#666;font-weight:600;">PRODUCTOR: </span><strong>${c.productor||'—'}</strong></div>
+
+    <!-- Datos del productor -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:8px;background:#f9fef9;border:1px solid #c8e6c9;border-radius:5px;padding:7px 10px;">
+      <div style="grid-column:1/-1;"><span style="font-size:7px;color:#666;font-weight:600;">PRODUCTOR: </span><strong style="font-size:11px;">${c.productor||'—'}</strong></div>
       <div><span style="font-size:7px;color:#666;font-weight:600;">DNI: </span><strong>${c.dni||'—'}</strong></div>
       <div><span style="font-size:7px;color:#666;font-weight:600;">FORMA PAGO: </span><strong>${c.formapago||'—'}</strong></div>
-      ${c.apertura_ref ? `<div><span style="font-size:7px;color:#666;font-weight:600;">CAJA: </span><strong>${c.apertura_ref}</strong></div>` : ''}
+      <div><span style="font-size:7px;color:#666;font-weight:600;">TIPO: </span><strong>${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
+      ${c.apertura_ref?`<div><span style="font-size:7px;color:#666;font-weight:600;">CAJA: </span><strong>${c.apertura_ref}</strong></div>`:''}
     </div>
-    <!-- Montos destacados -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;text-align:center;">
+
+    <!-- Guías incluidas -->
+    ${nGuias>0?`
+    <div style="margin-bottom:8px;">
+      <div style="font-size:7.5px;font-weight:700;color:#1a5c2e;text-transform:uppercase;border-bottom:1px solid #c8e6c9;padding-bottom:2px;margin-bottom:4px;">
+        📋 Guías incluidas en este comprobante (${nGuias})
+      </div>
+      ${guiasHtml}
+    </div>`:''}
+
+    <!-- Montos -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;text-align:center;">
       <div style="border:1px solid #ccc;padding:8px;border-radius:6px;background:#f9f9f9;">
-        <div style="font-size:7px;color:#666;text-transform:uppercase;margin-bottom:3px;">Total Guía</div>
-        <div style="font-size:14px;font-weight:900;color:#e65100;">S/. ${tot.toFixed(2)}</div>
+        <div style="font-size:7px;color:#666;text-transform:uppercase;margin-bottom:3px;">Total Guía${nGuias>1?'s':''}</div>
+        <div style="font-size:13px;font-weight:900;color:#e65100;">S/. ${fmt(tot)}</div>
       </div>
       <div style="border:2px solid #1a5c2e;padding:8px;border-radius:6px;background:#f0faf4;">
         <div style="font-size:7px;color:#2e7d32;text-transform:uppercase;margin-bottom:3px;">Este Pago</div>
-        <div style="font-size:16px;font-weight:900;color:#1a5c2e;">S/. ${parseFloat(c.monto||0).toFixed(2)}</div>
+        <div style="font-size:16px;font-weight:900;color:#1a5c2e;">S/. ${fmt(c.monto)}</div>
       </div>
       <div style="border:1px solid ${saldo<=0.01?'#a5d6a7':'#ef9a9a'};padding:8px;border-radius:6px;background:${saldo<=0.01?'#e8f5e9':'#fce4ec'};">
         <div style="font-size:7px;color:#666;text-transform:uppercase;margin-bottom:3px;">Saldo</div>
-        <div style="font-size:14px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmt(saldo)}</div>
+        <div style="font-size:13px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmt(saldo)}</div>
       </div>
     </div>
-    ${parseFloat(c.descuento_prestamos||0)>0 ? `
+    ${parseFloat(c.descuento_prestamos||0)>0?`
     <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:9px;">
       <div style="font-weight:700;color:#e65100;margin-bottom:3px;">🏦 Descuento por Préstamos</div>
-      ${(c.prestamos_descontados||[]).map(pd=>`<div>• ${pd.codigo}: S/. ${parseFloat(pd.monto).toFixed(2)}</div>`).join('')}
-      <div style="font-weight:800;color:#c62828;margin-top:3px;border-top:1px dashed #ffb74d;padding-top:3px;">Total descontado: S/. ${parseFloat(c.descuento_prestamos).toFixed(2)}</div>
-    </div>` : ''}
-    ${c.observaciones ? `<div style="font-size:9px;margin-bottom:8px;"><b>Obs.:</b> ${c.observaciones}</div>` : ''}
-    <!-- Firmas -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px;">
+      ${(c.prestamos_descontados||[]).map(pd=>`<div>• ${pd.codigo}: S/. ${fmt(pd.monto)}</div>`).join('')}
+      <div style="font-weight:800;color:#c62828;margin-top:3px;border-top:1px dashed #ffb74d;padding-top:3px;">Total: S/. ${fmt(c.descuento_prestamos)}</div>
+    </div>`:''}
+    ${c.observaciones?`<div style="font-size:9px;margin-bottom:8px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px;">
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:7.5px;text-transform:uppercase;">Pagado por (APARCH)</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:7.5px;text-transform:uppercase;">Firma Productor</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:7.5px;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;">${c.productor||''}</span></div>
     </div>
   </div>`;
 }
 
 function verPrintComp(idx){
-  const c=DB.comprobantes[idx];
-  const tot=parseFloat(c.total_guia||0);
-  const pagado=totalPagadoGuia(c.guia_ref);
-  const saldo=tot-pagado;
+  const c = DB.comprobantes[idx];
+  // Calcular totales considerando múltiples guías
+  const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
+  const tot = guiasRef.reduce((a,cod)=>{
+    const g = DB.guias.find(x=>x.codigo===cod);
+    return a + (g ? parseFloat(g.valorrecibido||0) : 0);
+  }, 0) || parseFloat(c.total_guia||0);
+  const pagado = parseFloat(c.monto||0);
+  const saldo  = Math.max(0, tot - pagado);
 
   const copiaProductor = generarCopiaComprobante(c, tot, pagado, saldo, '📄 Copia Productor', '#1a5c2e');
   const copiaCaja      = generarCopiaComprobante(c, tot, pagado, saldo, '🏦 Copia Caja',      '#c8951a');
 
   document.getElementById('print-comp-content').innerHTML=`
-  <div id="print-zona-comp" style="display:flex;flex-direction:column;gap:14px;">
+  <div id="print-zona-comp" style="display:flex;flex-direction:column;gap:10px;">
     ${copiaProductor}
-    <div style="border-top:2px dashed #999;margin:0;"></div>
+    <div style="border-top:2px dashed #aaa;margin:4px 0;"></div>
     ${copiaCaja}
   </div>`;
   abrirModal('modal-print-comp');
