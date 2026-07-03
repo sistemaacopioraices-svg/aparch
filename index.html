@@ -1888,8 +1888,12 @@ tr:hover td{background:#f9f6f1;}
 <div class="modal" style="max-width:780px;">
   <div class="modal-header">
     <div class="modal-title">🖨️ Vista Previa Guía</div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-primary" onclick="imprimirGuia()">🖨️ Imprimir</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="imprimirGuia()">🖨️ Imprimir / PDF</button>
+      <button class="btn" onclick="compartirWhatsAppGuia()" style="background:#25D366;color:#fff;font-weight:700;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="white" style="vertical-align:middle;margin-right:4px;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Enviar por WhatsApp
+      </button>
       <button class="modal-close" onclick="cerrarModal('modal-print-guia')">✕</button>
     </div>
   </div>
@@ -1900,8 +1904,12 @@ tr:hover td{background:#f9f6f1;}
 <div class="modal" style="max-width:680px;">
   <div class="modal-header">
     <div class="modal-title">🖨️ Vista Previa Comprobante</div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-primary" onclick="imprimirComprobante()">🖨️ Imprimir</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="imprimirComprobante()">🖨️ Imprimir / PDF</button>
+      <button class="btn" onclick="compartirWhatsAppComp()" style="background:#25D366;color:#fff;font-weight:700;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="white" style="vertical-align:middle;margin-right:4px;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Enviar por WhatsApp
+      </button>
       <button class="modal-close" onclick="cerrarModal('modal-print-comp')">✕</button>
     </div>
   </div>
@@ -3540,6 +3548,7 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   </div>`;
 }
 function verPrintGuia(idx){
+  _guiaIdxActual = idx;
   const g=DB.guias[idx];
   const copiaProductor = generarCopiaGuia(g, '📄 Copia Productor', '#1a5c2e');
   const copiaCaja       = generarCopiaGuia(g, '🏦 Copia Caja', '#c8951a');
@@ -3551,6 +3560,86 @@ function verPrintGuia(idx){
   </div>`;
   abrirModal('modal-print-guia');
 }
+
+// ══════════════════════════════════════════
+// COMPARTIR POR WHATSAPP
+// ══════════════════════════════════════════
+
+// Genera un mensaje de texto con los datos de la guía y abre WhatsApp
+function compartirWhatsAppGuia(){
+  const contenido = document.getElementById('print-guia-content');
+  if(!contenido) return;
+
+  // Extraer datos de la guía actual del modal
+  const idx = _guiaIdxActual;
+  if(idx === undefined || idx < 0 || !DB.guias[idx]){ alert('No se pudo obtener la guía.'); return; }
+  const g = DB.guias[idx];
+  const totalPN = (g.tickets_detalle||[]).reduce((a,r)=>a+(parseFloat(r.pesoneto)||0),0);
+  const totalQQ = (totalPN/55.2).toFixed(2);
+  const valor   = fmtPago(g.valorrecibido);
+
+  const msg = `🌿 *RAÍCES DE CHIRINOS — APARCH*
+📋 *GUÍA DE ENTRADA*
+━━━━━━━━━━━━━━━━━━
+📄 N° Guía: *${g.codigo}*
+📅 Fecha: ${fechaDisplay(g.fecha)}
+👤 Productor: *${g.productor}*
+🏷️ Certificación: ${g.certificacion||'—'}
+📍 Base: ${g.base||'—'} | Caserío: ${g.caserio||'—'}
+━━━━━━━━━━━━━━━━━━
+⚖️ KG Netos: *${fmt(totalPN)} kg*
+☕ QQ Netos: *${totalQQ} qq*
+📊 Rendimiento: ${g.rend_export||'—'}%
+💰 Precio QQ: S/. ${fmt(g.precioqq)}
+💵 Precio KG: S/. ${parseFloat(g.precikg||0).toFixed(4)}
+━━━━━━━━━━━━━━━━━━
+💰 *VALOR TOTAL: S/. ${valor}*
+━━━━━━━━━━━━━━━━━━
+_Campaña ${g.campana||'2026'} — Sistema APARCH_`;
+
+  const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+
+// Genera un mensaje con datos del comprobante
+function compartirWhatsAppComp(){
+  const idx = _compIdxActual;
+  if(idx === undefined || idx < 0 || !DB.comprobantes[idx]){ alert('No se pudo obtener el comprobante.'); return; }
+  const c = DB.comprobantes[idx];
+  const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
+  const nGuias = guiasRef.length;
+  const tot = guiasRef.reduce((a,cod)=>{
+    const g = DB.guias.find(x=>x.codigo===cod);
+    return a + (g ? parseFloat(g.valorrecibido||0) : 0);
+  }, 0) || parseFloat(c.total_guia||0);
+  const saldo = Math.max(0, tot - parseFloat(c.monto||0));
+
+  const guiasTexto = guiasRef.map(cod=>`  • ${cod}`).join('\n');
+
+  const msg = `🌿 *RAÍCES DE CHIRINOS — APARCH*
+🧾 *COMPROBANTE DE PAGO*
+━━━━━━━━━━━━━━━━━━
+📄 N° Comp: *${c.codigo}*
+📅 Fecha: ${fechaDisplay(c.fecha)}
+👤 Productor: *${c.productor}*
+━━━━━━━━━━━━━━━━━━
+📋 *${nGuias} Guía${nGuias>1?'s':''} incluida${nGuias>1?'s':''}:*
+${guiasTexto}
+━━━━━━━━━━━━━━━━━━
+💵 Total guías: S/. ${fmtPago(tot)}
+✅ *Este pago: S/. ${fmtPago(c.monto)}*
+${saldo > 0.01 ? `⏳ Saldo pendiente: S/. ${fmtPago(saldo)}` : '✅ Totalmente pagado'}
+💳 Forma de pago: ${c.formapago||'Efectivo'}
+━━━━━━━━━━━━━━━━━━
+_Campaña ${DB.campana?.nombre||'2026'} — Sistema APARCH_`;
+
+  const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+
+// Variables para guardar el índice actual al abrir modals
+let _guiaIdxActual = -1;
+let _compIdxActual = -1;
 
 function imprimirGuia(){
   const c=document.getElementById('print-zona-guia').outerHTML;
@@ -4162,6 +4251,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
 }
 
 function verPrintComp(idx){
+  _compIdxActual = idx;
   const c = DB.comprobantes[idx];
   // Calcular totales considerando múltiples guías
   const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
