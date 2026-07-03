@@ -7058,23 +7058,31 @@ function masGenerarPreview(){
     // Dividir el KG del socio en guías de qqMin a qqMax
     let kgSocioRestante = kgSocio;
     while(kgSocioRestante > 0.1){
+      // QQ objetivo para esta guía
       const qqEstaGuia = Math.min(
         qqMin + Math.random()*(qqMax-qqMin),
         kgSocioRestante/55.2
       );
-      const kgNetoGuia = Math.round(Math.min(qqEstaGuia*55.2, kgSocioRestante)*100)/100;
+      const kgNetoObjetivo = Math.round(Math.min(qqEstaGuia*55.2, kgSocioRestante)*100)/100;
+
+      // Sacos: calcular cuántos sacos necesita (KG bruto por saco entre 60-75 kg)
+      const kgPorSaco = 60 + Math.random()*15; // entre 60 y 75 kg/saco
+      let sacos = Math.max(1, Math.round((kgNetoObjetivo + kgNetoObjetivo*0.25/kgPorSaco) / kgPorSaco));
+
+      // Tara exacta = sacos × 0.25
+      const tara = Math.round(sacos * 0.25 * 100) / 100;
+
+      // KG Bruto = KG Neto + Tara (con algo de variación natural)
+      const kgBrutoGuia = Math.round((kgNetoObjetivo + tara)*100)/100;
+
+      // KG Neto real = KG Bruto - Tara
+      const kgNetoGuia = Math.round((kgBrutoGuia - tara)*100)/100;
       const qqNetoGuia = kgNetoGuia/55.2;
 
-      // Rend aleatorio dentro del rango
-      const rend   = Math.round(rendMin + Math.random()*(rendMax-rendMin));
-      const kgBrutoGuia = Math.round(kgNetoGuia*(100/rend)*100)/100;
-      const tara   = Math.round(kgNetoGuia*0.01*100)/100; // 1% tara aprox
-      const sacos  = Math.max(1, Math.round(kgBrutoGuia/70)); // ~70kg/saco
+      // Rendimiento aleatorio dentro del rango
+      const rend = Math.round(rendMin + Math.random()*(rendMax-rendMin));
 
-      // Valor proporcional
-      const valorGuia = guiaIdx===0 ? 0 : Math.round(qqNetoGuia*precioQQ*10)/10; // se ajusta al final
-
-      // Fecha distribuida
+      // Fecha distribuida entre fechaIni y fechaFin
       const diaOffset = Math.round((guiaIdx/(Math.max(1,socios.length*2)))*diffDias);
       const fechaGuia = new Date(dIni.getTime() + diaOffset*86400000)
         .toLocaleDateString('en-CA');
@@ -7145,6 +7153,7 @@ function masGenerarPreview(){
           <th style="padding:5px 6px;">Fecha</th>
           <th style="padding:5px 6px;text-align:right;">Sacos</th>
           <th style="padding:5px 6px;text-align:right;">KG Bruto</th>
+          <th style="padding:5px 6px;text-align:right;">Tara (×0.25)</th>
           <th style="padding:5px 6px;text-align:right;">KG Neto</th>
           <th style="padding:5px 6px;text-align:right;">QQ</th>
           <th style="padding:5px 6px;text-align:right;">Rend%</th>
@@ -7159,11 +7168,21 @@ function masGenerarPreview(){
           <td style="padding:4px 6px;">${fechaDisplay(d.fecha)}</td>
           <td style="padding:4px 6px;text-align:right;">${d.sacos}</td>
           <td style="padding:4px 6px;text-align:right;">${fmt(d.kgBruto)}</td>
+          <td style="padding:4px 6px;text-align:right;color:#e65100;">${fmt(d.tara)}</td>
           <td style="padding:4px 6px;text-align:right;font-weight:700;color:#1a5c2e;">${fmt(d.kgNeto)}</td>
           <td style="padding:4px 6px;text-align:right;">${d.qqNeto.toFixed(2)}</td>
           <td style="padding:4px 6px;text-align:right;">${d.rend}%</td>
           <td style="padding:4px 6px;text-align:right;font-weight:700;color:#e65100;">S/. ${fmtPago(d.valor)}</td>
         </tr>`).join('')}
+        <tr style="background:#e8f5e9;font-weight:800;border-top:2px solid #1a5c2e;">
+          <td colspan="4" style="padding:5px 6px;color:#1a5c2e;">TOTALES (${distribucion.length} guías)</td>
+          <td style="padding:5px 6px;text-align:right;">${fmt(distribucion.reduce((a,d)=>a+d.kgBruto,0))}</td>
+          <td style="padding:5px 6px;text-align:right;color:#e65100;">${fmt(distribucion.reduce((a,d)=>a+d.tara,0))}</td>
+          <td style="padding:5px 6px;text-align:right;color:#1a5c2e;">${fmt(distribucion.reduce((a,d)=>a+d.kgNeto,0))}</td>
+          <td style="padding:5px 6px;text-align:right;">${(distribucion.reduce((a,d)=>a+d.qqNeto,0)).toFixed(2)}</td>
+          <td></td>
+          <td style="padding:5px 6px;text-align:right;color:#e65100;">S/. ${fmtPago(distribucion.reduce((a,d)=>a+d.valor,0))}</td>
+        </tr>
       </tbody>
     </table>`;
 
