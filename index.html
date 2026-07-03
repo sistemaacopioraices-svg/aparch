@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>APARCH — Sistema de Acopio v10</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
   --verde:#1a5c2e;--verde-m:#2d7a45;--verde-c:#4caf72;
@@ -3562,50 +3564,129 @@ function verPrintGuia(idx){
 }
 
 // ══════════════════════════════════════════
-// COMPARTIR POR WHATSAPP
+// COMPARTIR POR WHATSAPP — GUÍA + COMPROBANTE
+// Genera PDF de la COPIA DEL SOCIO y abre WhatsApp
 // ══════════════════════════════════════════
 
-// Genera un mensaje de texto con los datos de la guía y abre WhatsApp
-function compartirWhatsAppGuia(){
-  const contenido = document.getElementById('print-guia-content');
-  if(!contenido) return;
-
-  // Extraer datos de la guía actual del modal
+async function compartirWhatsAppGuia(){
   const idx = _guiaIdxActual;
-  if(idx === undefined || idx < 0 || !DB.guias[idx]){ alert('No se pudo obtener la guía.'); return; }
+  if(idx < 0 || !DB.guias[idx]){ alert('No se pudo obtener la guía.'); return; }
   const g = DB.guias[idx];
+
+  // Solo capturar la COPIA PRODUCTOR (primer div dentro del contenido)
+  const contenedor = document.getElementById('print-guia-content');
+  const copiaProductor = contenedor ? contenedor.querySelector('div > div:first-child') : null;
+
+  if(!copiaProductor){ alert('Abre primero la vista previa de la guía.'); return; }
+
+  await _generarPDFyWhatsApp(
+    copiaProductor,
+    `Guia_${g.codigo}_${g.productor.replace(/\s+/g,'_')}.pdf`,
+    _mensajeWhatsAppGuia(g)
+  );
+}
+
+async function compartirWhatsAppComp(){
+  const idx = _compIdxActual;
+  if(idx < 0 || !DB.comprobantes[idx]){ alert('No se pudo obtener el comprobante.'); return; }
+  const c = DB.comprobantes[idx];
+
+  // Solo capturar la COPIA PRODUCTOR
+  const contenedor = document.getElementById('print-comp-content');
+  const copiaProductor = contenedor ? contenedor.querySelector('div > div:first-child') : null;
+
+  if(!copiaProductor){ alert('Abre primero la vista previa del comprobante.'); return; }
+
+  await _generarPDFyWhatsApp(
+    copiaProductor,
+    `Comprobante_${c.codigo}_${(c.productor||'').replace(/\s+/g,'_')}.pdf`,
+    _mensajeWhatsAppComp(c)
+  );
+}
+
+async function _generarPDFyWhatsApp(elemento, nombreArchivo, mensajeWA){
+  // Mostrar indicador de carga
+  const btnWA = document.querySelector('[onclick*="compartirWhatsApp"]');
+  const textoOriginal = btnWA ? btnWA.innerHTML : '';
+
+  try{
+    // Paso 1: Capturar el elemento como imagen con html2canvas
+    const notif = document.createElement('div');
+    notif.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a5c2e;color:#fff;padding:16px 28px;border-radius:10px;font-size:1rem;font-weight:700;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.4);';
+    notif.textContent = '⏳ Generando PDF...';
+    document.body.appendChild(notif);
+
+    const canvas = await html2canvas(elemento, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: elemento.offsetWidth,
+      height: elemento.offsetHeight,
+    });
+
+    // Paso 2: Crear PDF con jsPDF
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdfW = 210; // A4 ancho mm
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+    const ratio = pdfW / (imgW / (96/25.4)); // convertir px a mm
+    const pdfH = (imgH / (96/25.4)) * ratio;
+
+    const pdf = new jsPDF({
+      orientation: pdfH > pdfW ? 'portrait' : 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgMM_W = pageW - 10;
+    const imgMM_H = (canvas.height * imgMM_W) / canvas.width;
+
+    pdf.addImage(imgData, 'JPEG', 5, 5, imgMM_W, Math.min(imgMM_H, pageH - 10));
+    pdf.save(nombreArchivo);
+
+    // Paso 3: Esperar un momento y abrir WhatsApp
+    notif.textContent = '✅ PDF descargado — abriendo WhatsApp...';
+    await new Promise(r => setTimeout(r, 1200));
+    document.body.removeChild(notif);
+
+    // Abrir WhatsApp con el mensaje de texto
+    window.open('https://wa.me/?text=' + encodeURIComponent(mensajeWA), '_blank');
+
+  }catch(err){
+    console.error('Error generando PDF:', err);
+    // Si falla html2canvas, solo abrir WhatsApp con texto
+    alert('⚠️ No se pudo generar el PDF automáticamente.\nSe abrirá WhatsApp con el resumen del documento.\n\nPuede adjuntar el PDF manualmente guardando la página como PDF desde el botón 🖨️ Imprimir.');
+    window.open('https://wa.me/?text=' + encodeURIComponent(mensajeWA), '_blank');
+  }
+}
+
+function _mensajeWhatsAppGuia(g){
   const totalPN = (g.tickets_detalle||[]).reduce((a,r)=>a+(parseFloat(r.pesoneto)||0),0);
   const totalQQ = (totalPN/55.2).toFixed(2);
-  const valor   = fmtPago(g.valorrecibido);
-
-  const msg = `🌿 *RAÍCES DE CHIRINOS — APARCH*
+  return `🌿 *RAÍCES DE CHIRINOS — APARCH*
 📋 *GUÍA DE ENTRADA*
 ━━━━━━━━━━━━━━━━━━
 📄 N° Guía: *${g.codigo}*
 📅 Fecha: ${fechaDisplay(g.fecha)}
 👤 Productor: *${g.productor}*
-🏷️ Certificación: ${g.certificacion||'—'}
+🏷️ Certif.: ${g.certificacion||'—'}
 📍 Base: ${g.base||'—'} | Caserío: ${g.caserio||'—'}
 ━━━━━━━━━━━━━━━━━━
 ⚖️ KG Netos: *${fmt(totalPN)} kg*
 ☕ QQ Netos: *${totalQQ} qq*
 📊 Rendimiento: ${g.rend_export||'—'}%
 💰 Precio QQ: S/. ${fmt(g.precioqq)}
-💵 Precio KG: S/. ${parseFloat(g.precikg||0).toFixed(4)}
 ━━━━━━━━━━━━━━━━━━
-💰 *VALOR TOTAL: S/. ${valor}*
+💵 *VALOR TOTAL: S/. ${fmtPago(g.valorrecibido)}*
 ━━━━━━━━━━━━━━━━━━
-_Campaña ${g.campana||'2026'} — Sistema APARCH_`;
-
-  const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
-  window.open(url, '_blank');
+_Adjunto la guía en PDF. Campaña ${g.campana||'2026'} — APARCH_`;
 }
 
-// Genera un mensaje con datos del comprobante
-function compartirWhatsAppComp(){
-  const idx = _compIdxActual;
-  if(idx === undefined || idx < 0 || !DB.comprobantes[idx]){ alert('No se pudo obtener el comprobante.'); return; }
-  const c = DB.comprobantes[idx];
+function _mensajeWhatsAppComp(c){
   const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
   const nGuias = guiasRef.length;
   const tot = guiasRef.reduce((a,cod)=>{
@@ -3613,28 +3694,20 @@ function compartirWhatsAppComp(){
     return a + (g ? parseFloat(g.valorrecibido||0) : 0);
   }, 0) || parseFloat(c.total_guia||0);
   const saldo = Math.max(0, tot - parseFloat(c.monto||0));
-
-  const guiasTexto = guiasRef.map(cod=>`  • ${cod}`).join('\n');
-
-  const msg = `🌿 *RAÍCES DE CHIRINOS — APARCH*
+  return `🌿 *RAÍCES DE CHIRINOS — APARCH*
 🧾 *COMPROBANTE DE PAGO*
 ━━━━━━━━━━━━━━━━━━
 📄 N° Comp: *${c.codigo}*
 📅 Fecha: ${fechaDisplay(c.fecha)}
 👤 Productor: *${c.productor}*
 ━━━━━━━━━━━━━━━━━━
-📋 *${nGuias} Guía${nGuias>1?'s':''} incluida${nGuias>1?'s':''}:*
-${guiasTexto}
-━━━━━━━━━━━━━━━━━━
+📋 ${nGuias} Guía${nGuias>1?'s':''}: ${guiasRef.join(', ')}
 💵 Total guías: S/. ${fmtPago(tot)}
 ✅ *Este pago: S/. ${fmtPago(c.monto)}*
-${saldo > 0.01 ? `⏳ Saldo pendiente: S/. ${fmtPago(saldo)}` : '✅ Totalmente pagado'}
-💳 Forma de pago: ${c.formapago||'Efectivo'}
+${saldo>0.01?`⏳ Saldo: S/. ${fmtPago(saldo)}`:'✅ Pagado total'}
+💳 ${c.formapago||'Efectivo'}
 ━━━━━━━━━━━━━━━━━━
-_Campaña ${DB.campana?.nombre||'2026'} — Sistema APARCH_`;
-
-  const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
-  window.open(url, '_blank');
+_Adjunto el comprobante en PDF. APARCH_`;
 }
 
 // Variables para guardar el índice actual al abrir modals
