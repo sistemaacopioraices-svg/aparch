@@ -289,12 +289,20 @@ tr:hover td{background:#f9f6f1;}
 <!-- DASHBOARD -->
 <div class="section active" id="sec-dashboard">
 
-  <!-- STATS PRINCIPALES -->
-  <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
+  <!-- TABS DE TIPO -->
+  <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--borde);padding-bottom:10px;flex-wrap:wrap;">
+    <button id="dash-tab-total" class="btn btn-primary" onclick="switchDashTab('total')" style="font-size:0.85rem;">🏦 General</button>
+    <button id="dash-tab-conv"  class="btn btn-secondary" onclick="switchDashTab('conv')"  style="font-size:0.85rem;">☕ Convencional</button>
+    <button id="dash-tab-org"   class="btn btn-secondary" onclick="switchDashTab('org')"   style="font-size:0.85rem;">🌿 Orgánico / Fairtrade</button>
+    <button id="dash-tab-coco"  class="btn btn-secondary" onclick="switchDashTab('coco')"  style="font-size:0.85rem;">🌰 Café Coco</button>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(155px,1fr));margin-bottom:16px;">
     <div class="stat-card dorado">
       <div class="stat-label">⚖️ KG Netos</div>
       <div class="stat-val" id="dash-kg-netos">0</div>
-      <div class="stat-sub">Total acopiado</div>
+      <div class="stat-sub" id="dash-kg-sub">Total acopiado</div>
     </div>
     <div class="stat-card" style="border-left-color:#6b3a2a;">
       <div class="stat-label">☕ QQ Netos</div>
@@ -304,58 +312,53 @@ tr:hover td{background:#f9f6f1;}
     <div class="stat-card azul">
       <div class="stat-label">💰 Total Pagado</div>
       <div class="stat-val" id="dash-total-pagado">S/. 0</div>
-      <div class="stat-sub">Guías liquidadas</div>
+      <div class="stat-sub" id="dash-pagado-sub">Guías liquidadas</div>
     </div>
     <div class="stat-card" style="border-left-color:#1565c0;">
       <div class="stat-label">📈 Precio Promedio</div>
       <div class="stat-val" id="dash-precio-prom">S/. 0</div>
-      <div class="stat-sub">Solo café convencional/kg</div>
+      <div class="stat-sub" id="dash-prom-sub">por KG neto</div>
     </div>
     <div class="stat-card cafe">
-      <div class="stat-label">👥 Socios</div>
+      <div class="stat-label" id="dash-extra-label">👥 Socios</div>
       <div class="stat-val" id="dash-socios">0</div>
-      <div class="stat-sub">Registrados</div>
+      <div class="stat-sub" id="dash-extra-sub">Registrados</div>
     </div>
   </div>
 
-  <!-- GRÁFICOS ROW 1 -->
+  <!-- GRÁFICOS -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-
-    <!-- Gráfico % Acopio por Base -->
     <div class="card" style="padding:16px 18px;">
       <div class="card-header" style="margin-bottom:12px;">
-        <div class="card-title" style="font-size:0.9rem;">📊 Acopio por Base (%)</div>
+        <div class="card-title" style="font-size:0.9rem;" id="dash-chart-base-title">📊 Acopio por Base (%)</div>
       </div>
       <canvas id="chart-base" height="220"></canvas>
       <div id="chart-base-legend" style="margin-top:10px;font-size:0.73rem;display:flex;flex-wrap:wrap;gap:6px;"></div>
     </div>
-
-    <!-- Gráfico Acopio por Certificación -->
     <div class="card" style="padding:16px 18px;">
       <div class="card-header" style="margin-bottom:12px;">
         <div class="card-title" style="font-size:0.9rem;">🌿 KG por Certificación</div>
       </div>
       <canvas id="chart-certif" height="220"></canvas>
-      <div id="chart-certif-legend" style="margin-top:10px;font-size:0.73rem;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;'"></div>
+      <div id="chart-certif-legend" style="margin-top:10px;font-size:0.73rem;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
     </div>
   </div>
 
-  <!-- GRÁFICO Acopio diario -->
   <div class="card" style="padding:16px 18px;margin-bottom:16px;">
     <div class="card-header" style="margin-bottom:12px;">
-      <div class="card-title" style="font-size:0.9rem;">📈 Acopio Diario (kg netos)</div>
+      <div class="card-title" style="font-size:0.9rem;" id="dash-chart-diario-title">📈 Acopio Diario (kg netos)</div>
     </div>
     <canvas id="chart-diario" height="140"></canvas>
   </div>
 
-  <!-- ÚLTIMOS TICKETS -->
+  <!-- ÚLTIMOS REGISTROS -->
   <div class="card">
     <div class="card-header">
-      <div class="card-title">🎫 Últimos Tickets</div>
-      <button class="btn btn-primary btn-sm" onclick="showSection('tickets')">Ver todos</button>
+      <div class="card-title" id="dash-tabla-titulo">🎫 Últimos Tickets</div>
+      <button class="btn btn-primary btn-sm" id="dash-btn-ver-todos" onclick="showSection('tickets')">Ver todos</button>
     </div>
     <div class="table-wrap">
-      <table><thead><tr>
+      <table><thead><tr id="dash-tabla-headers">
         <th>N° Ticket</th><th>Fecha</th><th>Productor</th><th>Base</th>
         <th>Certif.</th><th>Lote</th><th>KG Neto</th>
       </tr></thead><tbody id="dash-tickets-body"></tbody></table>
@@ -2585,43 +2588,142 @@ function showSection(id){
 }
 
 // ══════════════════════════════════════════
-// DASHBOARD
+// DASHBOARD CON TABS POR TIPO
 // ══════════════════════════════════════════
+let _dashTab = 'total'; // 'total' | 'conv' | 'org' | 'coco'
+
+function switchDashTab(tab){
+  _dashTab = tab;
+  ['total','conv','org','coco'].forEach(t=>{
+    const btn = document.getElementById('dash-tab-'+t);
+    if(btn) btn.className = t===tab ? 'btn btn-primary' : 'btn btn-secondary';
+  });
+  renderDashboard();
+}
+
 function renderDashboard(){
-  // ── STATS ──
-  const kgNetos = DB.tickets.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  const qqNetos = kgNetos/55.2;
+  const tab = _dashTab;
 
-  // Total pagado = suma de comprobantes activos
-  const totalPagado = DB.comprobantes
-    .filter(c=>c.estado!=='Anulado')
-    .reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
+  // ── Filtrar datos según el tab ──
+  const esConv = t => (t.certificacion||'').toUpperCase().includes('CONVENCIONAL');
+  const esOrg  = t => {
+    const c=(t.certificacion||'').toUpperCase();
+    return c.includes('ORGANICO')||c.includes('FAIRTRADE');
+  };
 
-  // Precio promedio SOLO café convencional: total pagado en guías CONV / kg netos CONV
-  const guiasConv = DB.guias.filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'));
-  const codigosConv = new Set(guiasConv.map(g=>g.codigo));
-  const kgConv = DB.tickets.filter(t=>(t.certificacion||'').toUpperCase().includes('CONVENCIONAL'))
-    .reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  const pagadoConv = DB.comprobantes
-    .filter(c=>c.estado!=='Anulado' && (
-      codigosConv.has(c.guia_ref) ||
-      (c.guias_ref||[]).some(r=>codigosConv.has(r))
-    ))
-    .reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
-  const precioProm = kgConv > 0 ? pagadoConv/kgConv : 0;
+  let tickets, guias, comprobantes, labelKg, labelPagado, labelProm, labelExtra, extraVal;
 
-  document.getElementById('dash-kg-netos').textContent   = fmt(kgNetos,1);
-  document.getElementById('dash-qq-netos').textContent   = fmt(qqNetos,2);
-  document.getElementById('dash-total-pagado').textContent = fmtS(totalPagado);
-  document.getElementById('dash-precio-prom').textContent  = fmtS(precioProm,4);
-  document.getElementById('dash-socios').textContent       = DB.socios.length;
+  if(tab==='conv'){
+    tickets      = DB.tickets.filter(esConv);
+    guias        = DB.guias.filter(g=>esConv(g));
+    comprobantes = DB.comprobantes.filter(c=>{
+      const cod = c.guia_ref||(c.guias_ref||[])[0]||'';
+      const g   = DB.guias.find(x=>x.codigo===cod);
+      return g && esConv(g);
+    }).filter(c=>c.estado!=='Anulado');
+    labelKg='☕ KG Convencional'; labelPagado='Guías Conv. liquidadas';
+    labelProm='por KG convencional'; labelExtra='📋 Guías Conv.';
+    extraVal = guias.length;
+  } else if(tab==='org'){
+    tickets      = DB.tickets.filter(esOrg);
+    guias        = DB.guias.filter(g=>esOrg(g));
+    comprobantes = DB.comprobantes.filter(c=>{
+      const cod = c.guia_ref||(c.guias_ref||[])[0]||'';
+      const g   = DB.guias.find(x=>x.codigo===cod);
+      return g && esOrg(g);
+    }).filter(c=>c.estado!=='Anulado');
+    labelKg='🌿 KG Orgánico/FT'; labelPagado='Guías Org. liquidadas';
+    labelProm='por KG orgánico'; labelExtra='📋 Guías Org.';
+    extraVal = guias.length;
+  } else if(tab==='coco'){
+    tickets      = [];
+    guias        = [];
+    comprobantes = [];
+    labelKg='🌰 KG Coco'; labelPagado='Total pagado coco';
+    labelProm='por KG coco'; labelExtra='🛒 Compras Coco';
+    extraVal = (DB.cafecoco||[]).length;
+  } else {
+    tickets      = DB.tickets;
+    guias        = DB.guias;
+    comprobantes = DB.comprobantes.filter(c=>c.estado!=='Anulado');
+    labelKg='⚖️ KG Netos Total'; labelPagado='Todas las guías';
+    labelProm='por KG (conv)'; labelExtra='👥 Socios';
+    extraVal = DB.socios.length;
+  }
 
-  // ── ÚLTIMOS TICKETS ──
+  // ── Calcular stats ──
+  let kgNetos, qqNetos, totalPagado, precioProm;
+
+  if(tab==='coco'){
+    kgNetos    = (DB.cafecoco||[]).reduce((a,c)=>a+(parseFloat(c.kgneto)||0),0);
+    qqNetos    = kgNetos/55.2;
+    totalPagado= (DB.cafecoco||[]).reduce((a,c)=>a+(parseFloat(c.total)||0),0);
+    precioProm = kgNetos>0?totalPagado/kgNetos:0;
+  } else {
+    kgNetos     = tickets.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+    qqNetos     = kgNetos/55.2;
+    totalPagado = comprobantes.reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
+    precioProm  = kgNetos>0?totalPagado/kgNetos:0;
+  }
+
+  document.getElementById('dash-kg-netos').textContent    = fmt(kgNetos,1);
+  document.getElementById('dash-qq-netos').textContent    = fmt(qqNetos,2);
+  document.getElementById('dash-total-pagado').textContent= fmtS(totalPagado);
+  document.getElementById('dash-precio-prom').textContent = fmtS(precioProm,4);
+  document.getElementById('dash-socios').textContent      = extraVal;
+  document.getElementById('dash-kg-sub').textContent      = labelKg;
+  document.getElementById('dash-pagado-sub').textContent  = labelPagado;
+  document.getElementById('dash-prom-sub').textContent    = labelProm;
+  document.getElementById('dash-extra-label').textContent = labelExtra;
+
+  // ── TABLA — ordenada por fecha DESC, sin mezclar tipos ──
   const tb = document.getElementById('dash-tickets-body');
-  const rec = [...DB.tickets].reverse().slice(0,8);
-  if(!rec.length){ tb.innerHTML='<tr><td colspan="7" class="empty-state">Sin tickets registrados</td></tr>'; }
-  else {
-    tb.innerHTML = rec.map(t=>`<tr>
+  const headers = document.getElementById('dash-tabla-headers');
+  const titulo  = document.getElementById('dash-tabla-titulo');
+  const btnVer  = document.getElementById('dash-btn-ver-todos');
+
+  if(tab==='coco'){
+    titulo.textContent = '🌰 Últimas Compras de Coco';
+    btnVer.onclick = ()=>showSection('cafecoco');
+    headers.innerHTML = '<th>N° Compra</th><th>Fecha</th><th>Productor</th><th>Sacos</th><th>KG Bruto</th><th>KG Neto</th><th>Total S/.</th>';
+    const lista = [...(DB.cafecoco||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,8);
+    tb.innerHTML = lista.length ? lista.map(c=>`<tr>
+      <td class="td-codigo">${c.codigo}</td>
+      <td>${fechaDisplay(c.fecha)}</td>
+      <td><strong>${c.nombres||'—'}</strong></td>
+      <td>${c.sacos||0}</td>
+      <td>${fmt(c.kgbruto)}</td>
+      <td style="font-weight:700;color:#1b5e20;">${fmt(c.kgneto)}</td>
+      <td style="font-weight:700;color:#e65100;">S/.${fmt(c.total)}</td>
+    </tr>`).join('')
+    : '<tr><td colspan="7" class="empty-state">Sin compras de coco</td></tr>';
+  } else if(tab==='org'||tab==='conv'){
+    titulo.textContent = tab==='org'?'🌿 Últimas Guías Orgánicas':'☕ Últimas Guías Convencionales';
+    btnVer.onclick = ()=>showSection('guias');
+    headers.innerHTML = '<th>N° Guía</th><th>Fecha</th><th>Productor</th><th>Base</th><th>QQ</th><th>Valor S/.</th><th>Estado</th>';
+    const lista = [...guias].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,8);
+    tb.innerHTML = lista.length ? lista.map(g=>{
+      const qq=((g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0)/55.2).toFixed(2);
+      const ep=g.estado_pago||'Pendiente';
+      const col=ep==='Pagado Total'?'#2e7d32':ep==='Pago Parcial'?'#e65100':'#c62828';
+      return `<tr>
+        <td class="td-codigo">${g.codigo}</td>
+        <td>${fechaDisplay(g.fecha)}</td>
+        <td><strong>${g.productor||'—'}</strong></td>
+        <td style="font-size:0.78rem;">${g.base||'—'}</td>
+        <td>${qq}</td>
+        <td style="font-weight:700;color:#e65100;">S/.${fmtPago(g.valorrecibido)}</td>
+        <td><span style="font-size:0.7rem;font-weight:700;color:${col};">${ep}</span></td>
+      </tr>`;
+    }).join('')
+    : `<tr><td colspan="7" class="empty-state">Sin guías registradas</td></tr>`;
+  } else {
+    titulo.textContent = '🎫 Últimos Tickets';
+    btnVer.onclick = ()=>showSection('tickets');
+    headers.innerHTML = '<th>N° Ticket</th><th>Fecha</th><th>Productor</th><th>Base</th><th>Certif.</th><th>Lote</th><th>KG Neto</th>';
+    // Ordenar por fecha DESC
+    const lista = [...DB.tickets].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||(b.hora||'').localeCompare(a.hora||'')).slice(0,8);
+    tb.innerHTML = lista.length ? lista.map(t=>`<tr>
       <td class="td-codigo">${t.codigo}</td>
       <td>${fechaDisplay(t.fecha)}</td>
       <td><strong>${t.productor||'—'}</strong></td>
@@ -2629,14 +2731,15 @@ function renderDashboard(){
       <td><span class="badge badge-verde" style="font-size:0.65rem;">${(t.certificacion||'—').replace('ORGANICO - FAIRTRADE USA','ORG-FT').replace('ORGANICO','ORG').replace('CONVENCIONAL','CONV')}</span></td>
       <td style="font-size:0.78rem;color:#1565c0;">${t.lote||'—'}</td>
       <td style="font-weight:700;color:#1b5e20;">${fmt(t.pesoneto)}</td>
-    </tr>`).join('');
+    </tr>`).join('')
+    : '<tr><td colspan="7" class="empty-state">Sin tickets registrados</td></tr>';
   }
 
-  // ── GRÁFICOS ──
+  // ── GRÁFICOS — pasar el filtro de tickets ──
   setTimeout(()=>{
-    renderChartBase();
-    renderChartCertif();
-    renderChartDiario();
+    renderChartBase(tickets);
+    renderChartCertif(tickets);
+    renderChartDiario(tab==='coco'?[]:tickets);
   }, 100);
 }
 
@@ -2644,14 +2747,13 @@ function renderDashboard(){
 const COLORES_BASES = ['#1a5c2e','#2e7d32','#43a047','#66bb6a','#c8951a','#e65100','#1565c0','#6a1b9a','#ad1457','#00838f','#4e342e','#37474f'];
 
 // ── GRÁFICO % ACOPIO POR BASE (barras horizontales) ──
-function renderChartBase(){
+function renderChartBase(ticketsFiltro){
+  const ticketsData = ticketsFiltro || DB.tickets;
   const canvas = document.getElementById('chart-base');
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
-
-  // Agrupar kg netos por base
   const porBase = {};
-  DB.tickets.forEach(t=>{
+  ticketsData.forEach(t=>{
     const base = t.base||'Sin Base';
     porBase[base] = (porBase[base]||0) + (parseFloat(t.pesoneto)||0);
   });
@@ -2719,13 +2821,13 @@ function renderChartBase(){
 }
 
 // ── GRÁFICO DONUT — POR CERTIFICACIÓN ──
-function renderChartCertif(){
+function renderChartCertif(ticketsFiltro){
+  const ticketsData = ticketsFiltro || DB.tickets;
   const canvas = document.getElementById('chart-certif');
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
-
   const porCertif = {};
-  DB.tickets.forEach(t=>{
+  ticketsData.forEach(t=>{
     const cert = (t.certificacion||'Sin certif.').replace('ORGANICO - FAIRTRADE USA','ORG-FAIRTRADE').replace('ORGANICO','ORGÁNICO').replace('CONVENCIONAL','CONVENCIONAL');
     porCertif[cert] = (porCertif[cert]||0) + (parseFloat(t.pesoneto)||0);
   });
@@ -2789,14 +2891,13 @@ function renderChartCertif(){
 }
 
 // ── GRÁFICO LÍNEA — ACOPIO DIARIO ──
-function renderChartDiario(){
+function renderChartDiario(ticketsFiltro){
+  const ticketsData = ticketsFiltro || DB.tickets;
   const canvas = document.getElementById('chart-diario');
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
-
-  // Agrupar por fecha (últimos 14 días con datos)
   const porFecha = {};
-  DB.tickets.forEach(t=>{
+  ticketsData.forEach(t=>{
     if(t.fecha) porFecha[t.fecha] = (porFecha[t.fecha]||0) + (parseFloat(t.pesoneto)||0);
   });
 
