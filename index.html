@@ -391,10 +391,9 @@ tr:hover td{background:#f9f6f1;}
         <th>Defectos</th><th>Lote</th><th>Obs.</th><th>Acciones</th>
       </tr></thead><tbody id="tickets-body"></tbody></table>
     </div>
+    <div id="tickets-pager"></div>
   </div>
 </div>
-
-<!-- GUIAS -->
 <div class="section" id="sec-guias">
   <div class="card">
     <div class="card-header">
@@ -441,6 +440,7 @@ tr:hover td{background:#f9f6f1;}
         <th>Estado Pago</th><th>Acciones</th>
       </tr></thead><tbody id="guias-body"></tbody></table>
     </div>
+    <div id="guias-pager"></div>
   </div>
 </div>
 
@@ -468,6 +468,7 @@ tr:hover td{background:#f9f6f1;}
         <th>Forma Pago</th><th>Estado</th><th>Acciones</th>
       </tr></thead><tbody id="comp-body"></tbody></table>
     </div>
+    <div id="comp-pager"></div>
   </div>
 </div>
 
@@ -1096,6 +1097,7 @@ tr:hover td{background:#f9f6f1;}
         <th>Apertura</th><th>Usuario</th><th>Acciones</th>
       </tr></thead><tbody id="recibos-body"></tbody></table>
     </div>
+    <div id="recibos-pager"></div>
   </div>
 </div>
 
@@ -3229,18 +3231,64 @@ function switchCompTab(tab){
   filtrarComprobantes();
 }
 
+// ══════════════════════════════════════════
+// PAGINACIÓN VIRTUAL — máx 50 filas por página
+// ══════════════════════════════════════════
+const PAGE_SIZE = 50;
+const _paginas = { tickets:0, guias:0, comprobantes:0, recibos:0 };
+let   _listasFiltradas = { tickets:[], guias:[], comprobantes:[], recibos:[] };
+
+function renderPager(modulo, total, containerId){
+  const pag = _paginas[modulo];
+  const totalPags = Math.ceil(total / PAGE_SIZE);
+  if(totalPags <= 1){ document.getElementById(containerId).innerHTML=''; return; }
+
+  const inicio = pag*PAGE_SIZE+1;
+  const fin    = Math.min((pag+1)*PAGE_SIZE, total);
+  document.getElementById(containerId).innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f5f5f5;border-top:1px solid var(--borde);font-size:0.8rem;flex-wrap:wrap;gap:6px;">
+      <span style="color:#555;">Mostrando <strong>${inicio}-${fin}</strong> de <strong>${total}</strong> registros</span>
+      <div style="display:flex;gap:4px;">
+        <button class="btn btn-secondary btn-sm" onclick="_irPag('${modulo}',0)" ${pag===0?'disabled':''}>⏮</button>
+        <button class="btn btn-secondary btn-sm" onclick="_irPag('${modulo}',${pag-1})" ${pag===0?'disabled':''}>◀</button>
+        <span style="padding:4px 10px;background:#fff;border:1px solid var(--borde);border-radius:6px;">Pág ${pag+1} / ${totalPags}</span>
+        <button class="btn btn-secondary btn-sm" onclick="_irPag('${modulo}',${pag+1})" ${pag>=totalPags-1?'disabled':''}>▶</button>
+        <button class="btn btn-secondary btn-sm" onclick="_irPag('${modulo}',${totalPags-1})" ${pag>=totalPags-1?'disabled':''}>⏭</button>
+      </div>
+    </div>`;
+}
+
+function _irPag(modulo, pag){
+  _paginas[modulo] = pag;
+  if(modulo==='tickets')      filtrarTickets();
+  if(modulo==='guias')        filtrarGuias();
+  if(modulo==='comprobantes') filtrarComprobantes();
+  if(modulo==='recibos')      filtrarRecibos();
+}
+
+function _paginaSlice(modulo, lista){
+  _listasFiltradas[modulo] = lista;
+  const pag = _paginas[modulo];
+  const totalPags = Math.ceil(lista.length / PAGE_SIZE);
+  if(pag >= totalPags) _paginas[modulo] = Math.max(0, totalPags-1);
+  return lista.slice(_paginas[modulo]*PAGE_SIZE, (_paginas[modulo]+1)*PAGE_SIZE);
+}
+
+function _resetPag(modulo){ _paginas[modulo]=0; }
+
 function renderTickets(filtro){
-  const lista = DB.tickets.filter(t=>{
+  const listaCompleta = DB.tickets.filter(t=>{
     const matchTxt = !filtro || (t.codigo||'').toLowerCase().includes(filtro)||(t.productor||'').toLowerCase().includes(filtro)||(t.lote||'').toLowerCase().includes(filtro);
     return matchTxt && _certifMatch(t.certificacion, _tkTab);
   }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||(b.hora||'').localeCompare(a.hora||''));
 
   const countEl = document.getElementById('tk-tab-count');
-  if(countEl){ const kg=lista.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0); countEl.textContent=`${lista.length} tickets | ${fmt(kg)} kg`; }
+  if(countEl){ const kg=listaCompleta.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0); countEl.textContent=`${listaCompleta.length} tickets | ${fmt(kg)} kg`; }
 
+  const lista = _paginaSlice('tickets', listaCompleta);
   const tb=document.getElementById('tickets-body');
-  if(!lista.length){tb.innerHTML=`<tr><td colspan="18"><div class="empty-state"><span class="ico">🎫</span>Sin tickets.</div></td></tr>`;return;}
-  tb.innerHTML=[...lista].reverse().map(t=>{
+  if(!listaCompleta.length){tb.innerHTML=`<tr><td colspan="18"><div class="empty-state"><span class="ico">🎫</span>Sin tickets.</div></td></tr>`;renderPager('tickets',0,'tickets-pager');return;}
+  tb.innerHTML=[...lista].map(t=>{
     const ri=DB.tickets.indexOf(t);
     return `<tr>
       <td class="td-codigo">${t.codigo}</td><td>${fechaDisplay(t.fecha)}</td><td>${t.hora||'—'}</td>
@@ -3269,7 +3317,7 @@ function renderTickets(filtro){
     </tr>`;
   }).join('');
 }
-function filtrarTickets(){renderTickets(document.getElementById('search-ticket').value.toLowerCase());}
+function filtrarTickets(){ _resetPag('tickets'); renderTickets(document.getElementById('search-ticket').value.toLowerCase()); }
 function abrirModalAlertaBloqueo(titulo, mensaje, detalle){
   const det = document.getElementById('sa-detalle');
   if(det){
@@ -3675,16 +3723,17 @@ function renderGuias(filtro, desde, hasta, estado){
   }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   const countEl = document.getElementById('g-tab-count');
   if(countEl){ const v=lista.reduce((a,g)=>a+(parseFloat(g.valorrecibido)||0),0); countEl.textContent=`${lista.length} guías | S/. ${fmtPago(v)}`; }
+  const paginaGuias = _paginaSlice('guias', lista);
   const tb=document.getElementById('guias-body');
   if(!lista.length){
     tb.innerHTML=`<tr><td colspan="15"><div class="empty-state"><span class="ico">📋</span>Sin guías con ese filtro.</div></td></tr>`;
-    return;
+    renderPager('guias',0,'guias-pager'); return;
   }
-  // Totales del filtro
+  // Totales del filtro COMPLETO (no solo la página)
   const totalValor = lista.reduce((a,g)=>a+(parseFloat(g.valorrecibido)||0),0);
   const totalQQ    = lista.reduce((a,g)=>a+((g.tickets_detalle||[]).reduce((b,t)=>b+(parseFloat(t.pesoneto)||0),0)/55.2),0);
 
-  tb.innerHTML=[...lista].reverse().map(g=>{
+  tb.innerHTML=paginaGuias.map(g=>{
     const ri=DB.guias.indexOf(g);
     const ep=g.estado_pago||'Pendiente';
     const badgeEp=ep==='Pagado Total'?'badge-verde':ep==='Pago Parcial'?'badge-dorado':'badge-rojo';
@@ -3710,6 +3759,7 @@ function renderGuias(filtro, desde, hasta, estado){
       <td style="text-align:right;color:#e65100;">S/.${totalValor.toFixed(2)}</td>
       <td colspan="2"></td>
     </tr>`;
+  renderPager('guias', lista.length, 'guias-pager');
 }
 function filtrarGuias(){
   const q      = document.getElementById('search-guia').value.toLowerCase();
@@ -4535,9 +4585,10 @@ function renderComprobantes(filtro){
   const countEl = document.getElementById('cp-tab-count');
   if(countEl){ const v=lista.reduce((a,c)=>a+(parseFloat(c.monto)||0),0); countEl.textContent=`${lista.length} comp. | S/. ${fmtPago(v)}`; }
 
+  const paginaComp = _paginaSlice('comprobantes', lista);
   const tb=document.getElementById('comp-body');
-  if(!lista.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty-state"><span class="ico">🧾</span>Sin comprobantes.</div></td></tr>`;return;}
-  tb.innerHTML=[...lista].map(c=>{
+  if(!lista.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty-state"><span class="ico">🧾</span>Sin comprobantes.</div></td></tr>`;renderPager('comprobantes',0,'comp-pager');return;}
+  tb.innerHTML=paginaComp.map(c=>{
     const ri=DB.comprobantes.indexOf(c);
     const tot=parseFloat(c.total_guia||0);
     const pagado=totalPagadoGuia(c.guia_ref);
@@ -4562,7 +4613,7 @@ function renderComprobantes(filtro){
     </tr>`;
   }).join('');
 }
-function filtrarComprobantes(){renderComprobantes(document.getElementById('search-comp').value.toLowerCase());}
+function filtrarComprobantes(){ _resetPag('comprobantes'); renderComprobantes(document.getElementById('search-comp').value.toLowerCase()); }
 function eliminarComp(i){
   if(!confirm('¿Eliminar comprobante? Si tiene un egreso de caja vinculado, también se eliminará.')) return;
   const comp = DB.comprobantes[i];
@@ -6772,7 +6823,8 @@ function renderRecibos(filtro, tipoF, cajaF){
   const totalIng = lista.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+(parseFloat(r.monto)||0),0);
   const totalEgr = lista.filter(r=>r.tipo==='egreso').reduce((a,r)=>a+(parseFloat(r.monto)||0),0);
 
-  tb.innerHTML = [...lista].reverse().map(r=>{
+  const paginaRec = _paginaSlice('recibos', lista);
+  tb.innerHTML = paginaRec.map(r=>{
     const ri = DB.recibos.indexOf(r);
     const esIngreso = r.tipo === 'ingreso';
     const tipoCaja = aperturasPorTipo.get(r.apertura_ref||'')||'GENERAL';
