@@ -5152,7 +5152,7 @@ function exportarReporteCaja(){
   DB.aperturas.forEach((ap, apIdx) => {
     const nombreHoja = (ap.codigo + ' ' + (ap.fecha||'')).slice(0,31);
 
-    // Recopilar todos los movimientos ordenados por fecha y luego por orden de inserción
+    // Recopilar todos los movimientos ordenados: fecha ASC + correlativo numérico ASC
     const movimientos = (DB.recibos||[])
       .map((r, idx) => ({
         fecha:        r.fecha || ap.fecha,
@@ -5162,14 +5162,15 @@ function exportarReporteCaja(){
         ingreso:      r.tipo === 'ingreso' ? parseFloat(r.monto||0) : null,
         egreso:       r.tipo === 'egreso'  ? parseFloat(r.monto||0) : null,
         _apertura:    r.apertura_ref,
-        _idx:         idx  // orden de inserción original
+        _num:         parseInt((r.codigo||'').match(/(\d+)$/)?.[1]||0)
       }))
       .filter(m => m._apertura === ap.codigo)
       .sort((a,b) => {
-        // Primero por fecha, luego por orden de inserción
+        // 1. Por fecha ASC
         if(a.fecha < b.fecha) return -1;
         if(a.fecha > b.fecha) return 1;
-        return a._idx - b._idx;
+        // 2. Por número de correlativo ASC (EGR-ORG-00001 antes que EGR-ORG-00002)
+        return a._num - b._num;
       });
 
     // ── Construir filas del Excel ──
@@ -6828,8 +6829,13 @@ function renderRecibos(filtro, tipoF, cajaF){
     const matchTxt  = !filtro || (r.codigo||'').toLowerCase().includes(filtro)||(r.persona||'').toLowerCase().includes(filtro)||(r.concepto||'').toLowerCase().includes(filtro);
     const matchTipo = !tipoF || r.tipo === tipoF;
     const matchCaja = !codigosApertura || codigosApertura.has(r.apertura_ref||'');
-    // Excluir recibos orgánicos de la vista convencional y viceversa
     return matchTxt && matchTipo && matchCaja;
+  }).sort((a,b)=>{
+    // Fecha ASC luego correlativo numérico ASC
+    if((a.fecha||'') !== (b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
+    const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
+    const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
+    return nA - nB;
   });
 
   const tb = document.getElementById('recibos-body');
