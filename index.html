@@ -3281,9 +3281,10 @@ function renderTickets(filtro){
     const matchTxt = !filtro || (t.codigo||'').toLowerCase().includes(filtro)||(t.productor||'').toLowerCase().includes(filtro)||(t.lote||'').toLowerCase().includes(filtro);
     return matchTxt && _certifMatch(t.certificacion, _tkTab);
   }).sort((a,b)=>{
+    if((a.fecha||'') !== (b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
-    return nB - nA;
+    return nA - nB;
   });
 
   const countEl = document.getElementById('tk-tab-count');
@@ -3726,7 +3727,12 @@ function renderGuias(filtro, desde, hasta, estado){
     const matchEst   = !estado || (g.estado_pago||'Pendiente') === estado;
     const matchTab   = _certifMatch(g.certificacion, _gTab);
     return matchTxt && matchDesde && matchHasta && matchEst && matchTab;
-  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  }).sort((a,b)=>{
+    if((a.fecha||'') !== (b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
+    const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
+    const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
+    return nA - nB;
+  });
   const countEl = document.getElementById('g-tab-count');
   if(countEl){ const v=lista.reduce((a,g)=>a+(parseFloat(g.valorrecibido)||0),0); countEl.textContent=`${lista.length} guías | S/. ${fmtPago(v)}`; }
   const paginaGuias = _paginaSlice('guias', lista);
@@ -4586,7 +4592,12 @@ function renderComprobantes(filtro){
     const g = DB.guias.find(x=>x.codigo===codGuia);
     const certif = g ? g.certificacion : (c.codigo||'').includes('-ORG-') ? 'ORGANICO' : 'CONVENCIONAL';
     return matchTxt && _certifMatch(certif, _cpTab);
-  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  }).sort((a,b)=>{
+    if((a.fecha||'') !== (b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
+    const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
+    const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
+    return nA - nB;
+  });
 
   const countEl = document.getElementById('cp-tab-count');
   if(countEl){ const v=lista.reduce((a,c)=>a+(parseFloat(c.monto)||0),0); countEl.textContent=`${lista.length} comp. | S/. ${fmtPago(v)}`; }
@@ -8169,4 +8180,3 @@ function eliminarKardex(i){
 </script>
 </body>
 </html>
-
