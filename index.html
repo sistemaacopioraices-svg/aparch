@@ -291,9 +291,9 @@ tr:hover td{background:#f9f6f1;}
 
   <!-- TABS DE TIPO -->
   <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--borde);padding-bottom:10px;flex-wrap:wrap;">
-    <button id="dash-tab-total" class="btn btn-primary" onclick="switchDashTab('total')" style="font-size:0.85rem;">🏦 General</button>
+    <button id="dash-tab-total" class="btn btn-primary org-only" onclick="switchDashTab('total')" style="font-size:0.85rem;">🏦 General</button>
     <button id="dash-tab-conv"  class="btn btn-secondary" onclick="switchDashTab('conv')"  style="font-size:0.85rem;">☕ Convencional</button>
-    <button id="dash-tab-org"   class="btn btn-secondary" onclick="switchDashTab('org')"   style="font-size:0.85rem;">🌿 Orgánico / Fairtrade</button>
+    <button id="dash-tab-org"   class="btn btn-secondary org-only" onclick="switchDashTab('org')"   style="font-size:0.85rem;">🌿 Orgánico / Fairtrade</button>
     <button id="dash-tab-coco"  class="btn btn-secondary" onclick="switchDashTab('coco')"  style="font-size:0.85rem;">🌰 Café Coco</button>
   </div>
 
@@ -377,7 +377,7 @@ tr:hover td{background:#f9f6f1;}
     <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
       <button id="tk-tab-todos" class="btn btn-primary btn-sm" onclick="switchTicketTab('todos')">🏦 Todos</button>
       <button id="tk-tab-conv"  class="btn btn-secondary btn-sm" onclick="switchTicketTab('conv')">☕ Convencional</button>
-      <button id="tk-tab-org"   class="btn btn-secondary btn-sm" onclick="switchTicketTab('org')">🌿 Orgánico/FT</button>
+      <button id="tk-tab-org"   class="btn btn-secondary btn-sm org-only" onclick="switchTicketTab('org')">🌿 Orgánico/FT</button>
       <span id="tk-tab-count" style="margin-left:auto;font-size:0.75rem;color:#888;align-self:center;"></span>
     </div>
     <div class="search-bar">
@@ -411,7 +411,7 @@ tr:hover td{background:#f9f6f1;}
     <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
       <button id="g-tab-todos" class="btn btn-primary btn-sm" onclick="switchGuiaTab('todos')">🏦 Todas</button>
       <button id="g-tab-conv"  class="btn btn-secondary btn-sm" onclick="switchGuiaTab('conv')">☕ Convencional</button>
-      <button id="g-tab-org"   class="btn btn-secondary btn-sm" onclick="switchGuiaTab('org')">🌿 Orgánico/FT</button>
+      <button id="g-tab-org"   class="btn btn-secondary btn-sm org-only" onclick="switchGuiaTab('org')">🌿 Orgánico/FT</button>
       <span id="g-tab-count" style="margin-left:auto;font-size:0.75rem;color:#888;align-self:center;"></span>
     </div>
     <div class="search-bar">
@@ -455,7 +455,7 @@ tr:hover td{background:#f9f6f1;}
     <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
       <button id="cp-tab-todos" class="btn btn-primary btn-sm" onclick="switchCompTab('todos')">🏦 Todos</button>
       <button id="cp-tab-conv"  class="btn btn-secondary btn-sm" onclick="switchCompTab('conv')">☕ Convencional</button>
-      <button id="cp-tab-org"   class="btn btn-secondary btn-sm" onclick="switchCompTab('org')">🌿 Orgánico/FT</button>
+      <button id="cp-tab-org"   class="btn btn-secondary btn-sm org-only" onclick="switchCompTab('org')">🌿 Orgánico/FT</button>
       <span id="cp-tab-count" style="margin-left:auto;font-size:0.75rem;color:#888;align-self:center;"></span>
     </div>
     <div class="search-bar">
@@ -1086,7 +1086,7 @@ tr:hover td{background:#f9f6f1;}
       </select>
       <select id="filter-recibo-caja" onchange="filtrarRecibos()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.82rem;font-weight:700;">
         <option value="CONVENCIONAL">☕ Caja Convencional + Coco</option>
-        <option value="ORGANICO">🌿 Caja Orgánico / Fairtrade</option>
+        <option value="ORGANICO" class="org-only">🌿 Caja Orgánico / Fairtrade</option>
         <option value="">🏦 Todos</option>
       </select>
     </div>
@@ -2348,6 +2348,14 @@ function loginSubmit(){
   document.querySelectorAll('.admin-only').forEach(el=>{
     el.style.display = found.role==='admin' ? '' : 'none';
   });
+  // Mostrar/ocultar elementos orgánicos (solo admin)
+  document.querySelectorAll('.org-only').forEach(el=>{
+    el.style.display = found.role==='admin' ? '' : 'none';
+  });
+  // Si es operador, forzar tab convencional en tickets/guías/comprobantes/dashboard
+  if(found.role !== 'admin'){
+    _tkTab = 'conv'; _gTab = 'conv'; _cpTab = 'conv'; _dashTab = 'conv';
+  }
   // Poner usuario en ticket
   const tf=document.getElementById('t-usuario');
   if(tf) tf.value=found.user;
@@ -2614,6 +2622,8 @@ function showSection(id){
 let _dashTab = 'total'; // 'total' | 'conv' | 'org' | 'coco'
 
 function switchDashTab(tab){
+  // Operadores no pueden ver orgánico ni general (que mezcla)
+  if(SESSION.role !== 'admin' && (tab==='org'||tab==='total')) tab='conv';
   _dashTab = tab;
   ['total','conv','org','coco'].forEach(t=>{
     const btn = document.getElementById('dash-tab-'+t);
@@ -3199,8 +3209,13 @@ let _tkTab = 'todos', _gTab = 'todos', _cpTab = 'todos';
 
 function _certifMatch(certif, tab){
   const c = (certif||'').toUpperCase();
+  const esOrg = c.includes('ORGANICO')||c.includes('FAIRTRADE');
+  // Operadores no pueden ver orgánicos
+  if(esOrg && SESSION.role !== 'admin') return false;
   if(tab==='conv') return c.includes('CONVENCIONAL');
-  if(tab==='org')  return c.includes('ORGANICO')||c.includes('FAIRTRADE');
+  if(tab==='org')  return esOrg;
+  // Tab 'todos': admin ve todo, operador solo convencional
+  if(tab==='todos' && SESSION.role !== 'admin') return c.includes('CONVENCIONAL');
   return true;
 }
 
@@ -8194,5 +8209,3 @@ function eliminarKardex(i){
 </script>
 </body>
 </html>
-
-
