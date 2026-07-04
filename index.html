@@ -6929,6 +6929,30 @@ function exportarCafeCoco(){
 
 
 // ══════════════════════════════════════════
+// ── Feriados peruanos (MM-DD) ──
+const FERIADOS_PE = new Set([
+  '01-01','04-17','04-18','05-01','06-07','06-29',
+  '07-28','07-29','08-06','08-30','10-08',
+  '11-01','12-08','12-24','12-25'
+]);
+function masEsFechaLaboral(fechaStr){
+  const d = new Date(fechaStr+'T12:00:00');
+  if(d.getDay()===0) return false; // Domingo
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const dd=String(d.getDate()).padStart(2,'0');
+  return !FERIADOS_PE.has(`${mm}-${dd}`);
+}
+function masNextFechaLaboral(dInicio, idx, diffDias, totalGuias){
+  const paso = Math.max(1, Math.floor(diffDias / Math.max(1,totalGuias)));
+  let d = new Date(dInicio.getTime() + idx*paso*86400000);
+  for(let i=0;i<10;i++){
+    const str = d.toLocaleDateString('en-CA');
+    if(masEsFechaLaboral(str)) return str;
+    d = new Date(d.getTime()+86400000);
+  }
+  return d.toLocaleDateString('en-CA');
+}
+
 // MÓDULO GENERACIÓN MASIVA AUTOMÁTICA
 // ══════════════════════════════════════════
 let _masDistribucion = []; // guarda la distribución calculada
@@ -7063,34 +7087,34 @@ function masGenerarPreview(){
         qqMin + Math.random()*(qqMax-qqMin),
         kgSocioRestante/55.2
       );
-      const kgNetoObjetivo = Math.round(Math.min(qqEstaGuia*55.2, kgSocioRestante)*100)/100;
+      const kgNetoObjetivo = Math.min(qqEstaGuia*55.2, kgSocioRestante);
 
-      // Sacos: calcular cuántos sacos necesita (KG bruto por saco entre 60-75 kg)
-      const kgPorSaco = 60 + Math.random()*15; // entre 60 y 75 kg/saco
-      let sacos = Math.max(1, Math.round((kgNetoObjetivo + kgNetoObjetivo*0.25/kgPorSaco) / kgPorSaco));
+      // Sacos: entre 60-75 kg/saco
+      const kgPorSaco = 60 + Math.random()*15;
+      let sacos = Math.max(1, Math.round((kgNetoObjetivo + sacos*0.25||0) / kgPorSaco));
+      sacos = Math.max(1, Math.round(kgNetoObjetivo / (kgPorSaco - 0.25)));
 
-      // Tara exacta = sacos × 0.25
+      // Tara = sacos × 0.25
       const tara = Math.round(sacos * 0.25 * 100) / 100;
 
-      // KG Bruto = KG Neto + Tara (con algo de variación natural)
-      const kgBrutoGuia = Math.round((kgNetoObjetivo + tara)*100)/100;
+      // KG Bruto: redondeado al 0.5 más cercano (termina en .00 o .50)
+      const kgBrutoExacto = kgNetoObjetivo + tara;
+      const kgBruto = Math.round(kgBrutoExacto * 2) / 2; // redondea a múltiplos de 0.5
 
       // KG Neto real = KG Bruto - Tara
-      const kgNetoGuia = Math.round((kgBrutoGuia - tara)*100)/100;
-      const qqNetoGuia = kgNetoGuia/55.2;
+      const kgNetoGuia = Math.round((kgBruto - tara) * 100) / 100;
+      const qqNetoGuia = kgNetoGuia / 55.2;
 
-      // Rendimiento aleatorio dentro del rango
+      // Rendimiento aleatorio
       const rend = Math.round(rendMin + Math.random()*(rendMax-rendMin));
 
-      // Fecha distribuida entre fechaIni y fechaFin
-      const diaOffset = Math.round((guiaIdx/(Math.max(1,socios.length*2)))*diffDias);
-      const fechaGuia = new Date(dIni.getTime() + diaOffset*86400000)
-        .toLocaleDateString('en-CA');
+      // Fecha: solo L-S, sin domingos ni feriados peruanos
+      const fechaGuia = masNextFechaLaboral(dIni, guiaIdx, diffDias, distribucion.length || socios.length*3);
 
       distribucion.push({
         socio: socio.nombre, dni: socio.dni, base: socio.base,
         caserio: socio.caserio, certif: socio.certif||'ORGANICO - FAIRTRADE USA',
-        kgNeto: kgNetoGuia, qqNeto: qqNetoGuia, kgBruto: kgBrutoGuia,
+        kgNeto: kgNetoGuia, qqNeto: qqNetoGuia, kgBruto,
         tara, sacos, rend, humedad,
         precioQQ: Math.round(precioQQ*100)/100,
         precioKG: Math.round(precioKG*10000)/10000,
