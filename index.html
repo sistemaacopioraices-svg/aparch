@@ -7017,7 +7017,6 @@ function masGenerarPreview(){
   const alertEl = document.getElementById('masivo-alert');
   alertEl.innerHTML = '';
 
-  // Validar entradas
   const totalSacos  = parseFloat(document.getElementById('mas-sacos').value)||0;
   const totalKGBrut = parseFloat(document.getElementById('mas-kgbruto').value)||0;
   const totalKGNeto = parseFloat(document.getElementById('mas-kgneto').value)||0;
@@ -7033,10 +7032,21 @@ function masGenerarPreview(){
   const formaEnt    = document.getElementById('mas-forma').value;
 
   if(!totalSacos||!totalKGBrut||!totalKGNeto||!totalValor){
-    alertEl.innerHTML='<div class="alert alert-error">⚠️ Completa todos los totales (sacos, kg bruto, kg neto, valor).</div>'; return;
+    alertEl.innerHTML='<div class="alert alert-error">⚠️ Completa todos los totales.</div>'; return;
   }
   if(!fechaIni||!fechaFin){
     alertEl.innerHTML='<div class="alert alert-error">⚠️ Selecciona las fechas.</div>'; return;
+  }
+
+  // Validar caja abierta con saldo suficiente
+  const cajaIdx = cajaAbiertaActual();
+  if(cajaIdx < 0){
+    alertEl.innerHTML='<div class="alert alert-error">❌ No hay caja abierta. Abre la caja con el monto exacto o mayor antes de generar.</div>'; return;
+  }
+  const apCajaVal = DB.aperturas[cajaIdx];
+  const saldoCaja = saldoActualApertura(apCajaVal.codigo);
+  if(saldoCaja < totalValor - 0.10){
+    alertEl.innerHTML=`<div class="alert alert-error">❌ Saldo de caja insuficiente.<br>Disponible: <strong>S/. ${fmt(saldoCaja)}</strong> | Necesario: <strong>S/. ${fmt(totalValor)}</strong></div>`; return;
   }
 
   const sociosCbs = [...document.querySelectorAll('.mas-socio-cb:checked')];
@@ -7044,95 +7054,86 @@ function masGenerarPreview(){
     alertEl.innerHTML='<div class="alert alert-error">⚠️ Selecciona al menos un socio.</div>'; return;
   }
 
-  const socios = sociosCbs.map(cb=>({
-    nombre:    cb.value,
-    dni:       cb.dataset.dni,
-    base:      cb.dataset.base,
-    caserio:   cb.dataset.caserio,
-    certif:    cb.dataset.certif,
-    estimado:  parseFloat(cb.dataset.estimado)||0
-  }));
+  // Orden ALEATORIO de socios
+  let socios = sociosCbs.map(cb=>({
+    nombre: cb.value, dni: cb.dataset.dni, base: cb.dataset.base,
+    caserio: cb.dataset.caserio, certif: cb.dataset.certif,
+    estimado: parseFloat(cb.dataset.estimado)||0
+  })).sort(()=>Math.random()-0.5);
 
-  // Calcular precios
-  const qqTotal   = totalKGNeto/55.2;
-  const precioQQ  = totalValor/qqTotal;
-  const precioKG  = totalValor/totalKGNeto;
+  const qqTotal  = totalKGNeto/55.2;
+  const precioQQ = totalValor/qqTotal;
+  const precioKG = totalValor/totalKGNeto;
 
-  // Distribuir KG entre socios proporcionalmente a su estimado (o equitativo si no tienen)
+  // KG ya acopiados por socio en guías ORGÁNICAS (independiente de convencional)
+  const kgYaOrg = {};
+  DB.guias.filter(g=>!(g.certificacion||''). toUpperCase().includes('CONVENCIONAL')).forEach(g=>{
+    const kg=(g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+    kgYaOrg[g.productor]=(kgYaOrg[g.productor]||0)+kg;
+  });
+
   const totalEstimado = socios.reduce((a,s)=>a+(s.estimado||0),0);
   let distribucion = [];
   let kgRestante   = totalKGNeto;
-  let sacosRestantes = totalSacos;
-  let kgBrutoRestante = totalKGBrut;
-  let valorRestante = totalValor;
-
-  // Generar fechas distribuidas entre fechaIni y fechaFin
-  const dIni  = new Date(fechaIni+'T12:00:00');
-  const dFin  = new Date(fechaFin+'T12:00:00');
-  const diffDias = Math.max(0, Math.round((dFin-dIni)/86400000));
-
-  // Generar guías dividiendo por qqMin-qqMax por guía
+  const kgBrutosUsados = new Set();
+  const dIni     = new Date(fechaIni+'T12:00:00');
+  const dFin     = new Date(fechaFin+'T12:00:00');
+  const diffDias = Math.max(1, Math.round((dFin-dIni)/86400000));
   let guiaIdx = 0;
+
   socios.forEach((socio, si) => {
-    // KG proporcional al estimado o equitativo
-    const prop = totalEstimado > 0 ? (socio.estimado||0)/totalEstimado : 1/socios.length;
+    const yaAcopiado = kgYaOrg[socio.nombre]||0;
+    const estimadoDisp = socio.estimado>0 ? Math.max(0,socio.estimado-yaAcopiado) : Infinity;
+    const prop = totalEstimado>0 ? (socio.estimado||0)/totalEstimado : 1/socios.length;
     let kgSocio = si===socios.length-1 ? kgRestante : Math.round(totalKGNeto*prop*100)/100;
     kgSocio = Math.min(kgSocio, kgRestante);
+    if(socio.estimado>0) kgSocio = Math.min(kgSocio, estimadoDisp);
+    if(kgSocio < 56) { kgRestante=Math.max(0,kgRestante); return; }
 
-    // Dividir el KG del socio en guías de qqMin a qqMax
     let kgSocioRestante = kgSocio;
-    while(kgSocioRestante > 0.1){
-      // QQ objetivo para esta guía
-      const qqEstaGuia = Math.min(
-        qqMin + Math.random()*(qqMax-qqMin),
-        kgSocioRestante/55.2
-      );
-      const kgNetoObjetivo = Math.min(qqEstaGuia*55.2, kgSocioRestante);
+    while(kgSocioRestante >= 55){
+      const qqEstaGuia = Math.min(qqMin+Math.random()*(qqMax-qqMin), kgSocioRestante/55.2);
+      const kgNetoObj  = Math.min(qqEstaGuia*55.2, kgSocioRestante);
+      const kgPorSaco  = 60+Math.random()*15;
+      const sacos = Math.max(1,Math.round(kgNetoObj/kgPorSaco));
+      const tara  = Math.round(sacos*0.25*100)/100;
+      let kgBruto = Math.round((kgNetoObj+tara)*2)/2;
+      kgBruto = Math.max(kgBruto, 56.5); // mínimo 56 kg bruto
 
-      // Sacos: entre 60-75 kg bruto por saco
-      const kgPorSaco = 60 + Math.random()*15;
-      const sacos = Math.max(1, Math.round(kgNetoObjetivo / kgPorSaco));
+      // Sin repetir KG bruto
+      let intentos=0;
+      while(kgBrutosUsados.has(kgBruto) && intentos<30){
+        kgBruto = Math.round((kgBruto+0.5)*2)/2;
+        intentos++;
+      }
+      kgBrutosUsados.add(kgBruto);
 
-      // Tara = sacos × 0.25
-      const tara = Math.round(sacos * 0.25 * 100) / 100;
-
-      // KG Bruto redondeado al 0.5 más cercano (.00 o .50)
-      const kgBrutoExacto = kgNetoObjetivo + tara;
-      const kgBruto = Math.round(kgBrutoExacto * 2) / 2;
-
-      // KG Neto real = KG Bruto - Tara
-      const kgNetoGuia = Math.round((kgBruto - tara) * 100) / 100;
-      const qqNetoGuia = kgNetoGuia / 55.2;
-
-      // Rendimiento aleatorio
-      const rend = Math.round(rendMin + Math.random()*(rendMax-rendMin));
-
-      // Fecha: solo L-S sin feriados
-      const fechaGuia = masNextFechaLaboral(dIni, guiaIdx, diffDias, Math.max(1, socios.length*3));
+      const kgNetoGuia = Math.round((kgBruto-tara)*100)/100;
+      const qqNetoGuia = kgNetoGuia/55.2;
+      const rend = Math.round(rendMin+Math.random()*(rendMax-rendMin));
+      const fechaGuia = masNextFechaLaboral(dIni, guiaIdx, diffDias, Math.max(1,socios.length*3));
 
       distribucion.push({
-        socio: socio.nombre, dni: socio.dni, base: socio.base,
-        caserio: socio.caserio, certif: socio.certif||'ORGANICO - FAIRTRADE USA',
-        kgNeto: kgNetoGuia, qqNeto: qqNetoGuia, kgBruto,
+        socio:socio.nombre, dni:socio.dni, base:socio.base,
+        caserio:socio.caserio, certif:socio.certif||'ORGANICO - FAIRTRADE USA',
+        kgNeto:kgNetoGuia, qqNeto:qqNetoGuia, kgBruto,
         tara, sacos, rend, humedad,
-        precioQQ: Math.round(precioQQ*100)/100,
-        precioKG: Math.round(precioKG*10000)/10000,
-        prima, formaEnt, fecha: fechaGuia,
-        valor: Math.round(qqNetoGuia*precioQQ*10)/10,
-        ticket_lote: ''
+        precioQQ:Math.round(precioQQ*100)/100,
+        precioKG:Math.round(precioKG*10000)/10000,
+        prima, formaEnt, fecha:fechaGuia,
+        valor:Math.round(qqNetoGuia*precioQQ*10)/10,
+        ticket_lote:''
       });
-
-      kgSocioRestante = Math.round((kgSocioRestante-kgNetoGuia)*100)/100;
+      kgSocioRestante=Math.round((kgSocioRestante-kgNetoGuia)*100)/100;
       guiaIdx++;
     }
-    kgRestante = Math.round((kgRestante-kgSocio)*100)/100;
+    kgRestante=Math.max(0,Math.round((kgRestante-kgSocio)*100)/100);
   });
 
-  // Ajustar el último valor para que cuadre con el total
-  if(distribucion.length > 0){
-    const sumValor = distribucion.reduce((a,d)=>a+d.valor,0);
-    const diff = Math.round((totalValor-sumValor)*10)/10;
-    distribucion[distribucion.length-1].valor = Math.round((distribucion[distribucion.length-1].valor+diff)*10)/10;
+  if(distribucion.length>0){
+    const sumVal=distribucion.reduce((a,d)=>a+d.valor,0);
+    const diff=Math.round((totalValor-sumVal)*10)/10;
+    distribucion[distribucion.length-1].valor=Math.round((distribucion[distribucion.length-1].valor+diff)*10)/10;
   }
 
   _masDistribucion = distribucion;
@@ -7374,11 +7375,41 @@ async function masGenerarTodo(){
       <button class="btn btn-primary" onclick="showSection('tickets')">🎫 Ver Tickets</button>
       <button class="btn btn-primary" onclick="showSection('guias')">📋 Ver Guías</button>
       <button class="btn btn-primary" onclick="showSection('comprobantes')">🧾 Ver Comprobantes</button>
+      <button class="btn btn-danger" onclick="masEliminarGenerados()" style="margin-left:auto;">🗑️ Eliminar todos los generados</button>
     </div>`;
 
   document.getElementById('masivo-alert').innerHTML = `<div class="alert alert-success" style="font-size:1rem;">✅ ¡Generación completada! ${ticketsCreados} tickets, ${guiasCreadas} guías y ${compsCreados} comprobantes creados.</div>`;
   _masDistribucion = [];
   document.getElementById('btn-mas-generar').disabled = true;
+}
+
+function masEliminarGenerados(){
+  // Buscar tickets, guías y comprobantes con observacion "Generado automáticamente"
+  const ticketsMas  = DB.tickets.filter(t=>(t.observaciones||'').includes('Generado automáticamente'));
+  const guiasMas    = DB.guias.filter(g=>(g.tickets_detalle||[]).some(t=>(t.nticket||'').length>0) && DB.tickets.some(t=>t.observaciones&&t.observaciones.includes('Generado automáticamente')&&(g.tickets_detalle||[]).some(d=>d.nticket===t.codigo)));
+  const compsMas    = DB.comprobantes.filter(c=>(c.observaciones||'').includes('Generado automáticamente'));
+  const recibosMas  = DB.recibos.filter(r=>(r.observaciones||'').includes('Generado masivamente'));
+
+  const n = ticketsMas.length + guiasMas.length + compsMas.length;
+  if(!n){ alert('No se encontraron registros generados masivamente.'); return; }
+
+  if(!confirm(`🗑️ ELIMINAR REGISTROS MASIVOS\n\n• ${ticketsMas.length} tickets\n• ${guiasMas.length} guías\n• ${compsMas.length} comprobantes\n• ${recibosMas.length} recibos de caja\n\n¿Confirmar eliminación?`)) return;
+
+  const codTickets = new Set(ticketsMas.map(t=>t.codigo));
+  const codGuias   = new Set(guiasMas.map(g=>g.codigo));
+  const codComps   = new Set(compsMas.map(c=>c.codigo));
+  const codRecibos = new Set(recibosMas.map(r=>r.codigo));
+
+  DB.tickets      = DB.tickets.filter(t=>!codTickets.has(t.codigo));
+  DB.guias        = DB.guias.filter(g=>!codGuias.has(g.codigo));
+  DB.comprobantes = DB.comprobantes.filter(c=>!codComps.has(c.codigo));
+  DB.recibos      = DB.recibos.filter(r=>!codRecibos.has(r.codigo));
+
+  guardarDB();
+  document.getElementById('mas-resultado').style.display='none';
+  document.getElementById('masivo-alert').innerHTML=`<div class="alert alert-success">✅ Eliminados: ${ticketsMas.length} tickets, ${guiasMas.length} guías, ${compsMas.length} comprobantes, ${recibosMas.length} recibos.</div>`;
+  renderDashboard();
+  alert(`✅ Eliminados correctamente.\n• ${ticketsMas.length} tickets\n• ${guiasMas.length} guías\n• ${compsMas.length} comprobantes`);
 }
 
 function masLimpiar(){
