@@ -1493,6 +1493,15 @@ tr:hover td{background:#f9f6f1;}
     <div class="form-group"><label>Hora</label><input type="time" id="ap-hora"></div>
     <div class="form-group"><label>Usuario Responsable</label><input type="text" id="ap-usuario" readonly style="background:#eee;"></div>
     <div class="form-group form-full">
+      <label>🏦 Tipo de Caja</label>
+      <select id="ap-tipo" style="font-size:0.95rem;font-weight:700;border:2px solid var(--verde-c);">
+        <option value="GENERAL">🏦 General (todos los pagos)</option>
+        <option value="ORGANICO">🌿 Orgánico / Fairtrade</option>
+        <option value="CONVENCIONAL">☕ Convencional + Coco</option>
+      </select>
+      <div style="font-size:0.75rem;color:#888;margin-top:4px;">Orgánico: solo para guías orgánicas/fairtrade. Convencional: para guías convencionales y café coco.</div>
+    </div>
+    <div class="form-group form-full">
       <label>Saldo Inicial (S/.)</label>
       <input type="number" id="ap-saldo-inicial" step="0.01" min="0" placeholder="0.00" style="font-size:1.2rem;font-weight:800;color:#1b5e20;border:2px solid var(--verde-c);">
     </div>
@@ -6217,8 +6226,29 @@ function migrarEgresosCafeCoco(silencioso){
 
 function cajaAbiertaActual(){
   if(!DB.aperturas) DB.aperturas=[];
-  const idx = DB.aperturas.findIndex(a => a.estado === 'Abierta');
-  return idx >= 0 ? idx : -1;
+  // Busca la primera caja abierta de tipo GENERAL o cualquiera
+  const idx = DB.aperturas.findIndex(a => a.estado === 'Abierta' && (!a.tipo || a.tipo==='GENERAL'));
+  if(idx >= 0) return idx;
+  // Si no hay GENERAL, retornar cualquier abierta
+  return DB.aperturas.findIndex(a => a.estado === 'Abierta');
+}
+
+// Busca caja abierta por tipo específico
+function cajaAbiertaTipo(tipo){
+  if(!DB.aperturas) return -1;
+  if(tipo === 'ORGANICO'){
+    // Busca caja ORGANICO o GENERAL
+    let idx = DB.aperturas.findIndex(a=>a.estado==='Abierta' && a.tipo==='ORGANICO');
+    if(idx < 0) idx = DB.aperturas.findIndex(a=>a.estado==='Abierta' && (!a.tipo||a.tipo==='GENERAL'));
+    return idx;
+  }
+  if(tipo === 'CONVENCIONAL'){
+    // Busca caja CONVENCIONAL o GENERAL
+    let idx = DB.aperturas.findIndex(a=>a.estado==='Abierta' && a.tipo==='CONVENCIONAL');
+    if(idx < 0) idx = DB.aperturas.findIndex(a=>a.estado==='Abierta' && (!a.tipo||a.tipo==='GENERAL'));
+    return idx;
+  }
+  return DB.aperturas.findIndex(a=>a.estado==='Abierta');
 }
 
 function totalIngresosApertura(codigoApertura){
@@ -6237,9 +6267,10 @@ function saldoActualApertura(codigoApertura){
 
 // ── ABRIR MODAL APERTURA ──
 function abrirModalAperturaCaja(){
-  const idxAbierta = cajaAbiertaActual();
-  if(idxAbierta >= 0){
-    alert('⚠️ Ya existe una caja abierta: '+DB.aperturas[idxAbierta].codigo+'\nDebes cerrarla antes de abrir una nueva.');
+  // Permitir múltiples cajas si son de distinto tipo
+  const abiertas = (DB.aperturas||[]).filter(a=>a.estado==='Abierta');
+  if(abiertas.length >= 2){
+    alert('⚠️ Ya hay 2 cajas abiertas (Orgánico y Convencional).\nDebes cerrar una antes de abrir otra.');
     return;
   }
   document.getElementById('ap-codigo').value = nextCodigo(DB.aperturas||[], 'APER-');
@@ -6248,6 +6279,7 @@ function abrirModalAperturaCaja(){
   document.getElementById('ap-usuario').value = SESSION.user || '';
   document.getElementById('ap-saldo-inicial').value = '';
   document.getElementById('ap-observaciones').value = '';
+  document.getElementById('ap-tipo').value = 'GENERAL';
   document.getElementById('apertura-form-alert').innerHTML = '';
   abrirModal('modal-apertura-caja');
 }
@@ -6255,8 +6287,16 @@ function abrirModalAperturaCaja(){
 function guardarAperturaCaja(){
   const saldoInicial = parseFloat(document.getElementById('ap-saldo-inicial').value);
   const fecha = document.getElementById('ap-fecha').value;
+  const tipo  = document.getElementById('ap-tipo').value || 'GENERAL';
   if(isNaN(saldoInicial) || saldoInicial < 0){ showAlert('apertura-form-alert','error','Ingrese un saldo inicial válido.'); return; }
   if(!fecha){ showAlert('apertura-form-alert','error','Ingrese la fecha.'); return; }
+
+  // Verificar que no haya otra caja del mismo tipo ya abierta
+  const abiertas = (DB.aperturas||[]).filter(a=>a.estado==='Abierta');
+  const mismoTipo = abiertas.find(a=>(a.tipo||'GENERAL')===tipo);
+  if(mismoTipo){
+    showAlert('apertura-form-alert','error',`Ya hay una caja ${tipo} abierta: ${mismoTipo.codigo}`); return;
+  }
 
   if(!DB.aperturas) DB.aperturas=[];
   DB.aperturas.push({
@@ -6264,6 +6304,7 @@ function guardarAperturaCaja(){
     fecha, hora: document.getElementById('ap-hora').value,
     usuario: document.getElementById('ap-usuario').value,
     saldo_inicial: saldoInicial.toFixed(2),
+    tipo, // 'ORGANICO', 'CONVENCIONAL', 'GENERAL'
     observaciones: document.getElementById('ap-observaciones').value,
     estado: 'Abierta',
     fecha_cierre: '', hora_cierre: '', saldo_final: ''
@@ -6392,34 +6433,46 @@ function renderCaja(){
   if(!DB.aperturas) DB.aperturas=[];
   if(!DB.recibos) DB.recibos=[];
 
-  const idxAbierta = cajaAbiertaActual();
+  const abiertas = DB.aperturas.filter(a=>a.estado==='Abierta');
   const banner = document.getElementById('caja-estado-banner');
-  const btnAbrir = document.getElementById('btn-abrir-caja');
+  const btnAbrir  = document.getElementById('btn-abrir-caja');
   const btnCerrar = document.getElementById('btn-cerrar-caja');
 
-  if(idxAbierta >= 0){
-    const ap = DB.aperturas[idxAbierta];
-    const ingresos = totalIngresosApertura(ap.codigo);
-    const egresos  = totalEgresosApertura(ap.codigo);
-    const saldo    = parseFloat(ap.saldo_inicial||0) + ingresos - egresos;
-
-    banner.innerHTML = `<div class="alert alert-success" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <span>🔓 <strong>Caja Abierta:</strong> ${ap.codigo} — Apertura: ${fechaDisplay(ap.fecha)} ${ap.hora} por <strong>${ap.usuario}</strong></span>
-      <span style="font-weight:800;font-size:1rem;">Saldo actual: S/. ${fmtPago(saldo)}</span>
-    </div>`;
-    btnAbrir.style.display = 'none';
+  if(abiertas.length > 0){
+    // Mostrar todas las cajas abiertas
+    const tipoBadgeMap = {
+      'ORGANICO':    '🌿 Orgánico',
+      'CONVENCIONAL':'☕ Convencional+Coco',
+      'GENERAL':     '🏦 General'
+    };
+    const items = abiertas.map(ap=>{
+      const ing  = totalIngresosApertura(ap.codigo);
+      const egr  = totalEgresosApertura(ap.codigo);
+      const sald = parseFloat(ap.saldo_inicial||0)+ing-egr;
+      const tipo = tipoBadgeMap[ap.tipo||'GENERAL']||'🏦 General';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.2);">
+        <span>🔓 <strong>${ap.codigo}</strong> <span style="font-size:0.75rem;opacity:0.9;">${tipo}</span> — ${fechaDisplay(ap.fecha)} ${ap.hora} por <strong>${ap.usuario}</strong></span>
+        <span style="font-weight:800;">Saldo: S/. ${fmtPago(sald)}</span>
+      </div>`;
+    }).join('');
+    banner.innerHTML = `<div class="alert alert-success" style="flex-direction:column;gap:4px;">${items}</div>`;
+    btnAbrir.style.display  = abiertas.length < 2 ? 'inline-flex' : 'none';
     btnCerrar.style.display = 'inline-flex';
 
+    // Stats de la primera caja abierta (o GENERAL si existe)
+    const ap = abiertas.find(a=>!a.tipo||a.tipo==='GENERAL') || abiertas[0];
+    const ingresos = totalIngresosApertura(ap.codigo);
+    const egresos  = totalEgresosApertura(ap.codigo);
+    const saldo    = parseFloat(ap.saldo_inicial||0)+ingresos-egresos;
     document.getElementById('caja-stat-inicial').textContent = fmtS(ap.saldo_inicial);
     document.getElementById('caja-stat-fecha-apertura').textContent = fechaDisplay(ap.fecha)+' '+ap.hora;
     document.getElementById('caja-stat-ingresos').textContent = fmtS(ingresos);
     document.getElementById('caja-stat-egresos').textContent  = fmtS(egresos);
     document.getElementById('caja-stat-saldo').textContent    = fmtS(saldo);
   } else {
-    banner.innerHTML = `<div class="alert alert-warning">🔒 No hay ninguna caja abierta actualmente. Abre una caja para empezar a registrar recibos.</div>`;
-    btnAbrir.style.display = 'inline-flex';
+    banner.innerHTML = `<div class="alert alert-warning">🔒 No hay ninguna caja abierta actualmente. Abre una caja para registrar recibos.</div>`;
+    btnAbrir.style.display  = 'inline-flex';
     btnCerrar.style.display = 'none';
-
     document.getElementById('caja-stat-inicial').textContent = 'S/. 0';
     document.getElementById('caja-stat-fecha-apertura').textContent = 'Sin apertura';
     document.getElementById('caja-stat-ingresos').textContent = 'S/. 0';
@@ -6445,9 +6498,15 @@ function renderAperturas(){
     const badgeEstado = ap.estado === 'Abierta'
       ? 'background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;'
       : 'background:#f5f5f5;color:#616161;border:1px solid #e0e0e0;';
+    const tipo = ap.tipo||'GENERAL';
+    const tipoBadge = tipo==='ORGANICO'
+      ? '<span style="background:#e8f5e9;color:#1a5c2e;border:1px solid #a5d6a7;padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:700;">🌿 ORG</span>'
+      : tipo==='CONVENCIONAL'
+      ? '<span style="background:#fff3e0;color:#e65100;border:1px solid #ffb74d;padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:700;">☕ CONV</span>'
+      : '<span style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:700;">🏦 GEN</span>';
     const recibosCount = (DB.recibos||[]).filter(r=>r.apertura_ref===ap.codigo).length;
     return `<tr>
-      <td class="td-codigo">${ap.codigo}</td>
+      <td class="td-codigo">${ap.codigo} ${tipoBadge}</td>
       <td>${fechaDisplay(ap.fecha)}</td>
       <td>${ap.hora||'—'}</td>
       <td style="font-size:0.78rem;">${ap.usuario||'—'}</td>
@@ -6460,7 +6519,7 @@ function renderAperturas(){
       <td>
         <div style="display:flex;gap:3px;">
           <button class="btn btn-secondary btn-sm" onclick="verPrintCierre(${ri})" title="Ver arqueo">📄</button>
-          <button class="btn btn-danger btn-sm" onclick="eliminarApertura(${ri})" title="Eliminar apertura${recibosCount>0?' ('+recibosCount+' recibos)':''}">🗑️</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarApertura(${ri})" title="Eliminar">🗑️</button>
         </div>
       </td>
     </tr>`;
@@ -7038,15 +7097,15 @@ function masGenerarPreview(){
     alertEl.innerHTML='<div class="alert alert-error">⚠️ Selecciona las fechas.</div>'; return;
   }
 
-  // Validar caja abierta con saldo suficiente
-  const cajaIdx = cajaAbiertaActual();
+  // Validar caja ORGÁNICA abierta con saldo suficiente
+  const cajaIdx = cajaAbiertaTipo('ORGANICO');
   if(cajaIdx < 0){
-    alertEl.innerHTML='<div class="alert alert-error">❌ No hay caja abierta. Abre la caja con el monto exacto o mayor antes de generar.</div>'; return;
+    alertEl.innerHTML='<div class="alert alert-error">❌ No hay caja abierta para Orgánico/Fairtrade.<br>Ve a 🏦 Caja → Abrir Caja → selecciona tipo <strong>"🌿 Orgánico / Fairtrade"</strong>.</div>'; return;
   }
   const apCajaVal = DB.aperturas[cajaIdx];
   const saldoCaja = saldoActualApertura(apCajaVal.codigo);
   if(saldoCaja < totalValor - 0.10){
-    alertEl.innerHTML=`<div class="alert alert-error">❌ Saldo de caja insuficiente.<br>Disponible: <strong>S/. ${fmt(saldoCaja)}</strong> | Necesario: <strong>S/. ${fmt(totalValor)}</strong></div>`; return;
+    alertEl.innerHTML=`<div class="alert alert-error">❌ Saldo de caja Orgánica insuficiente.<br>Disponible: <strong>S/. ${fmt(saldoCaja)}</strong> | Necesario: <strong>S/. ${fmt(totalValor)}</strong><br>Abre una caja Orgánica con al menos S/. ${fmt(totalValor)}.</div>`; return;
   }
 
   const sociosCbs = [...document.querySelectorAll('.mas-socio-cb:checked')];
@@ -7228,8 +7287,8 @@ async function masGenerarTodo(){
   if(!DB.comprobantes) DB.comprobantes=[];
 
   const campana = DB.campana?.nombre || '2026';
-  const cajaIdx = cajaAbiertaActual();
-  const apCaja  = cajaIdx >= 0 ? DB.aperturas[cajaIdx] : null;
+  const cajaOrgIdx = cajaAbiertaTipo('ORGANICO');
+  const apCaja  = cajaOrgIdx >= 0 ? DB.aperturas[cajaOrgIdx] : null;
   const prima   = parseFloat(document.getElementById('mas-prima').value)||0;
 
   let ticketsCreados=0, guiasCreadas=0, compsCreados=0;
