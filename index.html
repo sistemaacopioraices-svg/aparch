@@ -373,6 +373,13 @@ tr:hover td{background:#f9f6f1;}
       <div class="card-title">🎫 Tickets de Entrada</div>
       <button class="btn btn-primary" onclick="abrirModalTicket()">+ Nuevo Ticket</button>
     </div>
+    <!-- TABS CERTIFICACIÓN -->
+    <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
+      <button id="tk-tab-todos" class="btn btn-primary btn-sm" onclick="switchTicketTab('todos')">🏦 Todos</button>
+      <button id="tk-tab-conv"  class="btn btn-secondary btn-sm" onclick="switchTicketTab('conv')">☕ Convencional</button>
+      <button id="tk-tab-org"   class="btn btn-secondary btn-sm" onclick="switchTicketTab('org')">🌿 Orgánico/FT</button>
+      <span id="tk-tab-count" style="margin-left:auto;font-size:0.75rem;color:#888;align-self:center;"></span>
+    </div>
     <div class="search-bar">
       <input type="text" id="search-ticket" placeholder="🔍 Buscar por código, productor, lote..." oninput="filtrarTickets()">
     </div>
@@ -397,11 +404,16 @@ tr:hover td{background:#f9f6f1;}
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
         </label>
-        <button class="btn btn-secondary" onclick="imprimirTodasGuias()" title="Imprimir todas las guías en un solo PDF">
-          🖨️ Imprimir Todas
-        </button>
+        <button class="btn btn-secondary" onclick="imprimirTodasGuias()">🖨️ Imprimir Todas</button>
         <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
       </div>
+    </div>
+    <!-- TABS CERTIFICACIÓN -->
+    <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
+      <button id="g-tab-todos" class="btn btn-primary btn-sm" onclick="switchGuiaTab('todos')">🏦 Todas</button>
+      <button id="g-tab-conv"  class="btn btn-secondary btn-sm" onclick="switchGuiaTab('conv')">☕ Convencional</button>
+      <button id="g-tab-org"   class="btn btn-secondary btn-sm" onclick="switchGuiaTab('org')">🌿 Orgánico/FT</button>
+      <span id="g-tab-count" style="margin-left:auto;font-size:0.75rem;color:#888;align-self:center;"></span>
     </div>
     <div class="search-bar">
       <input type="text" id="search-guia" placeholder="🔍 Buscar por productor, código, base..." oninput="filtrarGuias()">
@@ -438,6 +450,13 @@ tr:hover td{background:#f9f6f1;}
     <div class="card-header">
       <div class="card-title">🧾 Comprobantes de Pago</div>
       <button class="btn btn-primary" onclick="abrirModalComprobante()">+ Nuevo Comprobante</button>
+    </div>
+    <!-- TABS CERTIFICACIÓN -->
+    <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
+      <button id="cp-tab-todos" class="btn btn-primary btn-sm" onclick="switchCompTab('todos')">🏦 Todos</button>
+      <button id="cp-tab-conv"  class="btn btn-secondary btn-sm" onclick="switchCompTab('conv')">☕ Convencional</button>
+      <button id="cp-tab-org"   class="btn btn-secondary btn-sm" onclick="switchCompTab('org')">🌿 Orgánico/FT</button>
+      <span id="cp-tab-count" style="margin-left:auto;font-size:0.75rem;color:#888;align-self:center;"></span>
     </div>
     <div class="search-bar">
       <input type="text" id="search-comp" placeholder="🔍 Buscar..." oninput="filtrarComprobantes()">
@@ -3173,10 +3192,54 @@ function guardarTicket(){
   guardarDB(); cerrarModal('modal-ticket'); renderTickets(); showSection('tickets');
 }
 
+// ── Variables de tab activo ──
+let _tkTab = 'todos', _gTab = 'todos', _cpTab = 'todos';
+
+function _certifMatch(certif, tab){
+  const c = (certif||'').toUpperCase();
+  if(tab==='conv') return c.includes('CONVENCIONAL');
+  if(tab==='org')  return c.includes('ORGANICO')||c.includes('FAIRTRADE');
+  return true;
+}
+
+function switchTicketTab(tab){
+  _tkTab = tab;
+  ['todos','conv','org'].forEach(t=>{
+    const b=document.getElementById('tk-tab-'+t);
+    if(b) b.className=t===tab?'btn btn-primary btn-sm':'btn btn-secondary btn-sm';
+  });
+  filtrarTickets();
+}
+
+function switchGuiaTab(tab){
+  _gTab = tab;
+  ['todos','conv','org'].forEach(t=>{
+    const b=document.getElementById('g-tab-'+t);
+    if(b) b.className=t===tab?'btn btn-primary btn-sm':'btn btn-secondary btn-sm';
+  });
+  filtrarGuias();
+}
+
+function switchCompTab(tab){
+  _cpTab = tab;
+  ['todos','conv','org'].forEach(t=>{
+    const b=document.getElementById('cp-tab-'+t);
+    if(b) b.className=t===tab?'btn btn-primary btn-sm':'btn btn-secondary btn-sm';
+  });
+  filtrarComprobantes();
+}
+
 function renderTickets(filtro){
-  const lista=filtro?DB.tickets.filter(t=>(t.codigo||'').toLowerCase().includes(filtro)||(t.productor||'').toLowerCase().includes(filtro)||(t.lote||'').toLowerCase().includes(filtro)):DB.tickets;
+  const lista = DB.tickets.filter(t=>{
+    const matchTxt = !filtro || (t.codigo||'').toLowerCase().includes(filtro)||(t.productor||'').toLowerCase().includes(filtro)||(t.lote||'').toLowerCase().includes(filtro);
+    return matchTxt && _certifMatch(t.certificacion, _tkTab);
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||(b.hora||'').localeCompare(a.hora||''));
+
+  const countEl = document.getElementById('tk-tab-count');
+  if(countEl){ const kg=lista.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0); countEl.textContent=`${lista.length} tickets | ${fmt(kg)} kg`; }
+
   const tb=document.getElementById('tickets-body');
-  if(!lista.length){tb.innerHTML=`<tr><td colspan="18"><div class="empty-state"><span class="ico">🎫</span>Sin tickets registrados.</div></td></tr>`;return;}
+  if(!lista.length){tb.innerHTML=`<tr><td colspan="18"><div class="empty-state"><span class="ico">🎫</span>Sin tickets.</div></td></tr>`;return;}
   tb.innerHTML=[...lista].reverse().map(t=>{
     const ri=DB.tickets.indexOf(t);
     return `<tr>
@@ -3607,12 +3670,14 @@ function renderGuias(filtro, desde, hasta, estado){
     const matchDesde = !desde || (g.fecha||'') >= desde;
     const matchHasta = !hasta || (g.fecha||'') <= hasta;
     const matchEst   = !estado || (g.estado_pago||'Pendiente') === estado;
-    return matchTxt && matchDesde && matchHasta && matchEst;
-  });
+    const matchTab   = _certifMatch(g.certificacion, _gTab);
+    return matchTxt && matchDesde && matchHasta && matchEst && matchTab;
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const countEl = document.getElementById('g-tab-count');
+  if(countEl){ const v=lista.reduce((a,g)=>a+(parseFloat(g.valorrecibido)||0),0); countEl.textContent=`${lista.length} guías | S/. ${fmtPago(v)}`; }
   const tb=document.getElementById('guias-body');
   if(!lista.length){
     tb.innerHTML=`<tr><td colspan="15"><div class="empty-state"><span class="ico">📋</span>Sin guías con ese filtro.</div></td></tr>`;
-    // Mostrar total filtrado
     return;
   }
   // Totales del filtro
@@ -4458,10 +4523,21 @@ function _ejecutarGuardadoComprobante(apCaja){
 }
 
 function renderComprobantes(filtro){
-  const lista=filtro?DB.comprobantes.filter(c=>(c.codigo||'').toLowerCase().includes(filtro)||(c.productor||'').toLowerCase().includes(filtro)||(c.guia_ref||'').toLowerCase().includes(filtro)):DB.comprobantes;
+  const lista = DB.comprobantes.filter(c=>{
+    const matchTxt = !filtro || (c.codigo||'').toLowerCase().includes(filtro)||(c.productor||'').toLowerCase().includes(filtro)||(c.guia_ref||'').toLowerCase().includes(filtro);
+    // Obtener certificación de la primera guía del comprobante
+    const codGuia = c.guia_ref||(c.guias_ref||[])[0]||'';
+    const g = DB.guias.find(x=>x.codigo===codGuia);
+    const certif = g ? g.certificacion : (c.codigo||'').includes('-ORG-') ? 'ORGANICO' : 'CONVENCIONAL';
+    return matchTxt && _certifMatch(certif, _cpTab);
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  const countEl = document.getElementById('cp-tab-count');
+  if(countEl){ const v=lista.reduce((a,c)=>a+(parseFloat(c.monto)||0),0); countEl.textContent=`${lista.length} comp. | S/. ${fmtPago(v)}`; }
+
   const tb=document.getElementById('comp-body');
   if(!lista.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty-state"><span class="ico">🧾</span>Sin comprobantes.</div></td></tr>`;return;}
-  tb.innerHTML=[...lista].reverse().map(c=>{
+  tb.innerHTML=[...lista].map(c=>{
     const ri=DB.comprobantes.indexOf(c);
     const tot=parseFloat(c.total_guia||0);
     const pagado=totalPagadoGuia(c.guia_ref);
