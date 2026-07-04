@@ -1054,12 +1054,17 @@ tr:hover td{background:#f9f6f1;}
         <button class="btn btn-danger" onclick="abrirModalRecibo('egreso')">+ Recibo de Egreso</button>
       </div>
     </div>
-    <div class="search-bar">
+    <div class="search-bar" style="flex-wrap:wrap;gap:8px;">
       <input type="text" id="search-recibo" placeholder="🔍 Buscar por código, concepto, persona..." oninput="filtrarRecibos()">
       <select id="filter-recibo-tipo" onchange="filtrarRecibos()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.82rem;">
         <option value="">Todos los tipos</option>
         <option value="ingreso">Solo Ingresos</option>
         <option value="egreso">Solo Egresos</option>
+      </select>
+      <select id="filter-recibo-caja" onchange="filtrarRecibos()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.82rem;font-weight:700;">
+        <option value="CONVENCIONAL">☕ Caja Convencional + Coco</option>
+        <option value="ORGANICO">🌿 Caja Orgánico / Fairtrade</option>
+        <option value="">🏦 Todos</option>
       </select>
     </div>
     <div class="table-wrap">
@@ -6550,20 +6555,55 @@ function eliminarApertura(idx){
   alert(`✅ Apertura ${ap.codigo} eliminada correctamente.`);
 }
 
-function renderRecibos(filtro, tipoF){
-  const lista = (DB.recibos||[]).filter(r=>{
-    const matchTxt = !filtro || (r.codigo||'').toLowerCase().includes(filtro) || (r.persona||'').toLowerCase().includes(filtro) || (r.concepto||'').toLowerCase().includes(filtro);
-    const matchTipo = !tipoF || r.tipo === tipoF;
-    return matchTxt && matchTipo;
+function renderRecibos(filtro, tipoF, cajaF){
+  // Obtener las aperturas de caja del tipo seleccionado
+  const aperturasPorTipo = new Map();
+  (DB.aperturas||[]).forEach(ap=>{
+    const t = ap.tipo||'GENERAL';
+    aperturasPorTipo.set(ap.codigo, t);
   });
+
+  // Determinar qué códigos de apertura corresponden al filtro de caja
+  let codigosApertura = null;
+  if(cajaF){
+    codigosApertura = new Set(
+      (DB.aperturas||[])
+        .filter(ap=>{
+          const t = ap.tipo||'GENERAL';
+          if(cajaF==='ORGANICO')     return t==='ORGANICO';
+          if(cajaF==='CONVENCIONAL') return t==='CONVENCIONAL'||t==='GENERAL';
+          return true;
+        })
+        .map(ap=>ap.codigo)
+    );
+  }
+
+  const lista = (DB.recibos||[]).filter(r=>{
+    const matchTxt  = !filtro || (r.codigo||'').toLowerCase().includes(filtro)||(r.persona||'').toLowerCase().includes(filtro)||(r.concepto||'').toLowerCase().includes(filtro);
+    const matchTipo = !tipoF || r.tipo === tipoF;
+    const matchCaja = !codigosApertura || codigosApertura.has(r.apertura_ref||'');
+    // Excluir recibos orgánicos de la vista convencional y viceversa
+    return matchTxt && matchTipo && matchCaja;
+  });
+
   const tb = document.getElementById('recibos-body');
   if(!lista.length){
-    tb.innerHTML = `<tr><td colspan="10"><div class="empty-state"><span class="ico">🧾</span>No hay recibos registrados.</div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10"><div class="empty-state"><span class="ico">🧾</span>No hay recibos en esta caja.</div></td></tr>`;
     return;
   }
+  // Totales del filtro
+  const totalIng = lista.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+(parseFloat(r.monto)||0),0);
+  const totalEgr = lista.filter(r=>r.tipo==='egreso').reduce((a,r)=>a+(parseFloat(r.monto)||0),0);
+
   tb.innerHTML = [...lista].reverse().map(r=>{
     const ri = DB.recibos.indexOf(r);
     const esIngreso = r.tipo === 'ingreso';
+    const tipoCaja = aperturasPorTipo.get(r.apertura_ref||'')||'GENERAL';
+    const badgeCaja = tipoCaja==='ORGANICO'
+      ? '<span style="font-size:0.6rem;background:#e8f5e9;color:#1a5c2e;padding:1px 4px;border-radius:3px;margin-left:3px;">🌿</span>'
+      : tipoCaja==='CONVENCIONAL'
+      ? '<span style="font-size:0.6rem;background:#fff3e0;color:#e65100;padding:1px 4px;border-radius:3px;margin-left:3px;">☕</span>'
+      : '';
     return `<tr style="${esIngreso?'':'background:#fff8f7;'}">
       <td class="td-codigo">${r.codigo}</td>
       <td><span style="display:inline-flex;align-items:center;gap:3px;background:${esIngreso?'#e8f5e9':'#ffebee'};color:${esIngreso?'#2e7d32':'#c62828'};border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:700;">${esIngreso?'⬆️ Ingreso':'⬇️ Egreso'}</span></td>
@@ -6572,7 +6612,7 @@ function renderRecibos(filtro, tipoF){
       <td style="font-size:0.8rem;"><strong>${r.persona||'—'}</strong></td>
       <td style="font-size:0.78rem;">${r.formapago||'—'}</td>
       <td style="text-align:right;font-weight:800;color:${esIngreso?'#2e7d32':'#c62828'};">${esIngreso?'+':'−'}S/. ${fmtPago(r.monto)}</td>
-      <td><span class="tag">${r.apertura_ref||'—'}</span></td>
+      <td><span class="tag">${r.apertura_ref||'—'}${badgeCaja}</span></td>
       <td style="font-size:0.76rem;">${r.usuario||'—'}</td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-secondary btn-sm" onclick="abrirModalRecibo('${r.tipo}', ${ri})">✏️</button>
@@ -6580,13 +6620,24 @@ function renderRecibos(filtro, tipoF){
         <button class="btn btn-danger btn-sm" onclick="eliminarRecibo(${ri})">🗑️</button>
       </div></td>
     </tr>`;
-  }).join('');
+  }).join('')
+  + `<tr style="background:#f5f5f5;font-weight:700;font-size:0.8rem;">
+      <td colspan="6" style="text-align:right;color:#555;">Totales (${lista.length} recibos):</td>
+      <td style="text-align:right;color:#2e7d32;">+S/. ${fmt(totalIng)}</td>
+      <td colspan="3"></td>
+    </tr>
+    <tr style="background:#f5f5f5;font-weight:700;font-size:0.8rem;">
+      <td colspan="6" style="text-align:right;color:#555;"></td>
+      <td style="text-align:right;color:#c62828;">−S/. ${fmt(totalEgr)}</td>
+      <td colspan="3"></td>
+    </tr>`;
 }
 
 function filtrarRecibos(){
   const q = document.getElementById('search-recibo').value.toLowerCase();
   const t = document.getElementById('filter-recibo-tipo').value;
-  renderRecibos(q, t);
+  const c = document.getElementById('filter-recibo-caja')?.value||'';
+  renderRecibos(q, t, c);
 }
 
 // ── IMPRESIÓN DE RECIBO ──
@@ -7293,6 +7344,23 @@ async function masGenerarTodo(){
   const cajaOrgIdx = cajaAbiertaTipo('ORGANICO');
   const apCaja  = cajaOrgIdx >= 0 ? DB.aperturas[cajaOrgIdx] : null;
   const prima   = parseFloat(document.getElementById('mas-prima').value)||0;
+  const fechaIniStr = document.getElementById('mas-fecha-ini').value;
+  const fechaFinStr = document.getElementById('mas-fecha-fin').value;
+
+  // Función correlativo recibos orgánicos
+  function nextReciboOrg(){
+    const lista = (DB.recibos||[]).filter(r=>(r.codigo||'').startsWith('EGR-ORG-'));
+    if(!lista.length) return 'EGR-ORG-00001';
+    const nums = lista.map(r=>{ const m=(r.codigo||'').match(/(\d+)$/); return m?parseInt(m[1]):0; });
+    return 'EGR-ORG-'+String(Math.max(...nums)+1).padStart(5,'0');
+  }
+
+  // Validar que todas las fechas de la distribución están dentro del rango
+  for(const d of _masDistribucion){
+    if(d.fecha < fechaIniStr || d.fecha > fechaFinStr){
+      d.fecha = masNextFechaLaboral(new Date(fechaIniStr+'T12:00:00'), 0, Math.max(1, Math.round((new Date(fechaFinStr)-new Date(fechaIniStr))/86400000)), 1);
+    }
+  }
 
   let ticketsCreados=0, guiasCreadas=0, compsCreados=0;
   const resumen = [];
@@ -7359,7 +7427,7 @@ async function masGenerarTodo(){
 
     // Egreso en caja si hay caja abierta
     if(apCaja){
-      const codEgr = nextCodigo(DB.recibos, 'EGR-');
+      const codEgr = nextReciboOrg();
       DB.recibos.push({
         codigo: codEgr, tipo: 'egreso', fecha: d.fecha,
         persona: d.socio,
