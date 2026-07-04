@@ -3280,7 +3280,11 @@ function renderTickets(filtro){
   const listaCompleta = DB.tickets.filter(t=>{
     const matchTxt = !filtro || (t.codigo||'').toLowerCase().includes(filtro)||(t.productor||'').toLowerCase().includes(filtro)||(t.lote||'').toLowerCase().includes(filtro);
     return matchTxt && _certifMatch(t.certificacion, _tkTab);
-  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||(b.hora||'').localeCompare(a.hora||''));
+  }).sort((a,b)=>{
+    const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
+    const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
+    return nB - nA;
+  });
 
   const countEl = document.getElementById('tk-tab-count');
   if(countEl){ const kg=listaCompleta.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0); countEl.textContent=`${listaCompleta.length} tickets | ${fmt(kg)} kg`; }
@@ -3316,6 +3320,8 @@ function renderTickets(filtro){
       </td>
     </tr>`;
   }).join('');
+
+  renderPager('tickets', listaCompleta.length, 'tickets-pager');
 }
 function filtrarTickets(){ _resetPag('tickets'); renderTickets(document.getElementById('search-ticket').value.toLowerCase()); }
 function abrirModalAlertaBloqueo(titulo, mensaje, detalle){
@@ -4612,6 +4618,7 @@ function renderComprobantes(filtro){
       </div></td>
     </tr>`;
   }).join('');
+  renderPager('comprobantes', lista.length, 'comp-pager');
 }
 function filtrarComprobantes(){ _resetPag('comprobantes'); renderComprobantes(document.getElementById('search-comp').value.toLowerCase()); }
 function eliminarComp(i){
@@ -6860,6 +6867,7 @@ function renderRecibos(filtro, tipoF, cajaF){
       <td style="text-align:right;color:#c62828;">−S/. ${fmt(totalEgr)}</td>
       <td colspan="3"></td>
     </tr>`;
+  renderPager('recibos', lista.length, 'recibos-pager');
 }
 
 function filtrarRecibos(){
