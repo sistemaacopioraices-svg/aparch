@@ -7864,17 +7864,19 @@ function kardexPoblarOrigen(){
     sel.innerHTML += '</optgroup>';
   }
 
-  // ── GUÍAS ORGÁNICAS (para mezclas) ──
-  const guiasOrg = DB.guias.filter(g=>!(g.certificacion||'').toUpperCase().includes('CONVENCIONAL') && g.certificacion);
-  if(guiasOrg.length){
-    sel.innerHTML += '<optgroup label="🌿 Guías Café Orgánico/Fairtrade">';
-    guiasOrg.forEach(g=>{
-      const kgDisp = kardexKgDisponibleGuia(g.codigo);
-      if(kgDisp < 0.01) return;
-      const label = `${g.codigo} — ${g.productor} — ${kgDisp.toFixed(2)} kg disp.`;
-      sel.innerHTML += `<option value="guia:${g.codigo}" data-kg="${kgDisp}" data-costo="${g.precikg||0}" data-origen="guia-org">${label}</option>`;
-    });
-    sel.innerHTML += '</optgroup>';
+  // ── GUÍAS ORGÁNICAS (solo admin, para mezclas) ──
+  if(SESSION.role === 'admin'){
+    const guiasOrg = DB.guias.filter(g=>!(g.certificacion||'').toUpperCase().includes('CONVENCIONAL') && g.certificacion);
+    if(guiasOrg.length){
+      sel.innerHTML += '<optgroup label="🌿 Guías Café Orgánico/Fairtrade">';
+      guiasOrg.forEach(g=>{
+        const kgDisp = kardexKgDisponibleGuia(g.codigo);
+        if(kgDisp < 0.01) return;
+        const label = `${g.codigo} — ${g.productor} — ${kgDisp.toFixed(2)} kg disp.`;
+        sel.innerHTML += `<option value="guia:${g.codigo}" data-kg="${kgDisp}" data-costo="${g.precikg||0}" data-origen="guia-org">${label}</option>`;
+      });
+      sel.innerHTML += '</optgroup>';
+    }
   }
 
   // ── COMPRAS CAFÉ COCO ──
@@ -7901,12 +7903,31 @@ function kardexPoblarOrigen(){
 function kardexKgDisponibleGuia(codigoGuia){
   const g = DB.guias.find(x=>x.codigo===codigoGuia);
   if(!g) return 0;
-  const acopiado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  // Descontar todo lo vendido en cualquier venta del kárdex que incluya esta guía
+
+  // KG acopiados: desde tickets_detalle O desde QQ netos de la guía directamente
+  let acopiado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+  if(acopiado <= 0){
+    // Fallback: calcular desde QQ netos * 55.2, o desde pesoneto si existe
+    const qqNeto = parseFloat(g.exportacion||0) > 0
+      ? parseFloat(g.exportacion)
+      : 0;
+    // Intentar calcular desde precio kg y valor total
+    const precikg = parseFloat(g.precikg||0);
+    const valorTotal = parseFloat(g.valorrecibido||0);
+    if(precikg > 0 && valorTotal > 0){
+      acopiado = valorTotal / precikg;
+    } else {
+      // Último fallback: usar QQ netos de la guía
+      const totalPN = parseFloat(g.rend_export||70)/100;
+      acopiado = 0; // sin info suficiente, mostrar como disponible con 999
+    }
+    // Si nada funciona, mostrar la guía con KG indeterminados (999 como placeholder)
+    if(acopiado <= 0) acopiado = 9999;
+  }
+
   const vendido = (DB.kardex||[])
     .filter(k=>(k.origenes||[]).includes(codigoGuia))
     .reduce((a,k)=>{
-      // Si la venta tiene detalle por origen, usar el kg asignado a esta guía específica
       const det = (k.origenes_detalle||[]).find(d=>d.ref===`guia:${codigoGuia}`);
       return a + (det ? parseFloat(det.kgAjustado||0) : parseFloat(k.kg_venta||0));
     }, 0);
