@@ -3281,7 +3281,6 @@ function renderTickets(filtro){
     const matchTxt = !filtro || (t.codigo||'').toLowerCase().includes(filtro)||(t.productor||'').toLowerCase().includes(filtro)||(t.lote||'').toLowerCase().includes(filtro);
     return matchTxt && _certifMatch(t.certificacion, _tkTab);
   }).sort((a,b)=>{
-    if((a.fecha||'') !== (b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
     return nA - nB;
@@ -3728,7 +3727,6 @@ function renderGuias(filtro, desde, hasta, estado){
     const matchTab   = _certifMatch(g.certificacion, _gTab);
     return matchTxt && matchDesde && matchHasta && matchEst && matchTab;
   }).sort((a,b)=>{
-    if((a.fecha||'') !== (b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
     return nA - nB;
@@ -4593,7 +4591,6 @@ function renderComprobantes(filtro){
     const certif = g ? g.certificacion : (c.codigo||'').includes('-ORG-') ? 'ORGANICO' : 'CONVENCIONAL';
     return matchTxt && _certifMatch(certif, _cpTab);
   }).sort((a,b)=>{
-    if((a.fecha||'') !== (b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
     return nA - nB;
@@ -7503,6 +7500,9 @@ function masGenerarPreview(){
     distribucion[distribucion.length-1].valor=Math.round((distribucion[distribucion.length-1].valor+diff)*10)/10;
   }
 
+  // Ordenar por fecha ASC para que el correlativo siga la cronología
+  distribucion.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
   _masDistribucion = distribucion;
 
   // Mostrar preview
@@ -7615,6 +7615,14 @@ async function masGenerarTodo(){
       d.fecha = masNextFechaLaboral(new Date(fechaIniStr+'T12:00:00'), 0, Math.max(1, Math.round((new Date(fechaFinStr)-new Date(fechaIniStr))/86400000)), 1);
     }
   }
+
+  // ── ORDENAR la distribución por fecha ASC antes de asignar correlativos ──
+  // Así RCH-ORG-00001 = fecha más antigua, RCH-ORG-00002 = siguiente, etc.
+  _masDistribucion.sort((a,b)=>{
+    if(a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+    // Mismo día: orden aleatorio ya estaba OK, mantener
+    return 0;
+  });
 
   let ticketsCreados=0, guiasCreadas=0, compsCreados=0;
   const resumen = [];
