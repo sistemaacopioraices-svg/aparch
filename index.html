@@ -7089,17 +7089,16 @@ function masGenerarPreview(){
       );
       const kgNetoObjetivo = Math.min(qqEstaGuia*55.2, kgSocioRestante);
 
-      // Sacos: entre 60-75 kg/saco
+      // Sacos: entre 60-75 kg bruto por saco
       const kgPorSaco = 60 + Math.random()*15;
-      let sacos = Math.max(1, Math.round((kgNetoObjetivo + sacos*0.25||0) / kgPorSaco));
-      sacos = Math.max(1, Math.round(kgNetoObjetivo / (kgPorSaco - 0.25)));
+      const sacos = Math.max(1, Math.round(kgNetoObjetivo / kgPorSaco));
 
       // Tara = sacos × 0.25
       const tara = Math.round(sacos * 0.25 * 100) / 100;
 
-      // KG Bruto: redondeado al 0.5 más cercano (termina en .00 o .50)
+      // KG Bruto redondeado al 0.5 más cercano (.00 o .50)
       const kgBrutoExacto = kgNetoObjetivo + tara;
-      const kgBruto = Math.round(kgBrutoExacto * 2) / 2; // redondea a múltiplos de 0.5
+      const kgBruto = Math.round(kgBrutoExacto * 2) / 2;
 
       // KG Neto real = KG Bruto - Tara
       const kgNetoGuia = Math.round((kgBruto - tara) * 100) / 100;
@@ -7108,8 +7107,8 @@ function masGenerarPreview(){
       // Rendimiento aleatorio
       const rend = Math.round(rendMin + Math.random()*(rendMax-rendMin));
 
-      // Fecha: solo L-S, sin domingos ni feriados peruanos
-      const fechaGuia = masNextFechaLaboral(dIni, guiaIdx, diffDias, distribucion.length || socios.length*3);
+      // Fecha: solo L-S sin feriados
+      const fechaGuia = masNextFechaLaboral(dIni, guiaIdx, diffDias, Math.max(1, socios.length*3));
 
       distribucion.push({
         socio: socio.nombre, dni: socio.dni, base: socio.base,
