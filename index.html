@@ -4198,17 +4198,25 @@ function abrirModalComprobante(idx){
   const selG=document.getElementById('c-guia-sel');
   selG.innerHTML='<option value="">-- Seleccionar Guía --</option>';
   let countPendientes = 0;
-  DB.guias.forEach(g=>{
+  // Ordenar por correlativo numérico ASC
+  const guiasOrdenadas = [...DB.guias].sort((a,b)=>{
+    const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
+    const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
+    return nA-nB;
+  });
+  guiasOrdenadas.forEach(g=>{
     const tp  = totalPagadoGuia(g.codigo);
     const tot = parseFloat(g.valorrecibido||0);
     const saldo = parseFloat((tot - tp).toFixed(2));
-    // Ocultar guías ya agregadas en el comprobante actual
+    // Ocultar ya agregadas
     if(compGuiasTemp.includes(g.codigo)) return;
-    // Ocultar guías totalmente pagadas (salvo que sea la guía del comp editando)
+    // Ocultar la guía si es la del comprobante que se edita (ya está en compGuiasTemp)
     const esGuiaActual = c && ((c.guia_ref===g.codigo)||(c.guias_ref||[]).includes(g.codigo));
+    // Ocultar si saldo <= 0 (pagada total o sin valor)
     if(saldo <= 0.01 && !esGuiaActual) return;
-    const badge = saldo <= 0.01 ? ' ✅ PAGADA' : '';
-    selG.innerHTML+=`<option value="${g.codigo}">${g.codigo} — ${g.productor} | Saldo: S/.${fmtPago(saldo)}${badge}</option>`;
+    // Ocultar si el estado_pago ya es "Pagado Total"
+    if((g.estado_pago||'').includes('Pagado Total') && !esGuiaActual) return;
+    selG.innerHTML+=`<option value="${g.codigo}">${g.codigo} — ${g.productor} | Saldo: S/.${fmtPago(saldo)}</option>`;
     countPendientes++;
   });
   if(countPendientes === 0){
