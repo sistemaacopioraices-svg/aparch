@@ -5371,7 +5371,6 @@ function exportarReporteCaja(){
 }
 
 function exportarReporteGeneral(){
-  // Encabezados exactos solicitados + prima y descuento
   const headers = [
     'FECHA', 'N° LOTE', 'DNI', 'PRODUCTOR', 'N° GUÍA',
     'SACOS', 'KG BRUTO', 'KG NETO', 'QQ NETO',
@@ -5381,68 +5380,126 @@ function exportarReporteGeneral(){
     'TOTAL A PAGAR (S/.)', 'HUMEDAD %', 'DESCUENTO HUMEDAD (kg)', 'BASE', 'F.ENTREGA'
   ];
 
-  const filas = [];
+  // Función para obtener precio/kg correcto
+  function getPrecioKg(g){
+    const precikg = parseFloat(g.precikg||0);
+    if(precikg > 0 && precikg < 1000) return precikg;
+    // Calcular desde precio QQ
+    const precioqq = parseFloat(g.precioqq||0);
+    if(precioqq > 0) return precioqq / 55.2;
+    return 0;
+  }
 
-  // Recorrer cada guía → dentro de cada guía, cada ticket del detalle
-  DB.guias.forEach(g => {
+  // Función para obtener KG netos de una guía (desde tickets o calculado)
+  function getKgNetos(g){
+    const fromDetalle = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+    if(fromDetalle > 0) return fromDetalle;
+    // Desde tickets vinculados en DB
+    const fromTks = DB.tickets.filter(t=>t.guia_asignada===g.codigo)
+      .reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+    if(fromTks > 0) return fromTks;
+    // Calcular desde valor y precio QQ
+    const precioqq = parseFloat(g.precioqq||0);
+    const valor = parseFloat(g.valorrecibido||0);
+    if(precioqq > 0 && valor > 0) return (valor/precioqq)*55.2;
+    return 0;
+  }
+
+  function getKgBruto(g){
+    const fromDetalle = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesobrutokg||t.pesobruto)||0),0);
+    if(fromDetalle > 0) return fromDetalle;
+    const fromTks = DB.tickets.filter(t=>t.guia_asignada===g.codigo)
+      .reduce((a,t)=>a+(parseFloat(t.pesobruto)||0),0);
+    return fromTks;
+  }
+
+  function getSacos(g){
+    const fromDetalle = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.sacos)||0),0);
+    if(fromDetalle > 0) return fromDetalle;
+    const fromTks = DB.tickets.filter(t=>t.guia_asignada===g.codigo)
+      .reduce((a,t)=>a+(parseFloat(t.sacos)||0),0);
+    return fromTks;
+  }
+
+  const filas = [];
+  // Ordenar guías por fecha ASC + correlativo ASC
+  const guiasOrdenadas = [...DB.guias].sort((a,b)=>{
+    if((a.fecha||'')!==(b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
+    const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
+    const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
+    return nA-nB;
+  });
+
+  guiasOrdenadas.forEach(g => {
     const detalle = g.tickets_detalle || [];
-    const primaQQ = parseFloat(g.prima_qq||0);
-    const descQQ  = g.formaentrega==='Descuento' ? parseFloat(g.descuento_qq||0) : 0;
+    const primaQQ  = parseFloat(g.prima_qq||0);
+    const descQQ   = g.formaentrega==='Descuento' ? parseFloat(g.descuento_qq||0) : 0;
+    const precioKg = getPrecioKg(g);
+    const precioQq = parseFloat(g.precioqq||0);
 
     if(detalle.length === 0){
-      // Guía sin tickets en detalle → igual incluir fila con datos de guía
+      // Guía sin tickets en detalle
+      const kgNeto  = getKgNetos(g);
+      const kgBruto = getKgBruto(g);
+      const sacos   = getSacos(g);
+      const qqNeto  = kgNeto > 0 ? kgNeto/55.2 : 0;
+      const prima   = qqNeto * primaQQ;
+      const desc    = qqNeto * descQQ;
+      const total   = parseFloat(g.valorrecibido||0) || (qqNeto*precioQq + prima - desc);
+
+      // Buscar ticket vinculado para lote y humedad
+      const tk = DB.tickets.find(t=>t.guia_asignada===g.codigo) || {};
+
       filas.push([
-        g.fecha || '',
-        '',                                      // lote — no disponible sin ticket
+        fechaToExcel(g.fecha||''),
+        tk.lote || '',
         g.dni || '',
         g.productor || '',
         g.codigo || '',
-        '',                                      // sacos
-        '',                                      // kg bruto
-        '',                                      // kg neto
-        '',                                      // qq neto
+        sacos || '',
+        kgBruto ? parseFloat(kgBruto.toFixed(2)) : '',
+        kgNeto  ? parseFloat(kgNeto.toFixed(2))  : '',
+        qqNeto  ? parseFloat(qqNeto.toFixed(4))  : '',
         g.rend_export ? parseFloat(g.rend_export) : '',
-        g.precikg   ? parseFloat(parseFloat(g.precikg).toFixed(4))   : '',
-        g.precioqq  ? parseFloat(parseFloat(g.precioqq).toFixed(2))  : '',
-        primaQQ || '', '',
-        descQQ  || '', '',
-        g.valorrecibido ? parseFloat(parseFloat(g.valorrecibido).toFixed(2)) : '',
-        '',                                      // humedad
-        '',                                      // desc. humedad
+        precioKg ? parseFloat(precioKg.toFixed(4)) : '',
+        precioQq ? parseFloat(precioQq.toFixed(2)) : '',
+        primaQQ||'', prima>0?parseFloat(prima.toFixed(2)):'',
+        descQQ||'',  desc>0?parseFloat(desc.toFixed(2)):'',
+        parseFloat(total.toFixed(2)),
+        tk.humedad ? parseFloat(tk.humedad) : '',
+        tk.deschum ? parseFloat(parseFloat(tk.deschum).toFixed(2)) : '',
         g.base || '',
         g.formaentrega || ''
       ]);
     } else {
       detalle.forEach(td => {
-        // Buscar el ticket original para obtener lote, humedad y desc. humedad
         const tk = DB.tickets.find(t => t.codigo === td.nticket) || {};
-        const pesoNeto = parseFloat(td.pesoneto || tk.pesoneto || 0);
-        const qqNeto   = pesoNeto > 0 ? parseFloat((pesoNeto / 55.2).toFixed(4)) : 0;
-        const subtotalBase = qqNeto && g.precioqq ? qqNeto * parseFloat(g.precioqq) : 0;
-        const primaTotalFila = qqNeto * primaQQ;
-        const descTotalFila  = qqNeto * descQQ;
-        const totalFila = subtotalBase + primaTotalFila - descTotalFila;
+        const pesoNeto  = parseFloat(td.pesoneto || tk.pesoneto || 0);
+        const pesoBruto = parseFloat(td.pesobrutokg || tk.pesobruto || 0);
+        const sacos     = parseFloat(td.sacos || tk.sacos || 0);
+        const qqNeto    = pesoNeto > 0 ? pesoNeto/55.2 : 0;
+        const prima     = qqNeto * primaQQ;
+        const desc      = qqNeto * descQQ;
+        const total     = qqNeto*precioQq + prima - desc;
 
         filas.push([
-          tk.fecha || g.fecha || '',
-          tk.lote  || '',
-          tk.dni   || g.dni   || '',
+          fechaToExcel(tk.fecha || g.fecha || ''),
+          tk.lote || '',
+          tk.dni   || g.dni    || '',
           tk.productor || g.productor || '',
           g.codigo || '',
-          parseFloat(td.sacos || tk.sacos || 0) || '',
-          parseFloat(td.pesobrutokg || tk.pesobruto || 0) || '',
-          pesoNeto || '',
-          qqNeto   || '',
+          sacos  || '',
+          pesoBruto ? parseFloat(pesoBruto.toFixed(2)) : '',
+          pesoNeto  ? parseFloat(pesoNeto.toFixed(2))  : '',
+          qqNeto    ? parseFloat(qqNeto.toFixed(4))    : '',
           g.rend_export ? parseFloat(g.rend_export) : '',
-          g.precikg  ? parseFloat(parseFloat(g.precikg).toFixed(4))  : '',
-          g.precioqq ? parseFloat(parseFloat(g.precioqq).toFixed(2)) : '',
-          primaQQ || '',
-          primaQQ > 0 ? parseFloat(primaTotalFila.toFixed(2)) : '',
-          descQQ || '',
-          descQQ > 0 ? parseFloat(descTotalFila.toFixed(2)) : '',
-          parseFloat(totalFila.toFixed(2)) || (g.valorrecibido ? parseFloat(parseFloat(g.valorrecibido).toFixed(2)) : ''),
-          tk.humedad  ? parseFloat(tk.humedad)  : '',
-          tk.deschum  ? parseFloat(parseFloat(tk.deschum).toFixed(2)) : '',
+          precioKg  ? parseFloat(precioKg.toFixed(4))  : '',
+          precioQq  ? parseFloat(precioQq.toFixed(2))  : '',
+          primaQQ||'', prima>0?parseFloat(prima.toFixed(2)):'',
+          descQQ||'',  desc>0?parseFloat(desc.toFixed(2)):'',
+          parseFloat(total.toFixed(2)) || (g.valorrecibido ? parseFloat(parseFloat(g.valorrecibido).toFixed(2)) : ''),
+          tk.humedad ? parseFloat(tk.humedad) : '',
+          tk.deschum ? parseFloat(parseFloat(tk.deschum).toFixed(2)) : '',
           tk.base || g.base || '',
           g.formaentrega || ''
         ]);
