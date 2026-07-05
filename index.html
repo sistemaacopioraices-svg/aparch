@@ -403,7 +403,9 @@ tr:hover td{background:#f9f6f1;}
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
         </label>
-        <button class="btn btn-secondary" onclick="imprimirTodasGuias()">🖨️ Imprimir Todas</button>
+        <button class="btn btn-secondary btn-sm" onclick="recalcularEstadosPago()" title="Recalcula el estado de pago de todas las guías basado en los comprobantes">
+          🔄 Recalcular Pagos
+        </button>
         <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
       </div>
     </div>
@@ -3806,7 +3808,7 @@ function renderGuias(filtro, desde, hasta, estado){
       <td>${g.base||'—'}</td><td>${g.formaentrega||'—'}</td>
       <td style="text-align:center;font-weight:700;color:#1b5e20;">${g.rend_export||'—'}%</td>
       <td style="text-align:right;">S/.${fmt(g.precioqq)}</td>
-      <td style="text-align:right;">S/.${fmt(g.precikg,4)}</td>
+      <td style="text-align:right;">S/.${getPrecioKgGuia(g).toFixed(4)}</td>
       <td style="text-align:right;font-weight:800;color:#e65100;">S/.${fmtPago(g.valorrecibido)}</td>
       <td><span class="badge ${badgeEp}">${ep}</span></td>
       <td><div style="display:flex;gap:3px;">
@@ -3916,7 +3918,7 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
       <div><span style="font-size:7.5px;color:#777;text-transform:uppercase;">Rendimiento</span><div style="font-weight:700;color:#1a5c2e;">${g.rend_export||'—'}%</div></div>
       <div><span style="font-size:7.5px;color:#777;text-transform:uppercase;">QQ Netos</span><div style="font-weight:800;font-size:11px;">${totalQQ.toFixed(2)}</div></div>
       <div><span style="font-size:7.5px;color:#777;text-transform:uppercase;">Precio QQ</span><div style="font-weight:700;">S/. ${fmt(g.precioqq)}</div></div>
-      <div><span style="font-size:7.5px;color:#777;text-transform:uppercase;">Precio KG</span><div style="font-weight:700;">S/. ${parseFloat(g.precikg||0).toFixed(4)}</div></div>
+      <div><span style="font-size:7.5px;color:#777;text-transform:uppercase;">Precio KG</span><div style="font-weight:700;">S/. ${getPrecioKgGuia(g).toFixed(4)}</div></div>
       ${primaQQ>0?`<div><span style="font-size:7.5px;color:#777;text-transform:uppercase;">Prima</span><div style="font-weight:700;color:#1565c0;">+S/. ${fmt(primaSol)}</div></div>`:'<div></div>'}
       ${estimadoKg>0?`<div style="grid-column:1/-1;"><span style="font-size:7.5px;color:#777;text-transform:uppercase;">Compromiso Total</span><div style="font-weight:700;color:#e65100;">${fmt(estimadoKg)} kg</div></div>`:''}
     </div>
@@ -4173,32 +4175,84 @@ function imprimirGuia(){
 // ══════════════════════════════════════════
 function totalPagadoGuia(guiaCodigo){
   let total = 0;
+  const g = DB.guias.find(x=>x.codigo===guiaCodigo);
+  const valorGuia = parseFloat(g?.valorrecibido||0);
+
   DB.comprobantes.filter(c => c.estado !== 'Anulado' && (
     c.guia_ref === guiaCodigo ||
     (Array.isArray(c.guias_ref) && c.guias_ref.includes(guiaCodigo))
   )).forEach(comp=>{
-    const guiasRef = comp.guias_ref || (comp.guia_ref ? [comp.guia_ref] : []);
+    const guiasRef = comp.guias_ref && comp.guias_ref.length > 0
+      ? comp.guias_ref
+      : (comp.guia_ref ? [comp.guia_ref] : []);
+    const monto = parseFloat(comp.monto||0);
+
     if(guiasRef.length <= 1){
-      // Comprobante de una sola guía: el monto completo es de esta guía
-      total += parseFloat(comp.monto||0);
+      // Un solo comprobante para esta guía — monto completo
+      total += monto;
     } else {
-      // Comprobante en bloque: distribuir proporcionalmente al valor de cada guía
-      const valEstaGuia = parseFloat((DB.guias.find(x=>x.codigo===guiaCodigo)||{}).valorrecibido||0);
+      // Comprobante en bloque — distribuir por valor proporcional
       const valTotal = guiasRef.reduce((a,cod)=>{
-        const g = DB.guias.find(x=>x.codigo===cod);
-        return a + parseFloat(g?.valorrecibido||0);
+        const gx = DB.guias.find(x=>x.codigo===cod);
+        return a + parseFloat(gx?.valorrecibido||0);
       }, 0);
-      if(valTotal > 0 && valEstaGuia > 0){
-        // Pago proporcional al valor de esta guía
-        const prop = valEstaGuia / valTotal;
-        total += parseFloat(comp.monto||0) * prop;
+
+      if(valTotal > 0 && valorGuia > 0){
+        // Proporcional al valor de la guía
+        total += monto * (valorGuia / valTotal);
       } else {
-        // Sin info de valor, dividir equitativamente
-        total += parseFloat(comp.monto||0) / guiasRef.length;
+        // Equitativo si no hay valores
+        total += monto / guiasRef.length;
       }
     }
   });
-  return Math.round(total * 100) / 100;
+
+  return Math.round(total * 10) / 10; // Redondear al décimo
+}
+
+// Calcula si una guía está totalmente pagada
+// Precio KG correcto de una guía (evita mostrar valor total por error)
+function recalcularEstadosPago(){
+  let actualizadas = 0;
+  DB.guias.forEach((g,i)=>{
+    const estadoAntes = g.estado_pago;
+    actualizarEstadoPagoGuia(g.codigo);
+    if(DB.guias[i].estado_pago !== estadoAntes) actualizadas++;
+  });
+  guardarDB();
+  filtrarGuias();
+  alert(`✅ Estados recalculados.\n${actualizadas} guías actualizadas.\nAhora los estados reflejan los pagos reales.`);
+}
+
+function getPrecioKgGuia(g){
+  const pk = parseFloat(g.precikg||0);
+  if(pk > 0 && pk < 1000) return pk;
+  const pq = parseFloat(g.precioqq||0);
+  if(pq > 0) return pq/55.2;
+  return 0;
+}
+
+function guiaEstaPagada(guiaCodigo){
+  const g = DB.guias.find(x=>x.codigo===guiaCodigo);
+  if(!g) return false;
+  const valor = parseFloat(g.valorrecibido||0);
+  if(valor <= 0) return false;
+  const pagado = totalPagadoGuia(guiaCodigo);
+  return pagado >= valor - 0.5;
+}
+
+// Actualiza estado_pago de una guía basándose en pagos reales
+function actualizarEstadoPagoGuia(guiaCodigo){
+  const idx = DB.guias.findIndex(x=>x.codigo===guiaCodigo);
+  if(idx<0) return;
+  const g = DB.guias[idx];
+  const valor = parseFloat(g.valorrecibido||0);
+  const pagado = totalPagadoGuia(guiaCodigo);
+  const saldo = Math.round((valor - pagado)*10)/10;
+  if(saldo <= 0.5) DB.guias[idx].estado_pago = 'Pagado Total';
+  else if(pagado > 0) DB.guias[idx].estado_pago = 'Pago Parcial';
+  else DB.guias[idx].estado_pago = 'Pendiente';
+  DB.guias[idx].total_pagado = pagado;
 }
 
 function abrirModalComprobante(idx){
