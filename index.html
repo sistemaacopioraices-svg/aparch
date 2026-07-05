@@ -5812,12 +5812,34 @@ function guardarPrestamo(){
   const editIdx = parseInt(document.getElementById('p-codigo').dataset.editIdx);
   if(!isNaN(editIdx) && editIdx >= 0){
     prestamo.abonos = DB.prestamos[editIdx].abonos || [];
+    prestamo.recibo_egreso_ref = DB.prestamos[editIdx].recibo_egreso_ref || '';
     DB.prestamos[editIdx] = prestamo;
   } else {
     if(!DB.prestamos) DB.prestamos=[];
+    // Generar egreso en caja automáticamente
+    const cajaIdx = cajaAbiertaActual();
+    if(cajaIdx >= 0){
+      const ap = DB.aperturas[cajaIdx];
+      if(!DB.recibos) DB.recibos=[];
+      const codEgr = nextCodigo(DB.recibos, 'EGR-');
+      DB.recibos.push({
+        codigo: codEgr, tipo: 'egreso',
+        fecha, persona: socio,
+        concepto: `Préstamo ${prestamo.codigo} — ${tipo} — ${socio}`,
+        monto: monto.toFixed(2), formapago: 'Efectivo',
+        observaciones: `Desembolso préstamo ${prestamo.codigo}`,
+        apertura_ref: ap.codigo, usuario: SESSION.user
+      });
+      prestamo.recibo_egreso_ref = codEgr;
+    }
     DB.prestamos.push(prestamo);
   }
   guardarDB(); cerrarModal('modal-prestamo'); renderPrestamos(); showSection('prestamos');
+  if(!isNaN(editIdx) && editIdx >= 0) return;
+  const cajaAb = cajaAbiertaActual();
+  if(cajaAb >= 0){
+    setTimeout(()=>alert(`✅ Préstamo registrado.\n🏦 Egreso S/. ${fmt(monto)} descontado de caja ${DB.aperturas[cajaAb]?.codigo||''}`),200);
+  }
 }
 
 // ── RENDER TABLA ──
@@ -5948,18 +5970,37 @@ function guardarAbono(){
   if(monto > sald + 0.01){ showAlert('abono-alert','error',`El abono (S/. ${monto.toFixed(2)}) supera el saldo (S/. ${fmt(sald)}).`); return; }
 
   if(!DB.prestamos[idx].abonos) DB.prestamos[idx].abonos=[];
-  DB.prestamos[idx].abonos.push({
-    fecha,
-    monto:      monto.toFixed(2),
-    tipo:       document.getElementById('ab-tipo').value,
-    formapago:  document.getElementById('ab-formapago').value,
-    obs:        document.getElementById('ab-obs').value,
-    usuario:    SESSION.user
-  });
+  const abono = {
+    fecha, monto: monto.toFixed(2),
+    tipo:      document.getElementById('ab-tipo').value,
+    formapago: document.getElementById('ab-formapago').value,
+    obs:       document.getElementById('ab-obs').value,
+    usuario:   SESSION.user
+  };
+  DB.prestamos[idx].abonos.push(abono);
+
+  // Registrar INGRESO en caja por el abono
+  const cajaIdx = cajaAbiertaActual();
+  if(cajaIdx >= 0){
+    const ap = DB.aperturas[cajaIdx];
+    if(!DB.recibos) DB.recibos=[];
+    const p = DB.prestamos[idx];
+    const codIng = nextCodigo(DB.recibos, 'ING-');
+    DB.recibos.push({
+      codigo: codIng, tipo: 'ingreso',
+      fecha, persona: p.socio,
+      concepto: `Abono Préstamo ${p.codigo} — ${p.tipo}`,
+      monto: monto.toFixed(2),
+      formapago: abono.formapago,
+      observaciones: abono.obs || `Abono préstamo ${p.codigo}`,
+      apertura_ref: ap.codigo, usuario: SESSION.user
+    });
+  }
+
   guardarDB(); cerrarModal('modal-abono'); renderPrestamos();
-  // Mensaje de éxito
   const saldNew = saldoPrestamo(idx);
   if(saldNew<=0.01) alert('✅ Préstamo liquidado completamente.');
+  else if(cajaIdx>=0) alert(`✅ Abono registrado.\n📥 Ingreso S/. ${fmt(monto)} registrado en caja.`);
 }
 
 // ── DETALLE ──
