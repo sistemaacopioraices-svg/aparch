@@ -7955,24 +7955,41 @@ function kardexPoblarOrigen(){
 function kardexKgDisponibleGuia(codigoGuia){
   const g = DB.guias.find(x=>x.codigo===codigoGuia);
   if(!g) return 0;
-  // 1. KG desde tickets_detalle (más preciso)
+
+  // ── KG NETOS ACOPIADOS ──
+  // Fuente 1: suma de tickets_detalle (la más precisa)
   let acopiado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  // 2. Fallback: QQ netos * 55.2 (campo directo de la guía)
+
+  // Fuente 2: QQ Netos guardados en la guía × 55.2
+  // Los campos posibles donde se guarda son: exportacion, segunda (que a veces guarda QQ), o calculado
   if(acopiado <= 0){
-    const qqNetos = parseFloat(g.exportacion||0) > 0 ? parseFloat(g.exportacion) : 0;
-    if(qqNetos > 0) acopiado = qqNetos * 55.2;
+    // Buscar tickets en DB que pertenezcan a esta guía
+    const tkGuia = DB.tickets.filter(t=>t.guia_asignada===codigoGuia);
+    if(tkGuia.length > 0){
+      acopiado = tkGuia.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+    }
   }
-  // 3. Fallback: valor / precio kg
-  if(acopiado <= 0 && parseFloat(g.precikg||0) > 0 && parseFloat(g.valorrecibido||0) > 0){
-    acopiado = parseFloat(g.valorrecibido) / parseFloat(g.precikg);
+
+  // Fuente 3: QQ netos × 55.2 (si la guía tiene ese campo guardado directamente)
+  if(acopiado <= 0 && parseFloat(g.segunda||0) > 10){
+    // 'segunda' a veces guarda los QQ si >10 (heurística)
+    // NO usar este - muy poco confiable
   }
-  // Descontar vendido en kárdex
+
+  // Fuente 4: Calcular desde valor y precio QQ (más confiable que precio kg)
+  if(acopiado <= 0 && parseFloat(g.precioqq||0) > 0 && parseFloat(g.valorrecibido||0) > 0){
+    const qqCalc = parseFloat(g.valorrecibido) / parseFloat(g.precioqq);
+    acopiado = qqCalc * 55.2;
+  }
+
+  // Descontar ya vendido en kárdex
   const vendido = (DB.kardex||[])
     .filter(k=>(k.origenes||[]).includes(codigoGuia))
     .reduce((a,k)=>{
       const det=(k.origenes_detalle||[]).find(d=>d.ref===`guia:${codigoGuia}`);
       return a+(det?parseFloat(det.kgAjustado||0):parseFloat(k.kg_venta||0));
     },0);
+
   return Math.max(0, Math.round((acopiado - vendido)*100)/100);
 }
 
@@ -8208,14 +8225,24 @@ function renderKardex(){
   const totalCosto   = lista.reduce((a,k)=>a+(parseFloat(k.costo)||0),0);
   const totalUtil    = totalIngreso - totalCosto;
 
-  // Stock disponible — suma de todos los orígenes disponibles para este tab
+  // Stock disponible
   let totalAcopiado = 0;
   if(kardexTipo==='conv'){
-    // Guías convencionales
     DB.guias.filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'))
-      .forEach(g=>{ totalAcopiado += (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0); });
+      .forEach(g=>{
+        // Sumar desde tickets_detalle
+        let kg = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+        // Fallback: valor/precioqq*55.2
+        if(kg<=0 && parseFloat(g.precioqq||0)>0 && parseFloat(g.valorrecibido||0)>0)
+          kg = (parseFloat(g.valorrecibido)/parseFloat(g.precioqq))*55.2;
+        // Fallback: tickets en DB vinculados
+        if(kg<=0){
+          const tks = DB.tickets.filter(t=>t.guia_asignada===g.codigo);
+          kg = tks.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+        }
+        totalAcopiado += kg;
+      });
   } else {
-    // Coco + cualquier guía que se haya mezclado en ventas de tipo coco
     DB.cafecoco.forEach(c=>{ totalAcopiado += parseFloat(c.kgneto||0); });
   }
   const stock = totalAcopiado - totalVendido;
