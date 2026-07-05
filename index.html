@@ -7899,38 +7899,21 @@ function kardexPoblarOrigen(){
   }
 }
 
-// KG disponibles de una guía — descontando todo lo ya vendido en cualquier kardex
 function kardexKgDisponibleGuia(codigoGuia){
   const g = DB.guias.find(x=>x.codigo===codigoGuia);
   if(!g) return 0;
-
-  // KG acopiados: desde tickets_detalle O desde QQ netos de la guía directamente
+  // KG desde tickets_detalle
   let acopiado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  if(acopiado <= 0){
-    // Fallback: calcular desde QQ netos * 55.2, o desde pesoneto si existe
-    const qqNeto = parseFloat(g.exportacion||0) > 0
-      ? parseFloat(g.exportacion)
-      : 0;
-    // Intentar calcular desde precio kg y valor total
-    const precikg = parseFloat(g.precikg||0);
-    const valorTotal = parseFloat(g.valorrecibido||0);
-    if(precikg > 0 && valorTotal > 0){
-      acopiado = valorTotal / precikg;
-    } else {
-      // Último fallback: usar QQ netos de la guía
-      const totalPN = parseFloat(g.rend_export||70)/100;
-      acopiado = 0; // sin info suficiente, mostrar como disponible con 999
-    }
-    // Si nada funciona, mostrar la guía con KG indeterminados (999 como placeholder)
-    if(acopiado <= 0) acopiado = 9999;
+  // Fallback: valor total / precio kg
+  if(acopiado <= 0 && parseFloat(g.precikg||0) > 0 && parseFloat(g.valorrecibido||0) > 0){
+    acopiado = parseFloat(g.valorrecibido) / parseFloat(g.precikg);
   }
-
   const vendido = (DB.kardex||[])
     .filter(k=>(k.origenes||[]).includes(codigoGuia))
     .reduce((a,k)=>{
-      const det = (k.origenes_detalle||[]).find(d=>d.ref===`guia:${codigoGuia}`);
-      return a + (det ? parseFloat(det.kgAjustado||0) : parseFloat(k.kg_venta||0));
-    }, 0);
+      const det=(k.origenes_detalle||[]).find(d=>d.ref===`guia:${codigoGuia}`);
+      return a+(det?parseFloat(det.kgAjustado||0):parseFloat(k.kg_venta||0));
+    },0);
   return Math.max(0, acopiado - vendido);
 }
 
@@ -7954,10 +7937,50 @@ function kardexAgregarOrigen(){
   if(kardexOrigenesTemp.find(o=>o.ref===val)){
     showAlert('kd-form-alert','error','Ya está agregado.'); return;
   }
+
   const opt = sel.options[sel.selectedIndex];
-  const kg   = parseFloat(opt.dataset.kg)||0;
-  const costo= parseFloat(opt.dataset.costo)||0;
-  kardexOrigenesTemp.push({ ref:val, label:opt.text, kgDisp:kg, costoProm:costo, kgAjustado:kg });
+  let kg = 0, costo = 0, label = opt.text;
+
+  // Calcular KG directamente desde la fuente de datos
+  if(val.startsWith('guia:')){
+    const codigoGuia = val.replace('guia:','');
+    const g = DB.guias.find(x=>x.codigo===codigoGuia);
+    if(g){
+      // KG desde tickets_detalle
+      kg = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+      // Si no hay tickets, calcular desde valor/precio
+      if(kg <= 0 && parseFloat(g.precikg||0) > 0 && parseFloat(g.valorrecibido||0) > 0){
+        kg = parseFloat(g.valorrecibido) / parseFloat(g.precikg);
+      }
+      // Descontar lo ya vendido
+      const vendido = (DB.kardex||[])
+        .filter(k=>(k.origenes||[]).includes(codigoGuia))
+        .reduce((a,k)=>{
+          const det=(k.origenes_detalle||[]).find(d=>d.ref===`guia:${codigoGuia}`);
+          return a+(det?parseFloat(det.kgAjustado||0):parseFloat(k.kg_venta||0));
+        },0);
+      kg = Math.max(0, kg - vendido);
+      costo = parseFloat(g.precikg||0);
+      label = `${codigoGuia} — ${g.productor} — ${kg.toFixed(2)} kg disp.`;
+    }
+  } else if(val.startsWith('coco:')){
+    const codigoCoco = val.replace('coco:','');
+    const c = DB.cafecoco.find(x=>x.codigo===codigoCoco);
+    if(c){
+      kg = parseFloat(c.kgneto||0);
+      const vendido = (DB.kardex||[])
+        .filter(k=>(k.origenes||[]).includes(codigoCoco))
+        .reduce((a,k)=>{
+          const det=(k.origenes_detalle||[]).find(d=>d.ref===`coco:${codigoCoco}`);
+          return a+(det?parseFloat(det.kgAjustado||0):parseFloat(k.kg_venta||0));
+        },0);
+      kg = Math.max(0, kg - vendido);
+      costo = parseFloat(c.kgneto||0)>0 ? parseFloat(c.total||0)/parseFloat(c.kgneto) : 0;
+      label = `${codigoCoco} — ${c.nombres} — ${kg.toFixed(2)} kg disp.`;
+    }
+  }
+
+  kardexOrigenesTemp.push({ ref:val, label, kgDisp:kg, costoProm:costo, kgAjustado:kg });
   sel.value='';
   kardexRenderOrigenes();
   kardexRecalcularTotales();
