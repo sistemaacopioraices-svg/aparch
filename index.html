@@ -4207,7 +4207,8 @@ function abrirModalComprobante(idx){
   guiasOrdenadas.forEach(g=>{
     const tp  = totalPagadoGuia(g.codigo);
     const tot = parseFloat(g.valorrecibido||0);
-    const saldo = parseFloat((tot - tp).toFixed(2));
+    // Redondear saldo al décimo más cercano (igual que los montos de pago)
+    const saldo = Math.round((tot - tp) * 10) / 10;
     // Ocultar ya agregadas
     if(compGuiasTemp.includes(g.codigo)) return;
     // Ocultar la guía si es la del comprobante que se edita (ya está en compGuiasTemp)
@@ -4664,9 +4665,16 @@ function renderComprobantes(filtro){
   if(!lista.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty-state"><span class="ico">🧾</span>Sin comprobantes.</div></td></tr>`;renderPager('comprobantes',0,'comp-pager');return;}
   tb.innerHTML=paginaComp.map(c=>{
     const ri=DB.comprobantes.indexOf(c);
-    const tot=parseFloat(c.total_guia||0);
-    const pagado=totalPagadoGuia(c.guia_ref);
-    const saldo=tot-pagado;
+    // Calcular total real de todas las guías del comprobante
+    const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
+    const tot = guiasRef.reduce((a,cod)=>{
+      const g = DB.guias.find(x=>x.codigo===cod);
+      return a + (g ? parseFloat(g.valorrecibido||0) : parseFloat(c.total_guia||0));
+    }, 0) || parseFloat(c.total_guia||0);
+    const pagado = totalPagadoGuia(c.guia_ref||(guiasRef[0]||''));
+    // Saldo redondeado al décimo
+    const saldoRaw = tot - pagado;
+    const saldo = Math.round(saldoRaw * 10) / 10;
     const tipo=c.tipopago||'total';
     const badgeTipo=tipo==='total'?'badge-verde pago-total':tipo==='parcial'?'badge-dorado pago-parcial':'badge-rojo pago-pendiente';
     return `<tr>
@@ -4674,9 +4682,9 @@ function renderComprobantes(filtro){
       <td><span class="tag">${c.guia_ref||'—'}</span></td>
       <td><strong>${c.productor||'—'}</strong></td>
       <td style="text-align:right;">S/.${fmtPago(c.total_guia)}</td>
-      <td style="text-align:right;color:#2e7d32;font-weight:700;">S/.${pagado.toFixed(2)}</td>
+      <td style="text-align:right;color:#2e7d32;font-weight:700;">S/.${fmtPago(pagado)}</td>
       <td style="text-align:right;font-weight:800;font-size:0.9rem;">S/.${fmtPago(c.monto)}</td>
-      <td style="text-align:right;font-weight:700;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/.${saldo.toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/.${fmtPago(saldo)}</td>
       <td>${c.formapago||'—'}${c.apertura_ref?` <span class="tag" title="Egreso registrado en caja ${c.apertura_ref}">🏦</span>`:''}</td>
       <td><span class="badge ${badgeTipo}">${tipo==='total'?'Pago Total':tipo==='parcial'?'Parcial':'Pendiente'}</span></td>
       <td><div style="display:flex;gap:3px;">
@@ -7947,19 +7955,25 @@ function kardexPoblarOrigen(){
 function kardexKgDisponibleGuia(codigoGuia){
   const g = DB.guias.find(x=>x.codigo===codigoGuia);
   if(!g) return 0;
-  // KG desde tickets_detalle
+  // 1. KG desde tickets_detalle (más preciso)
   let acopiado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  // Fallback: valor total / precio kg
+  // 2. Fallback: QQ netos * 55.2 (campo directo de la guía)
+  if(acopiado <= 0){
+    const qqNetos = parseFloat(g.exportacion||0) > 0 ? parseFloat(g.exportacion) : 0;
+    if(qqNetos > 0) acopiado = qqNetos * 55.2;
+  }
+  // 3. Fallback: valor / precio kg
   if(acopiado <= 0 && parseFloat(g.precikg||0) > 0 && parseFloat(g.valorrecibido||0) > 0){
     acopiado = parseFloat(g.valorrecibido) / parseFloat(g.precikg);
   }
+  // Descontar vendido en kárdex
   const vendido = (DB.kardex||[])
     .filter(k=>(k.origenes||[]).includes(codigoGuia))
     .reduce((a,k)=>{
       const det=(k.origenes_detalle||[]).find(d=>d.ref===`guia:${codigoGuia}`);
       return a+(det?parseFloat(det.kgAjustado||0):parseFloat(k.kg_venta||0));
     },0);
-  return Math.max(0, acopiado - vendido);
+  return Math.max(0, Math.round((acopiado - vendido)*100)/100);
 }
 
 function kardexKgDisponibleCoco(codigoCoco){
