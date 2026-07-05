@@ -4172,13 +4172,33 @@ function imprimirGuia(){
 // COMPROBANTES
 // ══════════════════════════════════════════
 function totalPagadoGuia(guiaCodigo){
-  // Busca en guia_ref (una guía) Y en guias_ref (múltiples guías)
-  return DB.comprobantes
-    .filter(c => c.estado !== 'Anulado' && (
-      c.guia_ref === guiaCodigo ||
-      (Array.isArray(c.guias_ref) && c.guias_ref.includes(guiaCodigo))
-    ))
-    .reduce((a,c) => a + (parseFloat(c.monto)||0), 0);
+  let total = 0;
+  DB.comprobantes.filter(c => c.estado !== 'Anulado' && (
+    c.guia_ref === guiaCodigo ||
+    (Array.isArray(c.guias_ref) && c.guias_ref.includes(guiaCodigo))
+  )).forEach(comp=>{
+    const guiasRef = comp.guias_ref || (comp.guia_ref ? [comp.guia_ref] : []);
+    if(guiasRef.length <= 1){
+      // Comprobante de una sola guía: el monto completo es de esta guía
+      total += parseFloat(comp.monto||0);
+    } else {
+      // Comprobante en bloque: distribuir proporcionalmente al valor de cada guía
+      const valEstaGuia = parseFloat((DB.guias.find(x=>x.codigo===guiaCodigo)||{}).valorrecibido||0);
+      const valTotal = guiasRef.reduce((a,cod)=>{
+        const g = DB.guias.find(x=>x.codigo===cod);
+        return a + parseFloat(g?.valorrecibido||0);
+      }, 0);
+      if(valTotal > 0 && valEstaGuia > 0){
+        // Pago proporcional al valor de esta guía
+        const prop = valEstaGuia / valTotal;
+        total += parseFloat(comp.monto||0) * prop;
+      } else {
+        // Sin info de valor, dividir equitativamente
+        total += parseFloat(comp.monto||0) / guiasRef.length;
+      }
+    }
+  });
+  return Math.round(total * 100) / 100;
 }
 
 function abrirModalComprobante(idx){
@@ -8017,26 +8037,42 @@ function kardexAgregarOrigen(){
   const opt = sel.options[sel.selectedIndex];
   let kg = 0, costo = 0, label = opt.text;
 
-  // Calcular KG directamente desde la fuente de datos
   if(val.startsWith('guia:')){
     const codigoGuia = val.replace('guia:','');
     const g = DB.guias.find(x=>x.codigo===codigoGuia);
     if(g){
-      // KG desde tickets_detalle
+      // ── KG NETOS REALES ──
+      // 1. Desde tickets_detalle
       kg = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-      // Si no hay tickets, calcular desde valor/precio
-      if(kg <= 0 && parseFloat(g.precikg||0) > 0 && parseFloat(g.valorrecibido||0) > 0){
-        kg = parseFloat(g.valorrecibido) / parseFloat(g.precikg);
+      // 2. Desde tickets en DB vinculados a esta guía
+      if(kg <= 0){
+        const tks = DB.tickets.filter(t=>t.guia_asignada===codigoGuia);
+        kg = tks.reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
       }
-      // Descontar lo ya vendido
+      // 3. Desde QQ netos × 55.2 usando precio QQ (más confiable)
+      if(kg <= 0 && parseFloat(g.precioqq||0) > 0 && parseFloat(g.valorrecibido||0) > 0){
+        const qq = parseFloat(g.valorrecibido) / parseFloat(g.precioqq);
+        kg = qq * 55.2;
+      }
+
+      // Descontar ya vendido en kárdex
       const vendido = (DB.kardex||[])
         .filter(k=>(k.origenes||[]).includes(codigoGuia))
         .reduce((a,k)=>{
           const det=(k.origenes_detalle||[]).find(d=>d.ref===`guia:${codigoGuia}`);
           return a+(det?parseFloat(det.kgAjustado||0):parseFloat(k.kg_venta||0));
         },0);
-      kg = Math.max(0, kg - vendido);
-      costo = parseFloat(g.precikg||0);
+      kg = Math.max(0, Math.round((kg - vendido)*100)/100);
+
+      // ── COSTO REAL POR KG ──
+      // Usar precikg solo si es razonable (< 1000), sino calcular desde precioqq
+      const precikg = parseFloat(g.precikg||0);
+      if(precikg > 0 && precikg < 1000){
+        costo = precikg;
+      } else if(parseFloat(g.precioqq||0) > 0){
+        costo = parseFloat(g.precioqq) / 55.2;
+      }
+
       label = `${codigoGuia} — ${g.productor} — ${kg.toFixed(2)} kg disp.`;
     }
   } else if(val.startsWith('coco:')){
