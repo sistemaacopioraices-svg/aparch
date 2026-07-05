@@ -2122,35 +2122,72 @@ const BACKUP_META_KEY = 'aparch_backup_meta';
 // ── URL del Google Apps Script Web App ──
 let SHEETS_URL = localStorage.getItem('aparch_sheets_url') || '';
 
+// ── Cola de sincronización para evitar pérdidas ──
+let _syncTimer = null;
+let _syncPendiente = false;
+let _syncReintento = 0;
+
 function guardarDB(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
-    // Marcar que hay cambios sin respaldar
     const meta = { ultimoCambio: new Date().toISOString(), respaldado: false };
     localStorage.setItem(BACKUP_META_KEY, JSON.stringify(meta));
     actualizarEstadoRespaldo();
-    // Sincronizar con Google Sheets si está configurado
-    if(SHEETS_URL) sheetsGuardarAuto();
+    // Sincronizar automáticamente con debounce (espera 2s para agrupar cambios rápidos)
+    if(SHEETS_URL){
+      _syncPendiente = true;
+      clearTimeout(_syncTimer);
+      _syncTimer = setTimeout(()=>sheetsGuardarAuto(), 2000);
+      // Mostrar indicador de pendiente
+      const el = document.getElementById('sheets-sync-status');
+      if(el){ el.textContent='⏳ Guardando...'; el.style.color='#e65100'; }
+    }
   }catch(e){ console.warn('Error al guardar:', e); }
 }
 
-// Guardar en Sheets de forma asíncrona (no bloquea la UI)
+// Guardar en Sheets con reintentos automáticos
 async function sheetsGuardarAuto(){
+  if(!SHEETS_URL) return;
+  _syncPendiente = false;
+  const el = document.getElementById('sheets-sync-status');
   try{
-    const res = await fetch(SHEETS_URL, {
+    if(el){ el.textContent='⏳ Sincronizando...'; el.style.color='#e65100'; }
+    await fetch(SHEETS_URL, {
       method:'POST', mode:'no-cors',
       body: JSON.stringify({ accion:'guardar', db: DB }),
       headers:{'Content-Type':'application/json'}
     });
     const ts = new Date().toLocaleTimeString('es-PE');
     localStorage.setItem('sheets_ultimo_sync', ts);
-    const el = document.getElementById('sheets-sync-status');
-    if(el){ el.textContent='☁️ Sheets: '+ts; el.style.color='#2e7d32'; }
+    localStorage.setItem('sheets_sync_ok', '1');
+    _syncReintento = 0;
+    if(el){ el.textContent='☁️ '+ts; el.style.color='#2e7d32'; }
+    // Marcar como respaldado
+    marcarRespaldado();
   }catch(e){
-    const el = document.getElementById('sheets-sync-status');
-    if(el){ el.textContent='⚠️ Sin conexión a Sheets'; el.style.color='#e65100'; }
+    _syncReintento++;
+    if(el){ el.textContent=`⚠️ Reintentando (${_syncReintento})...`; el.style.color='#e65100'; }
+    // Reintentar hasta 3 veces con intervalos crecientes
+    if(_syncReintento <= 3){
+      setTimeout(()=>sheetsGuardarAuto(), _syncReintento * 5000);
+    } else {
+      _syncReintento = 0;
+      if(el){ el.textContent='❌ Sin sync — guarda manualmente'; el.style.color='#c62828'; }
+    }
   }
 }
+
+// Sincronizar cuando vuelve la conexión
+window.addEventListener('online', ()=>{
+  if(_syncPendiente || localStorage.getItem('sheets_sync_ok')==='0'){
+    sheetsGuardarAuto();
+  }
+});
+window.addEventListener('offline', ()=>{
+  localStorage.setItem('sheets_sync_ok','0');
+  const el = document.getElementById('sheets-sync-status');
+  if(el){ el.textContent='📵 Sin internet'; el.style.color='#c62828'; }
+});
 
 function marcarRespaldado(){
   try{
