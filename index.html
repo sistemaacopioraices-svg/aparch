@@ -1838,7 +1838,7 @@ tr:hover td{background:#f9f6f1;}
   </div>
 
   <div class="form-grid">
-    <div class="form-group"><label>N° GUÍA</label><input type="text" id="g-codigo" readonly style="background:#eee;"></div>
+    <div class="form-group"><label>N° GUÍA <span style="font-weight:400;color:#888;">(editable — puedes reutilizar un correlativo eliminado)</span></label><input type="text" id="g-codigo"></div>
     <div class="form-group"><label>Fecha</label><input type="date" id="g-fecha"></div>
     <div class="form-group"><label>Campaña</label><input type="text" id="g-campana" readonly style="background:#eee;"></div>
 
@@ -3804,6 +3804,14 @@ function quitarTk(i){
 function guardarGuia(){
   const productor=document.getElementById('g-productor').value;
   if(!productor){showAlert('guia-form-alert','error','Seleccione un productor.');return;}
+
+  // ── Validar código de guía (editable, para poder reutilizar correlativos eliminados) ──
+  const codigoGuia = (document.getElementById('g-codigo').value||'').trim().toUpperCase();
+  if(!codigoGuia){ showAlert('guia-form-alert','error','Ingrese el N° de guía.'); return; }
+  const codigoGuiaDuplicado = DB.guias.some((x,i)=> i!==editandoGuiaIdx && (x.codigo||'').toUpperCase()===codigoGuia);
+  if(codigoGuiaDuplicado){ showAlert('guia-form-alert','error',`Ya existe una guía con el código ${codigoGuia}. Usa otro código o elimina primero la existente.`); return; }
+  document.getElementById('g-codigo').value = codigoGuia;
+
   const guia={
     codigo:document.getElementById('g-codigo').value,
     fecha:document.getElementById('g-fecha').value,
