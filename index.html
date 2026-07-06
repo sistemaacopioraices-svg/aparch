@@ -3655,6 +3655,27 @@ function calcValorTotalGuia(){
   document.getElementById('rc-total').textContent = fmtS(valorTotal);
 }
 
+// Reconstruye el campo guia_asignada de cada ticket a partir del detalle real de las guías
+// (fuente de verdad = g.tickets_detalle). Corrige referencias huérfanas o desactualizadas,
+// por ejemplo cuando se eliminó una guía (o una copia duplicada) sin limpiar sus tickets.
+function sincronizarTicketsConGuias(){
+  const asignaciones = {};
+  DB.guias.forEach(g=>{
+    (g.tickets_detalle||[]).forEach(td=>{
+      if(td.nticket) asignaciones[td.nticket] = g.codigo;
+    });
+  });
+  let cambios = false;
+  DB.tickets.forEach(t=>{
+    const nuevo = asignaciones[t.codigo] || '';
+    if((t.guia_asignada||'') !== nuevo){
+      t.guia_asignada = nuevo;
+      cambios = true;
+    }
+  });
+  return cambios;
+}
+
 function abrirModalGuia(idx){
   if(idx===undefined && !validarCampañaActiva()) return;
   editandoGuiaIdx=(idx!==undefined)?idx:-1;
@@ -3698,6 +3719,13 @@ function abrirModalGuia(idx){
     selP.value = '';
     document.getElementById('g-productor-display').value = '';
   }
+  // ── Sincronizar guia_asignada de los tickets con la realidad de las guías ──
+  // (corrige tickets que quedaron "huérfanos": su guia_asignada apunta a una guía
+  // que ya no existe o que ya no los tiene en su detalle, por ejemplo tras eliminar
+  // una guía duplicada). Esto evita que un ticket que YA tiene guía real aparezca
+  // como disponible, y libera correctamente los que de verdad quedaron sin guía.
+  if(sincronizarTicketsConGuias()) guardarDB();
+
   // Tickets ya usados en otras guías (excluir la guía actual si se edita)
   const ticketsUsados = new Set();
   DB.guias.forEach((gu, gi) => {
@@ -3963,6 +3991,8 @@ function eliminarGuia(i){
     }
   }
   if(!confirm('¿Eliminar guía?')) return;
+  // Liberar los tickets que estaban vinculados a esta guía
+  DB.tickets.forEach(t=>{ if(t.guia_asignada===guia.codigo) t.guia_asignada=''; });
   DB.guias.splice(i,1); guardarDB(); renderGuias();
 }
 
@@ -4012,7 +4042,15 @@ function eliminarGuiaDuplicadaIdx(idx){
   const mismasCod = DB.guias.filter(x=>(x.codigo||'').trim().toUpperCase()===cod);
   if(mismasCod.length<=1){ alert('Esta guía ya no tiene duplicados; no se puede eliminar la única copia desde aquí.'); return; }
   if(!confirm(`¿Eliminar esta copia de la guía ${g.codigo} (${g.productor||'—'})?\n\nQuedará(n) ${mismasCod.length-1} copia(s) con este mismo código.`)) return;
+  // Liberar tickets que estaban vinculados específicamente a ESTA copia (por índice de detalle)
+  (g.tickets_detalle||[]).forEach(td=>{
+    if(!td.nticket) return;
+    const tk = DB.tickets.find(t=>t.codigo===td.nticket);
+    if(tk && tk.guia_asignada===g.codigo) tk.guia_asignada='';
+  });
   DB.guias.splice(idx,1);
+  guardarDB();
+  sincronizarTicketsConGuias();
   guardarDB();
   renderGuias();
   buscarDuplicados();
