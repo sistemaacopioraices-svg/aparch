@@ -4683,18 +4683,20 @@ function _ejecutarGuardadoComprobante(apCaja){
   else DB.comprobantes.push(comp);
 
   // Actualizar estado de TODAS las guías incluidas
+  // IMPORTANTE: usar siempre totalPagadoGuia()/actualizarEstadoPagoGuia(), que distribuye
+  // el monto de un comprobante en bloque proporcionalmente al valor de cada guía.
+  // (Antes se sumaba el monto COMPLETO del comprobante contra cada guía por separado,
+  // lo que producía un estado_pago incorrecto en pagos en bloque.)
   compGuiasTemp.forEach(cod=>{
     const guia = DB.guias.find(x=>x.codigo===cod);
     if(!guia) return;
-    let tpRecalc = DB.comprobantes.filter(c=>c.estado!=='Anulado' && (c.guia_ref===cod || (c.guias_ref||[]).includes(cod)))
-      .reduce((a,c)=>a+(parseFloat(c.monto)||0),0);
-    const totG = parseFloat(guia.valorrecibido||0);
-    const saldoG = totG - tpRecalc - totalDescuento;
     const gIdx = DB.guias.indexOf(guia);
-    if(tipo==='pendiente' && totalDescuento<=0) DB.guias[gIdx].estado_pago='Pendiente';
-    else if(saldoG<=0.01) DB.guias[gIdx].estado_pago='Pagado Total';
-    else DB.guias[gIdx].estado_pago='Pago Parcial';
-    DB.guias[gIdx].total_pagado = tpRecalc;
+    if(tipo==='pendiente' && totalDescuento<=0){
+      DB.guias[gIdx].estado_pago = 'Pendiente';
+      DB.guias[gIdx].total_pagado = totalPagadoGuia(cod);
+    } else {
+      actualizarEstadoPagoGuia(cod);
+    }
   });
 
   // Aplicar abonos a préstamos
@@ -4778,7 +4780,10 @@ function eliminarComp(i){
     const idxRecibo = DB.recibos.findIndex(r=>r.codigo===comp.recibo_egreso_ref);
     if(idxRecibo >= 0) DB.recibos.splice(idxRecibo,1);
   }
+  // Guías afectadas por este comprobante (para recalcular su estado_pago tras eliminarlo)
+  const guiasAfectadas = comp ? (comp.guias_ref && comp.guias_ref.length ? comp.guias_ref : (comp.guia_ref ? [comp.guia_ref] : [])) : [];
   DB.comprobantes.splice(i,1);
+  guiasAfectadas.forEach(cod=>actualizarEstadoPagoGuia(cod));
   guardarDB();
   renderComprobantes();
 }
@@ -8527,5 +8532,3 @@ function eliminarKardex(i){
 </script>
 </body>
 </html>
-
-
