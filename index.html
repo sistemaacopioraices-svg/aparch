@@ -3274,14 +3274,35 @@ function calcRendimiento(){
 
 function guardarTicket(){
   const fecha=document.getElementById('t-fecha').value;
+  const hora=document.getElementById('t-hora').value;
   const productor=document.getElementById('t-productor').value;
-  if(!fecha){showAlert('ticket-form-alert','error','Fecha obligatoria.');return;}
+  const certif = document.getElementById('t-certificacion').value;
+  const sacos=parseFloat(document.getElementById('t-sacos').value)||0;
+  const pesobruto=parseFloat(document.getElementById('t-pesobruto').value)||0;
+  const humedadVal=document.getElementById('t-humedad').value;
   const M=300;
   const expG=parseFloat(document.getElementById('t-exp-g').value)||0;
   const segG=parseFloat(document.getElementById('t-seg-g').value)||0;
   const casG=Math.max(0,M-expG-segG);
   const expPct=((expG/M)*100).toFixed(2), segPct=((segG/M)*100).toFixed(2), casPct=((casG/M)*100).toFixed(2);
   const pesoneto=parseFloat(document.getElementById('t-pesoneto').value)||0;
+
+  // ── Validar que todos los campos obligatorios estén completos antes de guardar ──
+  const faltantes = [];
+  if(!fecha) faltantes.push('Fecha');
+  if(!hora) faltantes.push('Hora');
+  if(!productor) faltantes.push('Productor');
+  if(!certif) faltantes.push('Certificación');
+  if(sacos<=0) faltantes.push('N° Sacos');
+  if(pesobruto<=0) faltantes.push('Peso Bruto');
+  if(humedadVal===''||humedadVal===null||humedadVal===undefined) faltantes.push('Humedad');
+  if(pesoneto<=0) faltantes.push('Peso Neto (revisa Sacos, Peso Bruto y Humedad)');
+  if(expG<=0 && segG<=0) faltantes.push('Rendimiento (Exportable o Segunda en gramos)');
+  if(faltantes.length){
+    showAlert('ticket-form-alert','error',`Completa los siguientes campos antes de guardar: ${faltantes.join(', ')}.`);
+    return;
+  }
+
   // Validar estimado
   if(productor && editandoTicketIdx<0){
     const s=DB.socios.find(x=>x.nombre===productor);
@@ -3297,7 +3318,6 @@ function guardarTicket(){
   }
   let lote=document.getElementById('t-lote').value.trim();
   if(!lote && productor) lote=nextLoteSocio(productor);
-  const certif = document.getElementById('t-certificacion').value;
   // Asegurar que el código tenga el prefijo correcto por certificación
   let codigoTicket = document.getElementById('t-codigo').value;
   if(editandoTicketIdx < 0){
@@ -5811,6 +5831,16 @@ function exportarReporteGeneral(){
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Reporte General');
+
+  // Aplicar formato de fecha (dd/mm/yyyy) a la columna FECHA, que hasta ahora se mostraba como número de serie
+  const rangoFilas = wsData.length;
+  for(let i = 2; i <= rangoFilas; i++){
+    const cell = ws[`A${i}`];
+    if(cell && cell.t === 'n'){
+      cell.z = 'dd/mm/yyyy';
+    }
+  }
+
   const fecha = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `APARCH_ReporteGeneral_${fecha}.xlsx`);
 }
