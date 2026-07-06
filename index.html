@@ -3761,12 +3761,13 @@ function abrirModalGuia(idx){
       if(guiaOwnerIdx !== editandoGuiaIdx) ticketsUsados.add(t.codigo);
     }
   });
-  // Tickets disponibles: solo los que NO están en otras guías
+  // Tickets disponibles: solo los que NO están en otras guías NI ya agregados a esta guía
   const selT=document.getElementById('g-ticket-sel');
   selT.innerHTML='<option value="">-- Seleccionar Ticket (se agrega automáticamente) --</option>';
   let countDisp = 0;
   DB.tickets.forEach(t=>{
     if(ticketsUsados.has(t.codigo)) return; // ya tiene guía → omitir
+    if(guiaTicketsTemp.find(td=>td.nticket===t.codigo)) return; // ya está agregado a esta guía → omitir
     const rStr=t.exp_pct?` | Rend: ${parseFloat(t.exp_pct).toFixed(0)}%`:'';
     selT.innerHTML+=`<option value="${t.codigo}">${t.codigo} | ${t.productor||'?'} | PN: ${fmt(t.pesoneto)} kg${rStr}</option>`;
     countDisp++;
@@ -4311,7 +4312,7 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     </div>
 
     <!-- FIRMAS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:auto;padding-top:12px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:auto;padding-top:34px;">
       <div style="text-align:center;">
         <div style="border-top:2px solid #333;padding-top:4px;font-size:9px;font-weight:800;text-transform:uppercase;color:#333;">Recibido por (APARCH)</div>
       </div>
