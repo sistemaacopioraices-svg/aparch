@@ -3655,21 +3655,29 @@ function calcValorTotalGuia(){
   document.getElementById('rc-total').textContent = fmtS(valorTotal);
 }
 
-// Reconstruye el campo guia_asignada de cada ticket a partir del detalle real de las guías
-// (fuente de verdad = g.tickets_detalle). Corrige referencias huérfanas o desactualizadas,
-// por ejemplo cuando se eliminó una guía (o una copia duplicada) sin limpiar sus tickets.
+// Reconstruye el campo guia_asignada de cada ticket de forma SEGURA:
+// 1) Libera un ticket SOLO si la guía a la que apunta ya no existe en absoluto (referencia huérfana real,
+//    por ejemplo tras eliminar una guía o una copia duplicada).
+// 2) Si un ticket quedó SIN guía asignada, intenta recuperar el vínculo buscando en el detalle de las guías
+//    (tickets_detalle) — pero NUNCA sobrescribe un guia_asignada ya existente y válido.
 function sincronizarTicketsConGuias(){
-  const asignaciones = {};
+  const codigosGuiaExistentes = new Set(DB.guias.map(g=>g.codigo));
+  const asignacionesPorDetalle = {};
   DB.guias.forEach(g=>{
     (g.tickets_detalle||[]).forEach(td=>{
-      if(td.nticket) asignaciones[td.nticket] = g.codigo;
+      if(td.nticket) asignacionesPorDetalle[td.nticket] = g.codigo;
     });
   });
   let cambios = false;
   DB.tickets.forEach(t=>{
-    const nuevo = asignaciones[t.codigo] || '';
-    if((t.guia_asignada||'') !== nuevo){
-      t.guia_asignada = nuevo;
+    // 1. Liberar solo si la guía asignada ya no existe en absoluto
+    if(t.guia_asignada && !codigosGuiaExistentes.has(t.guia_asignada)){
+      t.guia_asignada = '';
+      cambios = true;
+    }
+    // 2. Rellenar (recuperar) el vínculo si el ticket quedó sin guía, usando el detalle de alguna guía real
+    if(!t.guia_asignada && asignacionesPorDetalle[t.codigo]){
+      t.guia_asignada = asignacionesPorDetalle[t.codigo];
       cambios = true;
     }
   });
