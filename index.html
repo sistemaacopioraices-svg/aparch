@@ -4870,22 +4870,27 @@ function renderComprobantes(filtro){
       const g = DB.guias.find(x=>x.codigo===cod);
       return a + (g ? parseFloat(g.valorrecibido||0) : parseFloat(c.total_guia||0));
     }, 0) || parseFloat(c.total_guia||0);
-    const pagado = totalPagadoGuia(c.guia_ref||(guiasRef[0]||''));
+    // Pagado / Saldo considerando TODAS las guías del comprobante (no solo la primera)
+    const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0);
     // Saldo redondeado al décimo
     const saldoRaw = tot - pagado;
     const saldo = Math.round(saldoRaw * 10) / 10;
     const tipo=c.tipopago||'total';
     const badgeTipo=tipo==='total'?'badge-verde pago-total':tipo==='parcial'?'badge-dorado pago-parcial':'badge-rojo pago-pendiente';
+    // Mostrar TODAS las guías incluidas (no solo la primera) para detectar pagos en bloque a simple vista
+    const guiaRefHtml = guiasRef.length<=1
+      ? `<span class="tag">${guiasRef[0]||c.guia_ref||'—'}</span>`
+      : `<span class="tag" title="Guías incluidas: ${guiasRef.join(', ')}">${guiasRef[0]} +${guiasRef.length-1} más (${guiasRef.length} guías)</span>`;
     return `<tr>
       <td class="td-codigo">${c.codigo}</td><td>${fechaDisplay(c.fecha)}</td>
-      <td><span class="tag">${c.guia_ref||'—'}</span></td>
+      <td>${guiaRefHtml}</td>
       <td><strong>${c.productor||'—'}</strong></td>
-      <td style="text-align:right;">S/.${fmtPago(c.total_guia)}</td>
+      <td style="text-align:right;">S/.${fmtPago(tot)}</td>
       <td style="text-align:right;color:#2e7d32;font-weight:700;">S/.${fmtPago(pagado)}</td>
       <td style="text-align:right;font-weight:800;font-size:0.9rem;">S/.${fmtPago(c.monto)}</td>
       <td style="text-align:right;font-weight:700;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/.${fmtPago(saldo)}</td>
       <td>${c.formapago||'—'}${c.apertura_ref?` <span class="tag" title="Egreso registrado en caja ${c.apertura_ref}">🏦</span>`:''}</td>
-      <td><span class="badge ${badgeTipo}">${tipo==='total'?'Pago Total':tipo==='parcial'?'Parcial':'Pendiente'}</span></td>
+      <td><span class="badge ${badgeTipo}" title="Tipo de pago seleccionado al registrar (no siempre refleja el saldo real si es un pago en bloque)">${tipo==='total'?'Pago Total':tipo==='parcial'?'Parcial':'Pendiente'}</span></td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-secondary btn-sm" onclick="abrirModalComprobante(${ri})">✏️</button>
         <button class="btn btn-dorado btn-sm" onclick="verPrintComp(${ri})">🖨️</button>
@@ -8847,5 +8852,3 @@ function eliminarKardex(i){
 </script>
 </body>
 </html>
-
-
