@@ -1986,10 +1986,9 @@ tr:hover td{background:#f9f6f1;}
 
   <div class="subsection-title">DETALLE DE TICKETS</div>
   <div style="display:flex;gap:8px;margin-bottom:8px;">
-    <select id="g-ticket-sel" style="flex:1;padding:7px;border:1px solid var(--borde);border-radius:7px;font-size:0.84rem;">
-      <option value="">-- Seleccionar Ticket --</option>
+    <select id="g-ticket-sel" onchange="agregarTicketGuia()" style="flex:1;padding:7px;border:1px solid var(--borde);border-radius:7px;font-size:0.84rem;">
+      <option value="">-- Seleccionar Ticket (se agrega automáticamente) --</option>
     </select>
-    <button class="btn btn-primary btn-sm" onclick="agregarTicketGuia()">+ Agregar</button>
   </div>
   <div class="table-wrap" style="margin-bottom:12px;">
     <table><thead><tr>
@@ -3764,7 +3763,7 @@ function abrirModalGuia(idx){
   });
   // Tickets disponibles: solo los que NO están en otras guías
   const selT=document.getElementById('g-ticket-sel');
-  selT.innerHTML='<option value="">-- Seleccionar Ticket --</option>';
+  selT.innerHTML='<option value="">-- Seleccionar Ticket (se agrega automáticamente) --</option>';
   let countDisp = 0;
   DB.tickets.forEach(t=>{
     if(ticketsUsados.has(t.codigo)) return; // ya tiene guía → omitir
@@ -3843,6 +3842,11 @@ function agregarTicketGuia(){
     showAlert('guia-form-alert','success',`🎯 Ticket <strong>${tk.codigo}</strong> — Rend. Exportable: <strong>${rend}%</strong> → Precio QQ: <strong>S/. ${pqq.toFixed(2)}</strong> | KG: <strong>S/. ${(pqq/55.2).toFixed(4)}</strong>`);
   }
   renderGuiaTickets(); calcValorTotalGuia();
+
+  // Limpiar el selector y quitar el ticket ya agregado de la lista, para que no se pueda re-seleccionar
+  sel.value = '';
+  const optAgregada = sel.querySelector(`option[value="${codigo}"]`);
+  if(optAgregada) optAgregada.remove();
 }
 
 function renderGuiaTickets(){
