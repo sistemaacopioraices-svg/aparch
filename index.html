@@ -2050,7 +2050,7 @@ tr:hover td{background:#f9f6f1;}
   </div>
 
   <div class="form-grid-2">
-    <div class="form-group"><label>N° Comprobante</label><input type="text" id="c-codigo" readonly></div>
+    <div class="form-group"><label>N° Comprobante <span style="font-weight:400;color:#888;">(editable — puedes reutilizar un correlativo eliminado)</span></label><input type="text" id="c-codigo"></div>
     <div class="form-group"><label>Fecha Pago</label><input type="date" id="c-fecha"></div>
     <div class="form-group">
       <label>Tipo de Pago</label>
@@ -4665,6 +4665,13 @@ function guardarComprobante(){
   const monto = parseFloat(document.getElementById('c-monto').value)||0;
   const tipo  = document.getElementById('c-tipopago').value;
   if(tipo!=='pendiente' && monto<=0){ showAlert('comp-form-alert','error','Ingrese un monto válido.'); return; }
+
+  // ── Validar código de comprobante (editable, para poder reutilizar correlativos eliminados) ──
+  const codigoComp = (document.getElementById('c-codigo').value||'').trim().toUpperCase();
+  if(!codigoComp){ showAlert('comp-form-alert','error','Ingrese el N° de comprobante.'); return; }
+  const codigoDuplicado = DB.comprobantes.some((c,i)=> i!==editandoCompIdx && (c.codigo||'').toUpperCase()===codigoComp);
+  if(codigoDuplicado){ showAlert('comp-form-alert','error',`Ya existe un comprobante con el código ${codigoComp}. Usa otro código o elimina primero el existente.`); return; }
+  document.getElementById('c-codigo').value = codigoComp;
 
   // ── Validar que el monto coincida con la suma de saldos pendientes de las guías seleccionadas ──
   // (evita el error de ingresar un monto que cubre varias guías pero solo vincular 1 al comprobante)
