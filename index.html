@@ -4054,97 +4054,97 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   const esConv = (g.certificacion||'').toUpperCase().includes('CONVENCIONAL');
   const colorCertif = esConv ? '#e65100' : '#1a5c2e';
 
-  return `<div style="font-family:Arial,sans-serif;font-size:12.5px;border:2.5px solid #1a5c2e;border-radius:8px;padding:16px 18px;box-sizing:border-box;display:flex;flex-direction:column;min-height:46%;">
+  return `<div style="font-family:Arial,sans-serif;font-size:12.5px;border:2.5px solid #1a5c2e;border-radius:8px;padding:10px 14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:46%;">
 
     <!-- ENCABEZADO -->
-    <div style="display:flex;align-items:center;border-bottom:4px solid #1a5c2e;padding-bottom:10px;margin-bottom:10px;">
-      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin-right:14px;flex-shrink:0;">
+    <div style="display:flex;align-items:center;border-bottom:3px solid #1a5c2e;padding-bottom:6px;margin-bottom:6px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;margin-right:12px;flex-shrink:0;">
       <div style="flex:1;text-align:center;">
-        <div style="font-size:19px;font-weight:900;color:#1a5c2e;letter-spacing:0.5px;">RAÍCES DE CHIRINOS — APARCH</div>
-        <div style="font-size:11px;font-weight:700;color:#555;letter-spacing:1px;text-transform:uppercase;">Guía de Entrada de Café</div>
-        <div style="font-size:24px;font-weight:900;color:#1a5c2e;margin-top:3px;">${g.codigo}</div>
+        <div style="font-size:18px;font-weight:900;color:#1a5c2e;letter-spacing:0.5px;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:10px;font-weight:700;color:#555;letter-spacing:1px;text-transform:uppercase;">Guía de Entrada de Café</div>
+        <div style="font-size:23px;font-weight:900;color:#1a5c2e;margin-top:2px;">${g.codigo}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;">
-        <div style="background:${colorEtiqueta};color:#fff;font-size:9.5px;font-weight:800;padding:4px 12px;border-radius:12px;letter-spacing:0.5px;text-transform:uppercase;">${etiqueta}</div>
-        <div style="font-size:10px;color:#888;margin-top:5px;">Campaña: <strong>${g.campana||'—'}</strong></div>
+        <div style="background:${colorEtiqueta};color:#fff;font-size:9px;font-weight:800;padding:3px 10px;border-radius:10px;letter-spacing:0.5px;text-transform:uppercase;">${etiqueta}</div>
+        <div style="font-size:9.5px;color:#888;margin-top:3px;">Campaña: <strong>${g.campana||'—'}</strong></div>
       </div>
     </div>
 
     <!-- DATOS PRINCIPALES EN 2 COLUMNAS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;margin-bottom:10px;background:#f9fef9;border-radius:7px;padding:10px 12px;border:1.5px solid #c8e6c9;">
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;letter-spacing:0.3px;">Productor</span><div style="font-weight:800;font-size:13.5px;color:#1a5c2e;">${g.productor||'—'}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">DNI</span><div style="font-weight:700;font-size:12.5px;">${g.dni||'—'}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">Base</span><div style="font-weight:700;font-size:12.5px;">${g.base||'—'}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">Caserío</span><div style="font-weight:700;font-size:12.5px;">${g.caserio||'—'}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">Certificación</span><div style="font-weight:800;font-size:12.5px;color:${colorCertif};">${g.certificacion||'—'}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">Fecha</span><div style="font-weight:700;font-size:12.5px;">${fechaDisplay(g.fecha)}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">Forma Entrega</span><div style="font-weight:700;font-size:12.5px;">${g.formaentrega||'—'}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">Rendimiento</span><div style="font-weight:800;font-size:13.5px;color:#1a5c2e;">${g.rend_export||'—'}%</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">QQ Netos</span><div style="font-weight:900;font-size:15px;">${totalQQ.toFixed(2)}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">Precio QQ</span><div style="font-weight:800;font-size:13.5px;">S/. ${fmt(g.precioqq)}</div></div>
-      <div><span style="font-size:9px;color:#777;text-transform:uppercase;">Precio KG</span><div style="font-weight:800;font-size:13.5px;">S/. ${getPrecioKgGuia(g).toFixed(4)}</div></div>
-      ${primaQQ>0?`<div><span style="font-size:9px;color:#777;text-transform:uppercase;">Prima</span><div style="font-weight:800;font-size:13.5px;color:#1565c0;">+S/. ${fmt(primaSol)}</div></div>`:'<div></div>'}
-      ${estimadoKg>0?`<div style="grid-column:1/-1;"><span style="font-size:9px;color:#777;text-transform:uppercase;">Compromiso Total</span><div style="font-weight:800;font-size:13.5px;color:#e65100;">${fmt(estimadoKg)} kg</div></div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin-bottom:6px;background:#f9fef9;border-radius:6px;padding:6px 10px;border:1.5px solid #c8e6c9;">
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;letter-spacing:0.3px;">Productor</span><div style="font-weight:800;font-size:13px;color:#1a5c2e;">${g.productor||'—'}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">DNI</span><div style="font-weight:700;font-size:12px;">${g.dni||'—'}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Base</span><div style="font-weight:700;font-size:12px;">${g.base||'—'}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Caserío</span><div style="font-weight:700;font-size:12px;">${g.caserio||'—'}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Certificación</span><div style="font-weight:800;font-size:12px;color:${colorCertif};">${g.certificacion||'—'}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Fecha</span><div style="font-weight:700;font-size:12px;">${fechaDisplay(g.fecha)}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Forma Entrega</span><div style="font-weight:700;font-size:12px;">${g.formaentrega||'—'}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Rendimiento</span><div style="font-weight:800;font-size:13px;color:#1a5c2e;">${g.rend_export||'—'}%</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">QQ Netos</span><div style="font-weight:900;font-size:14px;">${totalQQ.toFixed(2)}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Precio QQ</span><div style="font-weight:800;font-size:13px;">S/. ${fmt(g.precioqq)}</div></div>
+      <div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Precio KG</span><div style="font-weight:800;font-size:13px;">S/. ${getPrecioKgGuia(g).toFixed(4)}</div></div>
+      ${primaQQ>0?`<div><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Prima</span><div style="font-weight:800;font-size:13px;color:#1565c0;">+S/. ${fmt(primaSol)}</div></div>`:'<div></div>'}
+      ${estimadoKg>0?`<div style="grid-column:1/-1;"><span style="font-size:8.5px;color:#777;text-transform:uppercase;">Compromiso Total</span><div style="font-weight:800;font-size:13px;color:#e65100;">${fmt(estimadoKg)} kg</div></div>`:''}
     </div>
 
     <!-- VALOR TOTAL -->
-    <div style="background:#1a5c2e;color:#fff;border-radius:8px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="background:#1a5c2e;color:#fff;border-radius:7px;padding:7px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-size:9.5px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Valor Total a Recibir</div>
-        <div style="font-size:32px;font-weight:900;letter-spacing:0.3px;">S/. ${fmtPago(valorTotal)}</div>
+        <div style="font-size:9px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Valor Total a Recibir</div>
+        <div style="font-size:27px;font-weight:900;letter-spacing:0.3px;">S/. ${fmtPago(valorTotal)}</div>
       </div>
-      <div style="text-align:right;font-size:10px;opacity:0.95;max-width:55%;font-style:italic;line-height:1.5;font-weight:600;">
+      <div style="text-align:right;font-size:9.5px;opacity:0.95;max-width:55%;font-style:italic;line-height:1.3;font-weight:600;">
         ${valorLetras}
       </div>
     </div>
 
     <!-- DETALLE TICKETS -->
-    <div style="margin-bottom:10px;flex:1;">
-      <div style="font-weight:900;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#1a5c2e;border-bottom:2.5px solid #1a5c2e;padding-bottom:4px;margin-bottom:6px;">📋 Detalle de Tickets</div>
-      <table style="width:100%;border-collapse:collapse;font-size:10px;">
+    <div style="margin-bottom:6px;flex:1;">
+      <div style="font-weight:900;font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:#1a5c2e;border-bottom:2px solid #1a5c2e;padding-bottom:3px;margin-bottom:4px;">📋 Detalle de Tickets</div>
+      <table style="width:100%;border-collapse:collapse;font-size:9.5px;">
         <thead>
           <tr style="background:#1a5c2e;color:#fff;">
-            <th style="padding:6px 4px;text-align:left;border:1px solid #388e3c;">N° Ticket</th>
-            <th style="padding:6px 4px;text-align:left;border:1px solid #388e3c;">Lote</th>
-            <th style="padding:6px 4px;text-align:center;border:1px solid #388e3c;">Sacos</th>
-            <th style="padding:6px 4px;text-align:right;border:1px solid #388e3c;">P.Bruto</th>
-            <th style="padding:6px 4px;text-align:right;border:1px solid #388e3c;">Tara</th>
-            <th style="padding:6px 4px;text-align:right;border:1px solid #388e3c;">D.Hum.</th>
-            <th style="padding:6px 4px;text-align:right;border:1px solid #388e3c;">P.Neto kg</th>
-            <th style="padding:6px 4px;text-align:right;border:1px solid #388e3c;">P.Neto qq</th>
-            <th style="padding:6px 4px;text-align:right;border:1px solid #388e3c;">Compromiso</th>
-            <th style="padding:6px 4px;text-align:right;border:1px solid #388e3c;">Entregado</th>
-            <th style="padding:6px 4px;text-align:right;border:1px solid #388e3c;">Saldo</th>
-            <th style="padding:6px 4px;text-align:center;border:1px solid #388e3c;">Cumpl.</th>
+            <th style="padding:4px 3px;text-align:left;border:1px solid #388e3c;">N° Ticket</th>
+            <th style="padding:4px 3px;text-align:left;border:1px solid #388e3c;">Lote</th>
+            <th style="padding:4px 3px;text-align:center;border:1px solid #388e3c;">Sacos</th>
+            <th style="padding:4px 3px;text-align:right;border:1px solid #388e3c;">P.Bruto</th>
+            <th style="padding:4px 3px;text-align:right;border:1px solid #388e3c;">Tara</th>
+            <th style="padding:4px 3px;text-align:right;border:1px solid #388e3c;">D.Hum.</th>
+            <th style="padding:4px 3px;text-align:right;border:1px solid #388e3c;">P.Neto kg</th>
+            <th style="padding:4px 3px;text-align:right;border:1px solid #388e3c;">P.Neto qq</th>
+            <th style="padding:4px 3px;text-align:right;border:1px solid #388e3c;">Compromiso</th>
+            <th style="padding:4px 3px;text-align:right;border:1px solid #388e3c;">Entregado</th>
+            <th style="padding:4px 3px;text-align:right;border:1px solid #388e3c;">Saldo</th>
+            <th style="padding:4px 3px;text-align:center;border:1px solid #388e3c;">Cumpl.</th>
           </tr>
         </thead>
         <tbody>
-          ${tkRows||`<tr><td colspan="12" style="text-align:center;padding:10px;color:#999;font-style:italic;">Sin tickets registrados</td></tr>`}
+          ${tkRows||`<tr><td colspan="12" style="text-align:center;padding:6px;color:#999;font-style:italic;">Sin tickets registrados</td></tr>`}
         </tbody>
       </table>
     </div>
 
     <!-- ANÁLISIS FÍSICO -->
-    <div style="background:#f5f5f5;border-radius:6px;padding:8px 12px;margin-bottom:12px;">
-      <div style="font-weight:900;font-size:9.5px;text-transform:uppercase;color:#555;margin-bottom:6px;">🔬 Análisis Físico y Sensorial</div>
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px;font-size:10.5px;">
-        <div><div style="font-size:8.5px;color:#888;">Export. %</div><div style="font-weight:800;font-size:12px;">${g.exportacion||'—'}</div></div>
-        <div><div style="font-size:8.5px;color:#888;">Segunda %</div><div style="font-weight:800;font-size:12px;">${g.segunda||'—'}</div></div>
-        <div><div style="font-size:8.5px;color:#888;">Cáscara %</div><div style="font-weight:800;font-size:12px;">${g.cascara||'—'}</div></div>
-        <div><div style="font-size:8.5px;color:#888;">Muestra g</div><div style="font-weight:800;font-size:12px;">300</div></div>
-        <div><div style="font-size:8.5px;color:#888;">Humedad %</div><div style="font-weight:800;font-size:12px;">${g.humedadanalisis||'—'}</div></div>
-        <div><div style="font-size:8.5px;color:#888;">Taza pts</div><div style="font-weight:800;font-size:12px;">${g.taza||'—'}</div></div>
+    <div style="background:#f5f5f5;border-radius:6px;padding:5px 10px;margin-bottom:6px;">
+      <div style="font-weight:900;font-size:9px;text-transform:uppercase;color:#555;margin-bottom:4px;">🔬 Análisis Físico y Sensorial</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;font-size:10px;">
+        <div><div style="font-size:8px;color:#888;">Export. %</div><div style="font-weight:800;font-size:11.5px;">${g.exportacion||'—'}</div></div>
+        <div><div style="font-size:8px;color:#888;">Segunda %</div><div style="font-weight:800;font-size:11.5px;">${g.segunda||'—'}</div></div>
+        <div><div style="font-size:8px;color:#888;">Cáscara %</div><div style="font-weight:800;font-size:11.5px;">${g.cascara||'—'}</div></div>
+        <div><div style="font-size:8px;color:#888;">Muestra g</div><div style="font-weight:800;font-size:11.5px;">300</div></div>
+        <div><div style="font-size:8px;color:#888;">Humedad %</div><div style="font-weight:800;font-size:11.5px;">${g.humedadanalisis||'—'}</div></div>
+        <div><div style="font-size:8px;color:#888;">Taza pts</div><div style="font-weight:800;font-size:11.5px;">${g.taza||'—'}</div></div>
       </div>
     </div>
 
     <!-- FIRMAS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:auto;padding-top:26px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:auto;padding-top:12px;">
       <div style="text-align:center;">
-        <div style="border-top:2px solid #333;padding-top:6px;font-size:9.5px;font-weight:800;text-transform:uppercase;color:#333;">Recibido por (APARCH)</div>
+        <div style="border-top:2px solid #333;padding-top:4px;font-size:9px;font-weight:800;text-transform:uppercase;color:#333;">Recibido por (APARCH)</div>
       </div>
       <div style="text-align:center;">
-        <div style="border-top:2px solid #333;padding-top:6px;font-size:9.5px;font-weight:800;text-transform:uppercase;color:#333;">Firma del Productor</div>
-        <div style="font-size:9px;color:#999;margin-top:3px;">${g.productor||''}</div>
+        <div style="border-top:2px solid #333;padding-top:4px;font-size:9px;font-weight:800;text-transform:uppercase;color:#333;">Firma del Productor</div>
+        <div style="font-size:8.5px;color:#999;margin-top:2px;">${g.productor||''}</div>
       </div>
     </div>
   </div>`;
@@ -4330,7 +4330,28 @@ function imprimirGuia(){
       #print-zona-guia > div:last-child{flex:1;min-height:0;overflow:hidden;}
     }
     .copia-div{display:flex;flex-direction:column;}
-  </style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  </style></head><body>${c}<script>
+    window.onload=function(){
+      // Ajuste automático: si el contenido de alguna copia no cabe en el espacio asignado,
+      // se reduce proporcionalmente (nunca se recorta) para que las 2 copias entren en 1 sola hoja.
+      try{
+        var cont = document.getElementById('print-zona-guia');
+        var first = cont.children[0];
+        var last  = cont.children[cont.children.length-1];
+        [first,last].forEach(function(el){
+          var avail = el.clientHeight;
+          var natural = el.scrollHeight;
+          if(natural > avail + 1 && avail > 0){
+            var scale = avail / natural;
+            el.style.transformOrigin = 'top left';
+            el.style.transform = 'scale(' + scale + ')';
+            el.style.width = (100/scale) + '%';
+          }
+        });
+      }catch(e){ console.warn('Ajuste de impresión de guía:', e); }
+      window.print();
+    };
+  <\/script></body></html>`);
   w.document.close();
 }
 
@@ -5014,7 +5035,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
   const guiasHtml = guiasRef.map(cod=>{
     const g = DB.guias.find(x=>x.codigo===cod);
     const valG = g ? parseFloat(g.valorrecibido||0) : 0;
-    return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dashed #e0e0e0;font-size:8.5px;">
+    return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #e0e0e0;font-size:10.5px;">
       <span style="color:#1565c0;font-weight:700;">${cod}</span>
       <span>${g?g.productor:''}</span>
       <span style="font-weight:700;">S/. ${fmt(valG)}</span>
@@ -5022,68 +5043,68 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
   }).join('');
 
   return `
-  <div class="copia-guia" style="border:1.5px solid #333;border-radius:6px;padding:12px 14px;font-size:10px;page-break-inside:avoid;">
-    <div style="text-align:right;margin-bottom:4px;">
-      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:8px;font-weight:800;letter-spacing:0.5px;padding:2px 10px;border-radius:10px;text-transform:uppercase;">${etiqueta}</span>
+  <div class="copia-guia" style="border:2px solid #333;border-radius:8px;padding:16px 18px;font-size:13px;page-break-inside:avoid;">
+    <div style="text-align:right;margin-bottom:6px;">
+      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:10px;">
-      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #333;padding-bottom:10px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;line-height:1.2;">RAÍCES DE CHIRINOS — APARCH</div>
-        <div style="font-size:9.5px;font-weight:700;">COMPROBANTE DE PAGO</div>
-        <div style="font-size:15px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
+        <div style="font-size:17px;font-weight:900;line-height:1.2;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:11.5px;font-weight:700;">COMPROBANTE DE PAGO</div>
+        <div style="font-size:21px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
       </div>
-      <div style="text-align:right;font-size:8px;color:#555;flex-shrink:0;">
+      <div style="text-align:right;font-size:10px;color:#555;flex-shrink:0;">
         <div><strong>Fecha:</strong> ${fechaDisplay(c.fecha)}</div>
-        <div style="background:#e8f5e9;color:#1a5c2e;font-weight:800;padding:2px 6px;border-radius:4px;margin-top:3px;">
+        <div style="background:#e8f5e9;color:#1a5c2e;font-weight:800;padding:3px 8px;border-radius:5px;margin-top:4px;">
           ${nGuias} GUÍA${nGuias>1?'S':''} INCLUIDA${nGuias>1?'S':''}
         </div>
       </div>
     </div>
 
     <!-- Datos del productor -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:8px;background:#f9fef9;border:1px solid #c8e6c9;border-radius:5px;padding:7px 10px;">
-      <div style="grid-column:1/-1;"><span style="font-size:7px;color:#666;font-weight:600;">PRODUCTOR: </span><strong style="font-size:11px;">${c.productor||'—'}</strong></div>
-      <div><span style="font-size:7px;color:#666;font-weight:600;">DNI: </span><strong>${c.dni||'—'}</strong></div>
-      <div><span style="font-size:7px;color:#666;font-weight:600;">FORMA PAGO: </span><strong>${c.formapago||'—'}</strong></div>
-      <div><span style="font-size:7px;color:#666;font-weight:600;">TIPO: </span><strong>${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
-      ${c.apertura_ref?`<div><span style="font-size:7px;color:#666;font-weight:600;">CAJA: </span><strong>${c.apertura_ref}</strong></div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:10px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:9px 12px;">
+      <div style="grid-column:1/-1;"><span style="font-size:9px;color:#666;font-weight:600;">PRODUCTOR: </span><strong style="font-size:14.5px;">${c.productor||'—'}</strong></div>
+      <div><span style="font-size:9px;color:#666;font-weight:600;">DNI: </span><strong style="font-size:12.5px;">${c.dni||'—'}</strong></div>
+      <div><span style="font-size:9px;color:#666;font-weight:600;">FORMA PAGO: </span><strong style="font-size:12.5px;">${c.formapago||'—'}</strong></div>
+      <div><span style="font-size:9px;color:#666;font-weight:600;">TIPO: </span><strong style="font-size:12.5px;">${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
+      ${c.apertura_ref?`<div><span style="font-size:9px;color:#666;font-weight:600;">CAJA: </span><strong style="font-size:12.5px;">${c.apertura_ref}</strong></div>`:''}
     </div>
 
     <!-- Guías incluidas -->
     ${nGuias>0?`
-    <div style="margin-bottom:8px;">
-      <div style="font-size:7.5px;font-weight:700;color:#1a5c2e;text-transform:uppercase;border-bottom:1px solid #c8e6c9;padding-bottom:2px;margin-bottom:4px;">
+    <div style="margin-bottom:10px;">
+      <div style="font-size:9.5px;font-weight:800;color:#1a5c2e;text-transform:uppercase;border-bottom:1.5px solid #c8e6c9;padding-bottom:3px;margin-bottom:5px;">
         📋 Guías incluidas en este comprobante (${nGuias})
       </div>
       ${guiasHtml}
     </div>`:''}
 
     <!-- Montos -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;text-align:center;">
-      <div style="border:1px solid #ccc;padding:8px;border-radius:6px;background:#f9f9f9;">
-        <div style="font-size:7px;color:#666;text-transform:uppercase;margin-bottom:3px;">Total Guía${nGuias>1?'s':''}</div>
-        <div style="font-size:13px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;text-align:center;">
+      <div style="border:1.5px solid #ccc;padding:10px;border-radius:7px;background:#f9f9f9;">
+        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:4px;font-weight:700;">Total Guía${nGuias>1?'s':''}</div>
+        <div style="font-size:17px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
       </div>
-      <div style="border:2px solid #1a5c2e;padding:8px;border-radius:6px;background:#f0faf4;">
-        <div style="font-size:7px;color:#2e7d32;text-transform:uppercase;margin-bottom:3px;">Este Pago</div>
-        <div style="font-size:16px;font-weight:900;color:#1a5c2e;">S/. ${fmtPago(c.monto)}</div>
+      <div style="border:2.5px solid #1a5c2e;padding:10px;border-radius:7px;background:#f0faf4;">
+        <div style="font-size:9px;color:#2e7d32;text-transform:uppercase;margin-bottom:4px;font-weight:700;">Este Pago</div>
+        <div style="font-size:21px;font-weight:900;color:#1a5c2e;">S/. ${fmtPago(c.monto)}</div>
       </div>
-      <div style="border:1px solid ${saldo<=0.01?'#a5d6a7':'#ef9a9a'};padding:8px;border-radius:6px;background:${saldo<=0.01?'#e8f5e9':'#fce4ec'};">
-        <div style="font-size:7px;color:#666;text-transform:uppercase;margin-bottom:3px;">Saldo</div>
-        <div style="font-size:13px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
+      <div style="border:1.5px solid ${saldo<=0.01?'#a5d6a7':'#ef9a9a'};padding:10px;border-radius:7px;background:${saldo<=0.01?'#e8f5e9':'#fce4ec'};">
+        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:4px;font-weight:700;">Saldo</div>
+        <div style="font-size:17px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
       </div>
     </div>
     ${parseFloat(c.descuento_prestamos||0)>0?`
-    <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:9px;">
-      <div style="font-weight:700;color:#e65100;margin-bottom:3px;">🏦 Descuento por Préstamos</div>
+    <div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11.5px;">
+      <div style="font-weight:800;color:#e65100;margin-bottom:4px;">🏦 Descuento por Préstamos</div>
       ${(c.prestamos_descontados||[]).map(pd=>`<div>• ${pd.codigo}: S/. ${fmt(pd.monto)}</div>`).join('')}
-      <div style="font-weight:800;color:#c62828;margin-top:3px;border-top:1px dashed #ffb74d;padding-top:3px;">Total: S/. ${fmt(c.descuento_prestamos)}</div>
+      <div style="font-weight:800;color:#c62828;margin-top:4px;border-top:1px dashed #ffb74d;padding-top:4px;">Total: S/. ${fmt(c.descuento_prestamos)}</div>
     </div>`:''}
-    ${c.observaciones?`<div style="font-size:9px;margin-bottom:8px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px;">
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:7.5px;text-transform:uppercase;">Pagado por (APARCH)</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:7.5px;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;">${c.productor||''}</span></div>
+    ${c.observaciones?`<div style="font-size:11.5px;margin-bottom:10px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:32px;">
+      <div style="text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Pagado por (APARCH)</div>
+      <div style="text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:9.5px;">${c.productor||''}</span></div>
     </div>
   </div>`;
 }
