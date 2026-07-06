@@ -1124,7 +1124,7 @@ tr:hover td{background:#f9f6f1;}
     </div>
     <div class="table-wrap">
       <table><thead><tr>
-        <th>N° Arqueo</th><th>Fecha</th><th>Caja</th><th>Saldo Sistema</th>
+        <th>N° Arqueo</th><th>Fecha</th><th>Hora</th><th>Caja</th><th>Saldo Sistema</th>
         <th>Total Contado</th><th>Diferencia</th><th>Usuario</th><th>Acciones</th>
       </tr></thead><tbody id="arqueos-body"></tbody></table>
     </div>
@@ -5394,6 +5394,8 @@ function exportarTodo(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hAp,...(DB.aperturas||[]).map(a=>[a.codigo,a.fecha,a.hora,a.usuario,a.saldo_inicial,totalIngresosApertura(a.codigo).toFixed(2),totalEgresosApertura(a.codigo).toFixed(2),a.saldo_final||saldoActualApertura(a.codigo).toFixed(2),a.fecha_cierre,a.estado])]),'Aperturas_Caja');
   const hCC=['N° Compra','Fecha','DNI','Nombres','Sacos','Kg Bruto','Tara','Kg Neto','Precio Kg','Total','Observación'];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hCC,...(DB.cafecoco||[]).map(c=>[c.codigo,c.fecha,c.dni,c.nombres,c.sacos,c.kgbruto,c.tara,c.kgneto,c.preciokg,c.total,c.observacion])]),'Cafe_Coco');
+  const hArq=['N° Arqueo','Fecha','Hora','Caja/Apertura','Saldo Sistema','Total Contado','Diferencia','Observaciones','Usuario'];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hArq,...(DB.arqueos||[]).map(a=>[a.codigo,a.fecha,a.hora,a.apertura_ref,parseFloat(a.saldo_sistema||0),parseFloat(a.total_contado||0),parseFloat(a.diferencia||0),a.observaciones,a.usuario])]),'Arqueos_Caja');
   XLSX.writeFile(wb,`APARCH_Datos_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 function exportarReportePorSocio(){
@@ -5621,6 +5623,29 @@ function exportarReporteCaja(){
   const wsRes = XLSX.utils.aoa_to_sheet(resumen);
   wsRes['!cols'] = [{wch:14},{wch:12},{wch:14},{wch:14},{wch:12},{wch:12},{wch:12},{wch:10}];
   XLSX.utils.book_append_sheet(wb, wsRes, '📊 Resumen General');
+
+  // Hoja de Arqueos de Caja (conteo físico), con fecha, hora y diferencias
+  if((DB.arqueos||[]).length){
+    const resArq = [['N° ARQUEO','FECHA','HORA','CAJA/APERTURA','SALDO SISTEMA','TOTAL CONTADO','DIFERENCIA','OBSERVACIONES','USUARIO']];
+    [...DB.arqueos].sort((a,b)=>{
+      if(a.fecha!==b.fecha) return (a.fecha||'') < (b.fecha||'') ? -1 : 1;
+      return (a.hora||'') < (b.hora||'') ? -1 : 1;
+    }).forEach(a=>{
+      resArq.push([
+        a.codigo, a.fecha ? fechaToExcel(a.fecha) : '', a.hora||'',
+        a.apertura_ref||'', parseFloat(a.saldo_sistema||0), parseFloat(a.total_contado||0),
+        parseFloat(a.diferencia||0), a.observaciones||'', a.usuario||''
+      ]);
+    });
+    const wsArq = XLSX.utils.aoa_to_sheet(resArq);
+    wsArq['!cols'] = [{wch:14},{wch:12},{wch:8},{wch:14},{wch:14},{wch:14},{wch:12},{wch:30},{wch:12}];
+    const rango = resArq.length;
+    for(let i=2;i<=rango;i++){
+      const cA = wsArq[`B${i}`]; if(cA && cA.t==='n') cA.z='dd/mm/yyyy';
+      ['E','F','G'].forEach(col=>{ const c=wsArq[`${col}${i}`]; if(c && (c.t==='n'||typeof c.v==='number')) c.z='#,##0.00'; });
+    }
+    XLSX.utils.book_append_sheet(wb, wsArq, '🧮 Arqueos de Caja');
+  }
 
   // Mover resumen al frente
   // Guardar archivo
@@ -7562,19 +7587,22 @@ function renderArqueos(){
   const tb = document.getElementById('arqueos-body');
   if(!tb) return;
   if(!DB.arqueos.length){
-    tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="ico">🧮</span>Aún no se han registrado arqueos de caja.</div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="9"><div class="empty-state"><span class="ico">🧮</span>Aún no se han registrado arqueos de caja.</div></td></tr>`;
     return;
   }
   tb.innerHTML = [...DB.arqueos].reverse().map(a=>{
     const ri = DB.arqueos.indexOf(a);
     const dif = parseFloat(a.diferencia||0);
+    const difLabel = dif===0 ? 'Exacto' : dif>0 ? 'Sobrante' : 'Faltante';
+    const difColor = dif===0 ? '#1b5e20' : dif>0 ? '#1565c0' : '#c62828';
     return `<tr>
       <td class="td-codigo">${a.codigo}</td>
-      <td>${fechaDisplay(a.fecha)} ${a.hora||''}</td>
+      <td>${fechaDisplay(a.fecha)}</td>
+      <td>${a.hora||'—'}</td>
       <td>${a.apertura_ref||'—'}</td>
       <td style="text-align:right;">S/.${parseFloat(a.saldo_sistema||0).toFixed(2)}</td>
       <td style="text-align:right;font-weight:700;">S/.${parseFloat(a.total_contado||0).toFixed(2)}</td>
-      <td style="text-align:right;font-weight:800;color:${dif===0?'#1b5e20':dif>0?'#1565c0':'#c62828'};">${dif>0?'+':''}S/.${dif.toFixed(2)}</td>
+      <td style="text-align:right;font-weight:800;color:${difColor};">${dif>0?'+':''}S/.${dif.toFixed(2)} <span style="font-weight:600;font-size:0.72rem;">(${difLabel})</span></td>
       <td>${a.usuario||'—'}</td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-info btn-sm" onclick="verPrintArqueo(${ri})">🖨️</button>
