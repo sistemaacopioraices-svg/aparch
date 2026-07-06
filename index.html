@@ -759,6 +759,21 @@ tr:hover td{background:#f9f6f1;}
       </div>
     </div>
 
+    <!-- MANTENIMIENTO DE DATOS -->
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-header">
+        <div class="card-title">🧹 Mantenimiento de Datos</div>
+      </div>
+      <div style="font-size:0.82rem;color:var(--txts);margin-bottom:10px;">
+        Busca registros con el mismo código (por ejemplo, dos guías con el N° de guía repetido) que pueden causar errores
+        de cálculo o selectores duplicados, y permite eliminar las copias sobrantes conservando la más reciente.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn btn-secondary" onclick="buscarDuplicados()">🔍 Buscar Duplicados</button>
+      </div>
+      <div id="duplicados-resultado"></div>
+    </div>
+
   </div>
 </div>
 
@@ -3931,6 +3946,58 @@ function eliminarGuia(i){
   DB.guias.splice(i,1); guardarDB(); renderGuias();
 }
 
+// ══════════ MANTENIMIENTO: DETECTAR Y LIMPIAR GUÍAS DUPLICADAS ══════════
+function buscarDuplicados(){
+  const grupos = {};
+  DB.guias.forEach((g,i)=>{
+    const cod = (g.codigo||'').trim().toUpperCase();
+    if(!cod) return;
+    (grupos[cod] = grupos[cod]||[]).push(i);
+  });
+  const gruposDup = Object.entries(grupos).filter(([,idxs])=>idxs.length>1);
+  const cont = document.getElementById('duplicados-resultado');
+  if(!cont) return;
+
+  if(!gruposDup.length){
+    cont.innerHTML = `<div class="alert alert-success" style="margin-top:8px;">✅ No se encontraron guías con código duplicado.</div>`;
+    return;
+  }
+
+  let html = `<div class="alert alert-error" style="margin-top:8px;">⚠️ Se encontraron ${gruposDup.length} código(s) de guía duplicados. Revisa cada copia y elimina la que no corresponda (siempre debe quedar al menos 1 con ese código):</div>
+  <div class="table-wrap"><table><thead><tr>
+    <th>Código</th><th>Productor</th><th>Fecha</th><th>Valor Recibido</th><th># Tickets vinculados</th><th>Acción</th>
+  </tr></thead><tbody>`;
+  gruposDup.forEach(([cod,idxs])=>{
+    idxs.forEach(i=>{
+      const g = DB.guias[i];
+      const nTk = (g.tickets_detalle||[]).length;
+      html += `<tr>
+        <td class="td-codigo">${g.codigo}</td>
+        <td>${g.productor||'—'}</td>
+        <td>${fechaDisplay(g.fecha)}</td>
+        <td style="text-align:right;">S/.${parseFloat(g.valorrecibido||0).toFixed(2)}</td>
+        <td style="text-align:center;">${nTk}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="eliminarGuiaDuplicadaIdx(${i})">🗑️ Eliminar esta copia</button></td>
+      </tr>`;
+    });
+  });
+  html += `</tbody></table></div>`;
+  cont.innerHTML = html;
+}
+
+function eliminarGuiaDuplicadaIdx(idx){
+  const g = DB.guias[idx];
+  if(!g) return;
+  const cod = (g.codigo||'').trim().toUpperCase();
+  const mismasCod = DB.guias.filter(x=>(x.codigo||'').trim().toUpperCase()===cod);
+  if(mismasCod.length<=1){ alert('Esta guía ya no tiene duplicados; no se puede eliminar la única copia desde aquí.'); return; }
+  if(!confirm(`¿Eliminar esta copia de la guía ${g.codigo} (${g.productor||'—'})?\n\nQuedará(n) ${mismasCod.length-1} copia(s) con este mismo código.`)) return;
+  DB.guias.splice(idx,1);
+  guardarDB();
+  renderGuias();
+  buscarDuplicados();
+}
+
 // Genera el HTML de UNA copia del comprobante de guía (se usa 2 veces: Productor y Caja)
 function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   const socio = (DB.socios||[]).find(s=>s.nombre===g.productor);
@@ -4381,7 +4448,11 @@ function abrirModalComprobante(idx){
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
     return nA-nB;
   });
+  const _codigosVistosSelG = new Set();
   guiasOrdenadas.forEach(g=>{
+    // Evitar mostrar códigos duplicados en el selector (por si la base tiene guías con código repetido)
+    if(_codigosVistosSelG.has(g.codigo)) return;
+    _codigosVistosSelG.add(g.codigo);
     const tp  = totalPagadoGuia(g.codigo);
     const tot = parseFloat(g.valorrecibido||0);
     // Redondear saldo al décimo más cercano (igual que los montos de pago)
