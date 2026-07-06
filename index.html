@@ -1058,6 +1058,7 @@ tr:hover td{background:#f9f6f1;}
     <div class="card-header">
       <div class="card-title">🏦 Control de Caja — Apertura / Cierre</div>
       <div style="display:flex;gap:8px;">
+        <button class="btn btn-dorado" onclick="abrirModalArqueo()">🧮 Arqueo de Caja</button>
         <button class="btn btn-primary" id="btn-abrir-caja" onclick="abrirModalAperturaCaja()">🔓 Abrir Caja</button>
         <button class="btn btn-danger" id="btn-cerrar-caja" onclick="cerrarCajaActual()" style="display:none;">🔒 Cerrar Caja</button>
       </div>
@@ -1100,6 +1101,18 @@ tr:hover td{background:#f9f6f1;}
       </tr></thead><tbody id="recibos-body"></tbody></table>
     </div>
     <div id="recibos-pager"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🧮 Historial de Arqueos de Caja (Conteo Físico)</div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>N° Arqueo</th><th>Fecha</th><th>Caja</th><th>Saldo Sistema</th>
+        <th>Total Contado</th><th>Diferencia</th><th>Usuario</th><th>Acciones</th>
+      </tr></thead><tbody id="arqueos-body"></tbody></table>
+    </div>
   </div>
 </div>
 
@@ -1610,6 +1623,60 @@ tr:hover td{background:#f9f6f1;}
   <div id="print-cierre-content"></div>
 </div></div>
 
+<!-- ══════════ MODAL ARQUEO DE CAJA (CONTEO FÍSICO) ══════════ -->
+<div class="modal-overlay" id="modal-arqueo">
+<div class="modal" style="max-width:640px;">
+  <div class="modal-header">
+    <div class="modal-title">🧮 Arqueo de Caja (Conteo Físico)</div>
+    <button class="modal-close" onclick="cerrarModal('modal-arqueo')">✕</button>
+  </div>
+  <div id="arqueo-form-alert"></div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>N° Arqueo</label><input type="text" id="arq-codigo" readonly style="background:#eee;"></div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="arq-fecha"></div>
+    <div class="form-group"><label>Hora</label><input type="time" id="arq-hora"></div>
+    <div class="form-group"><label>Caja / Apertura</label><input type="text" id="arq-apertura" readonly style="background:#eee;"></div>
+  </div>
+  <div style="margin-top:14px;">
+    <div style="font-size:0.78rem;font-weight:700;color:var(--verde);text-transform:uppercase;margin-bottom:8px;">💵 Billetes</div>
+    <div id="arqueo-billetes" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <div style="font-size:0.78rem;font-weight:700;color:var(--verde);text-transform:uppercase;margin:14px 0 8px;">🪙 Monedas</div>
+    <div id="arqueo-monedas" style="display:flex;flex-direction:column;gap:6px;"></div>
+  </div>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--borde);display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;">
+    <div style="background:var(--bg);border-radius:8px;padding:10px;">
+      <div style="font-size:0.68rem;color:#666;text-transform:uppercase;">Total Contado</div>
+      <div id="arq-total-contado" style="font-weight:800;font-size:1.15rem;color:#1b5e20;">S/. 0.00</div>
+    </div>
+    <div style="background:var(--bg);border-radius:8px;padding:10px;">
+      <div style="font-size:0.68rem;color:#666;text-transform:uppercase;">Saldo Sistema</div>
+      <div id="arq-saldo-sistema" style="font-weight:800;font-size:1.15rem;">S/. 0.00</div>
+    </div>
+    <div style="background:var(--bg);border-radius:8px;padding:10px;">
+      <div style="font-size:0.68rem;color:#666;text-transform:uppercase;">Diferencia</div>
+      <div id="arq-diferencia" style="font-weight:800;font-size:1.15rem;">S/. 0.00</div>
+    </div>
+  </div>
+  <div class="form-group form-full" style="margin-top:14px;"><label>Observaciones</label><textarea id="arq-observaciones" placeholder="Observaciones del arqueo (sobrantes, faltantes, motivos)..."></textarea></div>
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-arqueo')">Cancelar</button>
+    <button class="btn btn-dorado" onclick="guardarArqueo()">💾 Guardar Arqueo</button>
+  </div>
+</div></div>
+
+<!-- ══════════ MODAL IMPRESIÓN ARQUEO DE CAJA ══════════ -->
+<div class="modal-overlay" id="modal-print-arqueo">
+<div class="modal" style="max-width:560px;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Vista Previa Arqueo</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="imprimirArqueo()">🖨️ Imprimir</button>
+      <button class="modal-close" onclick="cerrarModal('modal-print-arqueo')">✕</button>
+    </div>
+  </div>
+  <div id="print-arqueo-content"></div>
+</div></div>
+
 <!-- ══════════ MODAL COMPRA CAFÉ COCO ══════════ -->
 <div class="modal-overlay" id="modal-cafecoco">
 <div class="modal" style="max-width:700px;width:94vw;">
@@ -2105,7 +2172,7 @@ tr:hover td{background:#f9f6f1;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[] };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[] };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -2260,6 +2327,8 @@ function cargarDB(){
   if(!DB.aperturas) DB.aperturas=[];
   if(!DB.recibos) DB.recibos=[];
   if(!DB.cafecoco) DB.cafecoco=[];
+  if(!DB.kardex) DB.kardex=[];
+  if(!DB.arqueos) DB.arqueos=[];
 }
 
 // ── BACKUP JSON ──
@@ -4241,6 +4310,32 @@ function guiaEstaPagada(guiaCodigo){
   return pagado >= valor - 0.5;
 }
 
+// Saldo pendiente de una guía, excluyendo un comprobante en particular (útil al editar,
+// para no contar el propio comprobante que se está por guardar).
+function saldoPendienteGuiaExcluyendoComp(guiaCodigo, excluirIdx){
+  const g = DB.guias.find(x=>x.codigo===guiaCodigo);
+  if(!g) return 0;
+  const totG = parseFloat(g.valorrecibido||0);
+  let pagado = 0;
+  DB.comprobantes.forEach((c,i)=>{
+    if(excluirIdx!==undefined && excluirIdx!==null && excluirIdx>=0 && i===excluirIdx) return;
+    if(c.estado==='Anulado') return;
+    const guiasRef = c.guias_ref && c.guias_ref.length ? c.guias_ref : (c.guia_ref ? [c.guia_ref] : []);
+    if(!guiasRef.includes(guiaCodigo)) return;
+    const monto = parseFloat(c.monto||0);
+    if(guiasRef.length <= 1){
+      pagado += monto;
+    } else {
+      const valTotal = guiasRef.reduce((a,cod)=>{
+        const gx = DB.guias.find(x=>x.codigo===cod);
+        return a + parseFloat(gx?.valorrecibido||0);
+      }, 0);
+      pagado += valTotal > 0 ? monto * (totG / valTotal) : monto / guiasRef.length;
+    }
+  });
+  return Math.round((totG - pagado) * 10) / 10;
+}
+
 // Actualiza estado_pago de una guía basándose en pagos reales
 function actualizarEstadoPagoGuia(guiaCodigo){
   const idx = DB.guias.findIndex(x=>x.codigo===guiaCodigo);
@@ -4570,6 +4665,19 @@ function guardarComprobante(){
   const monto = parseFloat(document.getElementById('c-monto').value)||0;
   const tipo  = document.getElementById('c-tipopago').value;
   if(tipo!=='pendiente' && monto<=0){ showAlert('comp-form-alert','error','Ingrese un monto válido.'); return; }
+
+  // ── Validar que el monto coincida con la suma de saldos pendientes de las guías seleccionadas ──
+  // (evita el error de ingresar un monto que cubre varias guías pero solo vincular 1 al comprobante)
+  if(tipo!=='pendiente'){
+    const totalEsperado = compGuiasTemp.reduce((a,cod)=>a + Math.max(0, saldoPendienteGuiaExcluyendoComp(cod, editandoCompIdx)), 0);
+    const diferencia = monto - totalEsperado;
+    if(Math.abs(diferencia) > 1){
+      const msg = diferencia > 0
+        ? `⚠️ El monto ingresado (S/. ${monto.toFixed(2)}) es MAYOR a la suma de saldos pendientes de las guías seleccionadas (S/. ${totalEsperado.toFixed(2)}).\n\nDiferencia: S/. ${diferencia.toFixed(2)}\n\n¿Olvidaste agregar alguna guía? Si continúas, el excedente quedará asignado solo a las guías seleccionadas.\n\n¿Deseas continuar de todas formas?`
+        : `⚠️ El monto ingresado (S/. ${monto.toFixed(2)}) es MENOR a la suma de saldos pendientes de las guías seleccionadas (S/. ${totalEsperado.toFixed(2)}).\n\nDiferencia: S/. ${diferencia.toFixed(2)}\n\n¿Deseas continuar de todas formas (quedará como pago parcial)?`;
+      if(!confirm(msg)) return;
+    }
+  }
 
   // Descuentos de préstamos
   const descuentos     = window._descuentosPendientes || [];
@@ -6929,6 +7037,8 @@ function eliminarRecibo(idx){
 function renderCaja(){
   if(!DB.aperturas) DB.aperturas=[];
   if(!DB.recibos) DB.recibos=[];
+  if(!DB.arqueos) DB.arqueos=[];
+  renderArqueos();
 
   const abiertas = DB.aperturas.filter(a=>a.estado==='Abierta');
   const banner = document.getElementById('caja-estado-banner');
@@ -7249,6 +7359,196 @@ function verPrintCierre(idx){
 
 function imprimirCierre(){
   const c = document.getElementById('print-zona-cierre').outerHTML;
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Arqueo de Caja APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  w.document.close();
+}
+
+// ══════════════════════════════════════════
+// ARQUEO DE CAJA — CONTEO FÍSICO DE BILLETES Y MONEDAS
+// ══════════════════════════════════════════
+const ARQUEO_DENOMINACIONES = {
+  billetes: [200, 100, 50, 20, 10],
+  monedas:  [5, 2, 1, 0.5, 0.2, 0.1]
+};
+
+function _arqIdDenom(tipo, valor){
+  return `arq-${tipo}-${String(valor).replace('.','_')}`;
+}
+
+function _arqFilaHtml(valor, tipo){
+  const id = _arqIdDenom(tipo, valor);
+  return `<div style="display:flex;align-items:center;gap:10px;">
+    <div style="width:80px;font-weight:700;color:var(--txt);">S/. ${valor.toFixed(2)}</div>
+    <span style="color:#888;">×</span>
+    <input type="number" min="0" step="1" value="0" id="${id}" oninput="calcularArqueo()" style="width:80px;padding:6px 8px;border:1px solid var(--borde);border-radius:6px;">
+    <span style="color:#888;">=</span>
+    <div id="${id}-sub" style="min-width:100px;font-weight:700;color:#1b5e20;">S/. 0.00</div>
+  </div>`;
+}
+
+function abrirModalArqueo(){
+  const idxAp = cajaAbiertaActual();
+  const ap = idxAp >= 0 ? DB.aperturas[idxAp] : null;
+
+  document.getElementById('arq-codigo').value = nextCodigo(DB.arqueos||[], 'ARQ-');
+  document.getElementById('arq-fecha').value = hoy();
+  document.getElementById('arq-hora').value = ahora();
+  document.getElementById('arq-apertura').value = ap ? ap.codigo : '— Sin caja abierta —';
+  document.getElementById('arq-observaciones').value = '';
+  document.getElementById('arqueo-form-alert').innerHTML = '';
+
+  document.getElementById('arqueo-billetes').innerHTML = ARQUEO_DENOMINACIONES.billetes.map(v=>_arqFilaHtml(v,'billete')).join('');
+  document.getElementById('arqueo-monedas').innerHTML  = ARQUEO_DENOMINACIONES.monedas.map(v=>_arqFilaHtml(v,'moneda')).join('');
+
+  calcularArqueo();
+  abrirModal('modal-arqueo');
+}
+
+function calcularArqueo(){
+  let total = 0;
+  [...ARQUEO_DENOMINACIONES.billetes.map(v=>['billete',v]), ...ARQUEO_DENOMINACIONES.monedas.map(v=>['moneda',v])].forEach(([tipo,valor])=>{
+    const id = _arqIdDenom(tipo, valor);
+    const inp = document.getElementById(id);
+    if(!inp) return;
+    const cant = parseInt(inp.value)||0;
+    const sub = cant*valor;
+    total += sub;
+    const subEl = document.getElementById(id+'-sub');
+    if(subEl) subEl.textContent = 'S/. '+sub.toFixed(2);
+  });
+
+  const idxAp = cajaAbiertaActual();
+  const ap = idxAp >= 0 ? DB.aperturas[idxAp] : null;
+  const saldoSistema = ap ? saldoActualApertura(ap.codigo) : 0;
+  const diferencia = Math.round((total - saldoSistema)*100)/100;
+
+  document.getElementById('arq-total-contado').textContent = 'S/. '+total.toFixed(2);
+  document.getElementById('arq-saldo-sistema').textContent = 'S/. '+saldoSistema.toFixed(2);
+  const difEl = document.getElementById('arq-diferencia');
+  if(difEl){
+    difEl.textContent = (diferencia>0?'+':'')+'S/. '+diferencia.toFixed(2)+(diferencia===0?' (Exacto)':diferencia>0?' (Sobrante)':' (Faltante)');
+    difEl.style.color = diferencia===0?'#1b5e20':diferencia>0?'#1565c0':'#c62828';
+  }
+
+  return {total, saldoSistema, diferencia};
+}
+
+function guardarArqueo(){
+  const {total, saldoSistema, diferencia} = calcularArqueo();
+  const idxAp = cajaAbiertaActual();
+  const ap = idxAp >= 0 ? DB.aperturas[idxAp] : null;
+
+  const detalle = [];
+  [...ARQUEO_DENOMINACIONES.billetes.map(v=>['billete',v]), ...ARQUEO_DENOMINACIONES.monedas.map(v=>['moneda',v])].forEach(([tipo,valor])=>{
+    const id = _arqIdDenom(tipo, valor);
+    const cant = parseInt(document.getElementById(id)?.value)||0;
+    if(cant>0) detalle.push({tipo, valor, cantidad:cant, subtotal:Math.round(cant*valor*100)/100});
+  });
+
+  if(!DB.arqueos) DB.arqueos=[];
+  DB.arqueos.push({
+    codigo: document.getElementById('arq-codigo').value,
+    fecha: document.getElementById('arq-fecha').value,
+    hora: document.getElementById('arq-hora').value,
+    apertura_ref: ap ? ap.codigo : '',
+    detalle,
+    total_contado: total.toFixed(2),
+    saldo_sistema: saldoSistema.toFixed(2),
+    diferencia: diferencia.toFixed(2),
+    observaciones: document.getElementById('arq-observaciones').value,
+    usuario: SESSION.user
+  });
+
+  guardarDB();
+  cerrarModal('modal-arqueo');
+  renderArqueos();
+  setTimeout(()=>verPrintArqueo(DB.arqueos.length-1), 200);
+}
+
+function renderArqueos(){
+  if(!DB.arqueos) DB.arqueos=[];
+  const tb = document.getElementById('arqueos-body');
+  if(!tb) return;
+  if(!DB.arqueos.length){
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="ico">🧮</span>Aún no se han registrado arqueos de caja.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = [...DB.arqueos].reverse().map(a=>{
+    const ri = DB.arqueos.indexOf(a);
+    const dif = parseFloat(a.diferencia||0);
+    return `<tr>
+      <td class="td-codigo">${a.codigo}</td>
+      <td>${fechaDisplay(a.fecha)} ${a.hora||''}</td>
+      <td>${a.apertura_ref||'—'}</td>
+      <td style="text-align:right;">S/.${parseFloat(a.saldo_sistema||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;">S/.${parseFloat(a.total_contado||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:800;color:${dif===0?'#1b5e20':dif>0?'#1565c0':'#c62828'};">${dif>0?'+':''}S/.${dif.toFixed(2)}</td>
+      <td>${a.usuario||'—'}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-info btn-sm" onclick="verPrintArqueo(${ri})">🖨️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarArqueo(${ri})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function eliminarArqueo(idx){
+  if(!confirm('¿Eliminar este registro de arqueo?')) return;
+  DB.arqueos.splice(idx,1); guardarDB(); renderArqueos();
+}
+
+function verPrintArqueo(idx){
+  const a = DB.arqueos[idx];
+  if(!a) return;
+  const dif = parseFloat(a.diferencia||0);
+  const filasDet = (a.detalle||[]).map(d=>`<tr style="font-size:10px;">
+      <td style="border:1px solid #ccc;padding:3px 5px;">${d.tipo==='billete'?'Billete':'Moneda'} S/.${d.valor.toFixed(2)}</td>
+      <td style="border:1px solid #ccc;padding:3px 5px;text-align:center;">${d.cantidad}</td>
+      <td style="border:1px solid #ccc;padding:3px 5px;text-align:right;">S/.${d.subtotal.toFixed(2)}</td>
+    </tr>`).join('');
+
+  document.getElementById('print-arqueo-content').innerHTML = `
+  <div id="print-zona-arqueo" style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:18px 20px;border:1px solid #333;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:11px;font-weight:800;">ACTA DE ARQUEO DE CAJA (CONTEO FÍSICO)</div>
+        <div style="font-size:15px;font-weight:900;color:#1a5c2e;">${a.codigo}</div>
+      </div>
+      <div style="width:40px;"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;">
+      <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(a.fecha)} ${a.hora||''}</strong></div>
+      <div><span style="color:#666;">Caja: </span><strong>${a.apertura_ref||'—'}</strong></div>
+      <div><span style="color:#666;">Responsable: </span><strong>${a.usuario||'—'}</strong></div>
+    </div>
+    <div style="font-weight:700;font-size:9px;text-transform:uppercase;margin-bottom:5px;border-bottom:1px solid #ccc;padding-bottom:2px;">DETALLE DEL CONTEO</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+      <thead style="background:#1a5c2e;color:#fff;"><tr>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Denominación</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Cantidad</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Subtotal</th>
+      </tr></thead>
+      <tbody>${filasDet || '<tr><td colspan="3" style="text-align:center;padding:6px;color:#999;">Sin detalle</td></tr>'}</tbody>
+    </table>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-bottom:14px;">
+      <div style="background:#e8f5e9;border-radius:6px;padding:8px;"><div style="font-size:8px;color:#2e7d32;">TOTAL CONTADO</div><div style="font-weight:800;font-size:13px;color:#2e7d32;">S/.${parseFloat(a.total_contado).toFixed(2)}</div></div>
+      <div style="background:#f5f5f5;border-radius:6px;padding:8px;"><div style="font-size:8px;color:#666;">SALDO SISTEMA</div><div style="font-weight:800;font-size:13px;">S/.${parseFloat(a.saldo_sistema).toFixed(2)}</div></div>
+      <div style="background:${dif===0?'#e8f5e9':dif>0?'#e3f2fd':'#ffebee'};border-radius:6px;padding:8px;"><div style="font-size:8px;color:${dif===0?'#2e7d32':dif>0?'#1565c0':'#c62828'};">DIFERENCIA</div><div style="font-weight:900;font-size:13px;color:${dif===0?'#2e7d32':dif>0?'#1565c0':'#c62828'};">${dif>0?'+':''}S/.${dif.toFixed(2)}</div></div>
+    </div>
+    ${a.observaciones ? `<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${a.observaciones}</div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px;">
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">Responsable de Caja</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">V°B° APARCH</div>
+    </div>
+  </div>`;
+  abrirModal('modal-print-arqueo');
+}
+
+function imprimirArqueo(){
+  const c = document.getElementById('print-zona-arqueo').outerHTML;
   const w = window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>Arqueo de Caja APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
   w.document.close();
