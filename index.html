@@ -4061,12 +4061,35 @@ function buscarDuplicados(){
 // y un único ticket de ese productor que todavía no tiene guía asignada.
 function vincularTicketsHuerfanos(){
   const vinculados = [];
+  const reparados = [];
   const sinResolver = [];
 
   const numDe = (cod) => { const m=(cod||'').match(/(\d+)$/); return m?m[1]:null; };
 
+  // ── FASE 0: reparar enlaces "de un solo sentido" ──
+  // El ticket ya declara (t.guia_asignada) a qué guía pertenece, pero esa guía no lo
+  // tiene en su propio detalle (tickets_detalle). Como el ticket ya indica la guía
+  // exacta (no hay que adivinar), simplemente se agrega al detalle de esa guía.
+  DB.tickets.forEach(t=>{
+    if(!t.guia_asignada) return;
+    const g = DB.guias.find(x=>x.codigo===t.guia_asignada);
+    if(!g) return; // se resolverá como huérfano más abajo si aplica
+    const yaListado = (g.tickets_detalle||[]).some(td=>td.nticket===t.codigo);
+    if(yaListado) return;
+    g.tickets_detalle = g.tickets_detalle || [];
+    g.tickets_detalle.push({
+      nticket: t.codigo, sacos: t.sacos, lote: t.lote||'',
+      pesobrutokg: t.pesobruto, tara: parseFloat(t.tara||0).toFixed(2),
+      desctohumedad: t.deschum, pesoneto: t.pesoneto,
+      pesoneto_qq: (parseFloat(t.pesoneto||0)/55.2).toFixed(2),
+      compromiso: '', entregado: t.pesoneto, cumplimiento: '100%'
+    });
+    reparados.push({guia:g.codigo, ticket:t.codigo, productor:g.productor});
+  });
+
+  // ── FASE 1: vincular guías que quedaron con detalle vacío ──
   DB.guias.forEach(g=>{
-    if((g.tickets_detalle||[]).length > 0) return; // ya tiene detalle, no tocar
+    if((g.tickets_detalle||[]).length > 0) return; // ya tiene detalle (incluye lo reparado en fase 0)
     if(!g.productor) { sinResolver.push({guia:g.codigo, motivo:'La guía no tiene productor definido', candidatos:[]}); return; }
 
     let candidatos = DB.tickets.filter(t => t.productor===g.productor && !t.guia_asignada);
@@ -4114,10 +4137,16 @@ function vincularTicketsHuerfanos(){
     vinculados.push({guia:g.codigo, ticket:tk.codigo, productor:g.productor});
   });
 
-  if(vinculados.length) guardarDB();
+  if(vinculados.length || reparados.length) guardarDB();
 
   const cont = document.getElementById('vinculacion-resultado');
   let html = '';
+  if(reparados.length){
+    html += `<div class="alert alert-success" style="margin-top:8px;">🔧 Se repararon ${reparados.length} enlace(s) de un solo sentido (el ticket ya declaraba su guía, pero la guía no lo tenía en su detalle):</div>
+    <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Ticket reparado</th><th>Productor</th></tr></thead><tbody>
+      ${reparados.map(v=>`<tr><td class="td-codigo">${v.guia}</td><td class="td-codigo">${v.ticket}</td><td>${v.productor}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  }
   if(vinculados.length){
     html += `<div class="alert alert-success" style="margin-top:8px;">✅ Se vincularon ${vinculados.length} ticket(s) automáticamente:</div>
     <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Ticket vinculado</th><th>Productor</th></tr></thead><tbody>
@@ -4130,7 +4159,7 @@ function vincularTicketsHuerfanos(){
       ${sinResolver.map(s=>`<tr><td class="td-codigo">${s.guia}</td><td>${s.motivo}</td><td style="font-size:0.75rem;">${(s.candidatos||[]).join('<br>')}</td></tr>`).join('')}
     </tbody></table></div>`;
   }
-  if(!vinculados.length && !sinResolver.length){
+  if(!vinculados.length && !reparados.length && !sinResolver.length){
     html = `<div class="alert alert-success" style="margin-top:8px;">✅ Todas las guías ya tienen su ticket vinculado en el detalle.</div>`;
   }
   cont.innerHTML = html;
