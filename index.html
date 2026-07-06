@@ -4063,23 +4063,46 @@ function vincularTicketsHuerfanos(){
   const vinculados = [];
   const sinResolver = [];
 
+  const numDe = (cod) => { const m=(cod||'').match(/(\d+)$/); return m?m[1]:null; };
+
   DB.guias.forEach(g=>{
     if((g.tickets_detalle||[]).length > 0) return; // ya tiene detalle, no tocar
-    if(!g.productor) { sinResolver.push({guia:g.codigo, motivo:'La guía no tiene productor definido'}); return; }
+    if(!g.productor) { sinResolver.push({guia:g.codigo, motivo:'La guía no tiene productor definido', candidatos:[]}); return; }
 
-    const candidatos = DB.tickets.filter(t => t.productor===g.productor && !t.guia_asignada);
+    let candidatos = DB.tickets.filter(t => t.productor===g.productor && !t.guia_asignada);
 
     if(candidatos.length === 0){
-      sinResolver.push({guia:g.codigo, motivo:`Sin tickets libres de ${g.productor} para vincular`});
-      return;
-    }
-    if(candidatos.length > 1){
-      sinResolver.push({guia:g.codigo, motivo:`Hay ${candidatos.length} tickets libres de ${g.productor} — ambiguo, requiere revisión manual`});
+      sinResolver.push({guia:g.codigo, motivo:`Sin tickets libres de ${g.productor} para vincular`, candidatos:[]});
       return;
     }
 
-    // Único candidato: vincular
-    const tk = candidatos[0];
+    let elegido = null;
+
+    if(candidatos.length === 1){
+      elegido = candidatos[0];
+    } else {
+      // Desempate 1: mismo número correlativo que la guía (ej. GERCH-CON-00012 ↔ RCH-CON-00012)
+      const numGuia = numDe(g.codigo);
+      const porNumero = numGuia ? candidatos.filter(t => numDe(t.codigo) === numGuia) : [];
+      if(porNumero.length === 1){
+        elegido = porNumero[0];
+      } else {
+        // Desempate 2: misma fecha que la guía
+        const porFecha = candidatos.filter(t => (t.fecha||'') === (g.fecha||''));
+        if(porFecha.length === 1) elegido = porFecha[0];
+      }
+    }
+
+    if(!elegido){
+      sinResolver.push({
+        guia:g.codigo,
+        motivo:`Hay ${candidatos.length} tickets libres de ${g.productor} — ambiguo, requiere revisión manual`,
+        candidatos: candidatos.map(t=>`${t.codigo} (${fechaDisplay(t.fecha)}, PN:${fmt(t.pesoneto)}kg)`)
+      });
+      return;
+    }
+
+    const tk = elegido;
     g.tickets_detalle = [{
       nticket: tk.codigo, sacos: tk.sacos, lote: tk.lote||'',
       pesobrutokg: tk.pesobruto, tara: parseFloat(tk.tara||0).toFixed(2),
@@ -4103,8 +4126,8 @@ function vincularTicketsHuerfanos(){
   }
   if(sinResolver.length){
     html += `<div class="alert alert-error" style="margin-top:10px;">⚠️ ${sinResolver.length} guía(s) no se pudieron vincular automáticamente (revisa y vincula manualmente editando la guía):</div>
-    <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Motivo</th></tr></thead><tbody>
-      ${sinResolver.map(s=>`<tr><td class="td-codigo">${s.guia}</td><td>${s.motivo}</td></tr>`).join('')}
+    <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Motivo</th><th>Candidatos</th></tr></thead><tbody>
+      ${sinResolver.map(s=>`<tr><td class="td-codigo">${s.guia}</td><td>${s.motivo}</td><td style="font-size:0.75rem;">${(s.candidatos||[]).join('<br>')}</td></tr>`).join('')}
     </tbody></table></div>`;
   }
   if(!vinculados.length && !sinResolver.length){
