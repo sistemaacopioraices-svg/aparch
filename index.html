@@ -8758,8 +8758,9 @@ function kardexPoblarOrigen(){
   }
 
   // ── GUÍAS ORGÁNICAS (solo admin, para mezclas) ──
+  let guiasOrg = [];
   if(SESSION.role === 'admin'){
-    const guiasOrg = DB.guias.filter(g=>!(g.certificacion||'').toUpperCase().includes('CONVENCIONAL') && g.certificacion);
+    guiasOrg = DB.guias.filter(g=>!(g.certificacion||'').toUpperCase().includes('CONVENCIONAL') && g.certificacion);
     if(guiasOrg.length){
       sel.innerHTML += '<optgroup label="🌿 Guías Café Orgánico/Fairtrade">';
       guiasOrg.forEach(g=>{
@@ -8941,10 +8942,11 @@ function kardexRenderOrigenes(){
           </div>
           <div style="text-align:center;">
             <div style="font-size:0.65rem;color:#e65100;text-transform:uppercase;margin-bottom:2px;">✏️ KG a incluir</div>
-            <input type="number" value="${fmtKg(o.kgAjustado)}" step="0.01" min="0" max="${o.kgDisp}"
+            <input type="number" value="${fmtKg(o.kgAjustado)}" step="0.01" min="0"
               style="width:100px;padding:5px 8px;border:2px solid #1a5c2e;border-radius:6px;font-weight:800;color:#1a5c2e;font-size:0.9rem;text-align:right;"
-              oninput="kardexOrigenesTemp[${i}].kgAjustado=parseFloat(this.value)||0;kardexRecalcularTotales();"
-              title="Editable: ajusta los kg si la balanza difiere">
+              oninput="kardexOrigenesTemp[${i}].kgAjustado=parseFloat(this.value)||0;kardexRenderDiferencia(${i});kardexRecalcularTotales();"
+              title="Editable: ajusta los kg si la balanza difiere (puede ser mayor o menor al disponible en el sistema)">
+            <div id="kd-dif-${i}" style="font-size:0.68rem;font-weight:700;margin-top:2px;"></div>
           </div>
           <div style="text-align:center;">
             <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:2px;">Costo/kg</div>
@@ -8959,6 +8961,19 @@ function kardexRenderOrigenes(){
           style="background:#ffebee;border:1px solid #ef9a9a;border-radius:6px;padding:4px 10px;cursor:pointer;color:#c62828;font-weight:700;flex-shrink:0;">✕</button>
       </div>
     </div>`).join('');
+  kardexOrigenesTemp.forEach((o,i)=>kardexRenderDiferencia(i));
+}
+
+// Muestra la diferencia entre el KG que el sistema tiene disponible y el KG que se está
+// incluyendo realmente en la venta (por ejemplo, por diferencias de balanza al pesar).
+function kardexRenderDiferencia(i){
+  const o = kardexOrigenesTemp[i];
+  const el = document.getElementById(`kd-dif-${i}`);
+  if(!o || !el) return;
+  const dif = Math.round((o.kgAjustado - o.kgDisp)*100)/100;
+  if(Math.abs(dif) < 0.01){ el.textContent=''; return; }
+  el.style.color = dif>0 ? '#1565c0' : '#c62828';
+  el.textContent = (dif>0?'+':'') + fmtKg(dif) + ' kg vs. sistema';
 }
 
 function kardexRecalcularTotales(){
