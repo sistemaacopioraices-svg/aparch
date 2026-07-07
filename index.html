@@ -4358,14 +4358,21 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
       <tr>
         <td style="border:1.5px solid #000;padding:6px 8px;background:#eef7ee;width:70%;">
-          <span style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700;">Valor Total del Recibo:</span>
+          <span style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700;">Valor Total del Recibo (Pago Neto):</span>
           <span style="font-size:23px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${fmtPago(valorTotal)}</span>
         </td>
         <td style="border:1.5px solid #000;padding:6px 8px;font-size:9.5px;font-style:italic;color:#444;">${valorLetras}</td>
       </tr>
-      ${primaQQ>0||estimadoKg>0?`<tr>
-        ${primaQQ>0?`<td style="border:1px solid #999;padding:3px 6px;font-size:10px;"><span style="color:#555;">Prima:</span> <strong style="color:#1565c0;font-size:11px;">+S/. ${fmt(primaSol)}</strong></td>`:'<td style="border:1px solid #999;padding:3px 6px;"></td>'}
-        ${estimadoKg>0?`<td style="border:1px solid #999;padding:3px 6px;font-size:10px;"><span style="color:#555;">Compromiso Total:</span> <strong style="color:#e65100;font-size:11px;">${fmt(estimadoKg)} kg</strong></td>`:'<td style="border:1px solid #999;padding:3px 6px;"></td>'}
+      ${(primaQQ>0 || (g.formaentrega==='Descuento' && descQQ>0) || estimadoKg>0) ? `<tr>
+        <td colspan="2" style="border:1px solid #999;padding:5px 8px;">
+          <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:10px;">
+            <div><span style="color:#555;">Precio Base:</span> <strong style="font-size:11px;">S/. ${fmt(totalQQ*parseFloat(g.precioqq||0))}</strong></div>
+            ${primaQQ>0?`<div><span style="color:#555;">+ Prima (S/.${fmt(primaQQ)}/qq):</span> <strong style="color:#1565c0;font-size:11px;">+S/. ${fmt(primaSol)}</strong></div>`:''}
+            ${g.formaentrega==='Descuento' && descQQ>0?`<div><span style="color:#555;">− Descuento (S/.${fmt(descQQ)}/qq):</span> <strong style="color:#c62828;font-size:11px;">−S/. ${fmt(descSol)}</strong></div>`:''}
+            ${estimadoKg>0?`<div><span style="color:#555;">Compromiso Total:</span> <strong style="color:#e65100;font-size:11px;">${fmt(estimadoKg)} kg</strong></div>`:''}
+            <div style="margin-left:auto;"><span style="color:#555;">= Pago Neto:</span> <strong style="color:#1a5c2e;font-size:12px;">S/. ${fmt(valorTotal)}</strong></div>
+          </div>
+        </td>
       </tr>`:''}
     </table>
 
