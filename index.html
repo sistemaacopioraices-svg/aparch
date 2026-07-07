@@ -6623,8 +6623,31 @@ function buscarMovimientosHuerfanos(){
   });
 
   const cont = document.getElementById('huerfanos-caja-resultado');
+
+  // ── Listado amplio (informativo) de TODOS los movimientos relacionados a préstamos o
+  // comprobantes, huérfanos o no — útil si el detector estricto no reconoce un registro
+  // antiguo (guardado con una versión previa del sistema, con texto ligeramente distinto).
+  const relacionados = DB.recibos.filter(r => /pr[ée]stamo/i.test(r.concepto||'') || /gu[ií]a/i.test(r.concepto||''));
+  const tablaAmplia = relacionados.length ? `
+    <div style="margin-top:14px;">
+      <div style="font-weight:700;font-size:0.85rem;margin-bottom:6px;">📋 Todos los movimientos de caja relacionados a préstamos/comprobantes (para revisión manual):</div>
+      <div class="table-wrap"><table style="font-size:0.78rem;"><thead><tr>
+        <th>Código</th><th>Tipo</th><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Caja</th><th>Acción</th>
+      </tr></thead><tbody>
+        ${relacionados.map(r=>`<tr>
+          <td class="td-codigo">${r.codigo}</td>
+          <td>${r.tipo==='egreso'?'📤 Egreso':'📥 Ingreso'}</td>
+          <td>${fechaDisplay(r.fecha)}</td>
+          <td>${r.concepto||'—'}</td>
+          <td style="text-align:right;font-weight:700;">S/.${fmt(r.monto)}</td>
+          <td>${r.apertura_ref||'—'}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="eliminarMovimientoHuerfano('${r.codigo}')">🗑️</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>` : '';
+
   if(!huerfanos.length){
-    cont.innerHTML = `<div class="alert alert-success" style="margin-top:8px;">✅ No se encontraron movimientos de caja huérfanos.</div>`;
+    cont.innerHTML = `<div class="alert alert-success" style="margin-top:8px;">✅ No se encontraron movimientos de caja huérfanos (detección automática).</div>` + tablaAmplia;
     return;
   }
 
@@ -6646,7 +6669,7 @@ function buscarMovimientosHuerfanos(){
     </tr>`;
   });
   html += `</tbody></table></div>`;
-  cont.innerHTML = html;
+  cont.innerHTML = html + tablaAmplia;
 }
 
 function eliminarMovimientoHuerfano(codigo){
