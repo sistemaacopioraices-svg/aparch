@@ -1971,9 +1971,9 @@ tr:hover td{background:#f9f6f1;}
       <input type="text" id="g-certificacion" readonly style="background:#ececec;cursor:not-allowed;" placeholder="— Del ticket —">
     </div>
     <div class="form-group">
-      <label>Forma de Entrega</label>
+      <label>Forma de Entrega <span style="color:#c62828;">*</span></label>
       <select id="g-formaentrega" onchange="toggleDescuentoEntrega()">
-        <option value="">--</option>
+        <option value="">-- Seleccionar --</option>
         <option value="Venta Directa">Venta Directa</option>
         <option value="Descuento">Descuento</option>
       </select>
@@ -3970,6 +3970,10 @@ function guardarGuia(){
   if(codigoGuiaDuplicado){ showAlert('guia-form-alert','error',`Ya existe una guía con el código ${codigoGuia}. Usa otro código o elimina primero la existente.`); return; }
   document.getElementById('g-codigo').value = codigoGuia;
 
+  // ── Validar Forma de Entrega (obligatoria) ──
+  const formaEntrega = document.getElementById('g-formaentrega').value;
+  if(!formaEntrega){ showAlert('guia-form-alert','error','Seleccione la Forma de Entrega.'); return; }
+
   const guia={
     codigo:document.getElementById('g-codigo').value,
     fecha:document.getElementById('g-fecha').value,
@@ -4265,7 +4269,10 @@ function eliminarGuiaDuplicadaIdx(idx){
 // Genera el HTML de UNA copia del comprobante de guía (se usa 2 veces: Productor y Caja)
 function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   const socio = (DB.socios||[]).find(s=>s.nombre===g.productor);
-  const estimadoKg = socio ? parseFloat(socio.estimado_kg||0)||parseFloat(socio.estimado_qq||0)*55.2 : 0;
+  const certifUpper = (g.certificacion||'').toUpperCase();
+  const aplicaCompromiso = certifUpper.includes('ORGANICO') || certifUpper.includes('ORGÁNICO') || certifUpper.includes('FAIRTRADE');
+  // El compromiso/estimado de acopio solo aplica a socios Orgánico/Fairtrade, no a Convencional
+  const estimadoKg = aplicaCompromiso && socio ? parseFloat(socio.estimado_kg||0)||parseFloat(socio.estimado_qq||0)*55.2 : 0;
 
   const tkRows=(g.tickets_detalle||[]).map(r=>{
     const entregadoAcum = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
@@ -4327,8 +4334,8 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;width:19%;">${g.campana||'—'}</td>
         <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;width:14%;">BASE</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;width:19%;">${g.base||'—'}</td>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;width:14%;">FECHA</td>
-        <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${fechaDisplay(g.fecha)}</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;width:14%;">CASERÍO</td>
+        <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${g.caserio||'—'}</td>
       </tr>
       <tr>
         <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRODUCTOR</td>
@@ -4345,12 +4352,16 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${g.formaentrega||'—'}</td>
       </tr>
       <tr>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">FECHA</td>
+        <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${fechaDisplay(g.fecha)}</td>
         <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">RENDIMIENTO</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:900;color:#1a5c2e;font-size:12px;">${g.rend_export||'—'}%</td>
         <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRECIO KG</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:11px;">S/. ${getPrecioKgGuia(g).toFixed(4)}</td>
+      </tr>
+      <tr>
         <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRECIO QQ</td>
-        <td style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:11px;">S/. ${fmt(g.precioqq)}</td>
+        <td colspan="5" style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:11px;">S/. ${fmt(g.precioqq)}</td>
       </tr>
     </table>
 
@@ -5317,6 +5328,12 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
   // Lista de guías incluidas
   const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
   const nGuias = guiasRef.length;
+  // Base y Caserío: se obtienen de la primera guía incluida (o del registro de socios si no hay guías)
+  const primeraGuia = guiasRef.length ? DB.guias.find(x=>x.codigo===guiasRef[0]) : null;
+  const socioRef = !primeraGuia ? (DB.socios||[]).find(s=>s.nombre===c.productor) : null;
+  const baseInfo = primeraGuia?.base || socioRef?.base || '';
+  const caserioInfo = primeraGuia?.caserio || socioRef?.caserio || '';
+  const montoLetras = numeroALetras(parseFloat(c.monto||0));
   const guiasHtml = guiasRef.map(cod=>{
     const g = DB.guias.find(x=>x.codigo===cod);
     const valG = g ? parseFloat(g.valorrecibido||0) : 0;
@@ -5352,9 +5369,11 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-bottom:7px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:6px 10px;">
       <div style="grid-column:1/-1;"><span style="font-size:9px;color:#666;font-weight:600;">PRODUCTOR: </span><strong style="font-size:13.5px;">${c.productor||'—'}</strong></div>
       <div><span style="font-size:9px;color:#666;font-weight:600;">DNI: </span><strong style="font-size:12px;">${c.dni||'—'}</strong></div>
+      <div><span style="font-size:9px;color:#666;font-weight:600;">BASE: </span><strong style="font-size:12px;">${baseInfo||'—'}</strong></div>
+      <div><span style="font-size:9px;color:#666;font-weight:600;">CASERÍO: </span><strong style="font-size:12px;">${caserioInfo||'—'}</strong></div>
       <div><span style="font-size:9px;color:#666;font-weight:600;">FORMA PAGO: </span><strong style="font-size:12px;">${c.formapago||'—'}</strong></div>
       <div><span style="font-size:9px;color:#666;font-weight:600;">TIPO: </span><strong style="font-size:12px;">${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
-      ${c.apertura_ref?`<div><span style="font-size:9px;color:#666;font-weight:600;">CAJA: </span><strong style="font-size:12px;">${c.apertura_ref}</strong></div>`:''}
+      ${c.apertura_ref?`<div style="grid-column:1/-1;"><span style="font-size:9px;color:#666;font-weight:600;">CAJA: </span><strong style="font-size:12px;">${c.apertura_ref}</strong></div>`:''}
     </div>
 
     <!-- Guías incluidas -->
@@ -5367,7 +5386,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     </div>`:''}
 
     <!-- Montos -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:7px;text-align:center;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px;text-align:center;">
       <div style="border:1.5px solid #ccc;padding:7px;border-radius:7px;background:#f9f9f9;">
         <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Total Guía${nGuias>1?'s':''}</div>
         <div style="font-size:16px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
@@ -5381,6 +5400,9 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
         <div style="font-size:16px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
       </div>
     </div>
+    <div style="border:1px solid #999;border-radius:6px;padding:4px 8px;margin-bottom:7px;font-size:9.5px;font-style:italic;color:#444;">
+      Son: <strong>${montoLetras}</strong>
+    </div>
     ${parseFloat(c.descuento_prestamos||0)>0?`
     <div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:6px;padding:6px 10px;margin-bottom:7px;font-size:11px;">
       <div style="font-weight:800;color:#e65100;margin-bottom:3px;">🏦 Descuento por Préstamos</div>
@@ -5388,9 +5410,9 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
       <div style="font-weight:800;color:#c62828;margin-top:3px;border-top:1px dashed #ffb74d;padding-top:3px;">Total: S/. ${fmt(c.descuento_prestamos)}</div>
     </div>`:''}
     ${c.observaciones?`<div style="font-size:11px;margin-bottom:7px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:auto;padding-top:20px;">
-      <div style="text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Pagado por (APARCH)</div>
-      <div style="text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:9.5px;">${c.productor||''}</span></div>
+    <div style="display:flex;gap:50px;margin-top:auto;padding-top:20px;">
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Pagado por (APARCH)</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:9.5px;">${c.productor||''}</span></div>
     </div>
   </div>`;
 }
