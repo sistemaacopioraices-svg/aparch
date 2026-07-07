@@ -3531,13 +3531,14 @@ function verPrintTicket(idx){
   const cG=parseFloat(t.cas_g||0), cP=parseFloat(t.cas_pct||0).toFixed(2);
   document.getElementById('print-ticket-content').innerHTML=`
   <div id="print-zona-ticket" style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:22px 18px;">
-    <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:16px;">
-      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;line-height:1.3;">RAÍCES DE CHIRINOS — APARCH</div>
-        <div style="font-size:10px;font-weight:700;margin-top:2px;">PRE TICKET DE ALMACEN · CHIRINOS</div>
+        <div style="font-size:12px;font-weight:900;line-height:1.25;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:9px;color:#555;line-height:1.5;margin-top:2px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:10px;font-weight:700;margin-top:4px;">PRE TICKET DE ALMACEN · CHIRINOS</div>
       </div>
-      <div style="width:44px;flex-shrink:0;"></div>
+      <div style="width:48px;flex-shrink:0;"></div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:13px;line-height:1.9;">
       <tr><td style="width:46%;color:#444;">Ticket</td><td style="font-weight:900;font-size:14px;color:#1a3a6e;">: ${t.codigo}</td></tr>
@@ -4234,9 +4235,10 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     <div style="display:flex;align-items:center;border-bottom:3px solid #1a5c2e;padding-bottom:6px;margin-bottom:6px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;margin-right:12px;flex-shrink:0;">
       <div style="flex:1;text-align:center;">
-        <div style="font-size:18px;font-weight:900;color:#1a5c2e;letter-spacing:0.5px;">RAÍCES DE CHIRINOS — APARCH</div>
-        <div style="font-size:10px;font-weight:700;color:#555;letter-spacing:1px;text-transform:uppercase;">Guía de Entrada de Café</div>
-        <div style="font-size:23px;font-weight:900;color:#1a5c2e;margin-top:2px;">${g.codigo}</div>
+        <div style="font-size:14.5px;font-weight:900;color:#1a5c2e;letter-spacing:0.2px;line-height:1.2;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:8.5px;color:#555;line-height:1.4;margin-top:1px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:9.5px;font-weight:700;color:#555;letter-spacing:0.5px;text-transform:uppercase;margin-top:2px;">Guía de Entrada de Café</div>
+        <div style="font-size:22px;font-weight:900;color:#1a5c2e;margin-top:1px;">${g.codigo}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;">
         <div style="background:${colorEtiqueta};color:#fff;font-size:9px;font-weight:800;padding:3px 10px;border-radius:10px;letter-spacing:0.5px;text-transform:uppercase;">${etiqueta}</div>
@@ -5224,8 +5226,9 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #333;padding-bottom:10px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:17px;font-weight:900;line-height:1.2;">RAÍCES DE CHIRINOS — APARCH</div>
-        <div style="font-size:11.5px;font-weight:700;">COMPROBANTE DE PAGO</div>
+        <div style="font-size:14.5px;font-weight:900;line-height:1.2;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:9.5px;color:#555;line-height:1.4;margin-top:2px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:11.5px;font-weight:700;margin-top:3px;">COMPROBANTE DE PAGO</div>
         <div style="font-size:21px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
       </div>
       <div style="text-align:right;font-size:10px;color:#555;flex-shrink:0;">
@@ -7616,12 +7619,13 @@ function verPrintRecibo(idx){
   document.getElementById('print-recibo-content').innerHTML = `
   <div id="print-zona-recibo" style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px 22px;border:2px solid ${colorPrincipal};border-radius:8px;">
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid ${colorPrincipal};padding-bottom:8px;margin-bottom:12px;">
-      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
-        <div style="font-size:11px;font-weight:800;color:${colorPrincipal};letter-spacing:0.5px;">${etiqueta}</div>
+        <div style="font-size:11.5px;font-weight:900;line-height:1.25;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:8.5px;color:#555;line-height:1.5;margin-top:2px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:11px;font-weight:800;color:${colorPrincipal};letter-spacing:0.5px;margin-top:3px;">${etiqueta}</div>
       </div>
-      <div style="width:40px;"></div>
+      <div style="width:46px;"></div>
     </div>
     <div style="text-align:center;margin-bottom:14px;">
       <div style="font-size:18px;font-weight:900;color:${colorPrincipal};">${r.codigo}</div>
