@@ -1270,8 +1270,8 @@ tr:hover td{background:#f9f6f1;}
         <input type="text" id="kd-cliente" placeholder="Nombre del comprador...">
       </div>
       <div class="form-group">
-        <label>KG Acopiados (de selección)</label>
-        <input type="text" id="kd-kg-acopiados" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:700;">
+        <label>KG Acopiados (de selección) <span style="color:#1565c0;font-size:0.7rem;">(editable — ajusta por diferencia de balanza)</span></label>
+        <input type="number" id="kd-kg-acopiados" step="0.01" min="0" oninput="kardexKgAcopiadosEditado=true;calcKardex();" style="background:#e8f5e9;color:#1b5e20;font-weight:700;border:2px solid #1b5e20;">
       </div>
       <div class="form-group">
         <label>KG Netos a Vender <span style="color:#c62828;font-size:0.7rem;">(editable)</span></label>
@@ -9098,12 +9098,21 @@ function kardexRenderDiferencia(i){
   el.textContent = (dif>0?'+':'') + fmtKg(dif) + ' kg vs. sistema';
 }
 
-function kardexRecalcularTotales(){
-  const totalKgAcop = kardexOrigenesTemp.reduce((a,o)=>a+o.kgAjustado,0);
-  const totalCostoPond = kardexOrigenesTemp.reduce((a,o)=>a+(o.kgAjustado*o.costoProm),0);
-  const costoProm = totalKgAcop > 0 ? totalCostoPond/totalKgAcop : 0;
+let kardexKgAcopiadosEditado = false;
 
-  document.getElementById('kd-kg-acopiados').value = fmtKg(totalKgAcop);
+function kardexRecalcularTotales(){
+  const totalKgAcopAuto = kardexOrigenesTemp.reduce((a,o)=>a+o.kgAjustado,0);
+  const totalCostoPond = kardexOrigenesTemp.reduce((a,o)=>a+(o.kgAjustado*o.costoProm),0);
+
+  const kgAcopiadosInput = document.getElementById('kd-kg-acopiados');
+  // Si el usuario NO editó manualmente el campo, se autocompleta con la suma de los orígenes.
+  // Si SÍ lo editó (por diferencia de balanza), se respeta su valor y el costo promedio
+  // se recalcula repartiendo el MISMO costo total pagado entre esos kg reales.
+  if(!kardexKgAcopiadosEditado){
+    kgAcopiadosInput.value = fmtKg(totalKgAcopAuto);
+  }
+  const totalKgAcop = parseFloat(kgAcopiadosInput.value) || 0;
+  const costoProm = totalKgAcop > 0 ? totalCostoPond/totalKgAcop : 0;
   document.getElementById('kd-costo-prom').value   = costoProm.toFixed(4);
 
   // Actualizar subtotales individuales
@@ -9188,6 +9197,7 @@ function guardarKardex(){
 function limpiarKardexForm(){
   kardexOrigenesTemp=[];
   editandoKardexIdx=-1;
+  kardexKgAcopiadosEditado=false;
   if(!DB.kardex) DB.kardex=[];
   document.getElementById('kd-codigo').value       = nextCodigo(DB.kardex.filter(k=>k.tipo===kardexTipo), kardexTipo==='conv'?'VTA-CONV-':'VTA-COCO-');
   document.getElementById('kd-fecha').value         = hoy();
