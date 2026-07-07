@@ -787,6 +787,19 @@ tr:hover td{background:#f9f6f1;}
         <button class="btn btn-secondary" onclick="vincularTicketsHuerfanos()">🔗 Vincular Tickets con Guías</button>
       </div>
       <div id="vinculacion-resultado"></div>
+
+      <div style="border-top:1px solid var(--borde);margin:16px 0 12px;"></div>
+
+      <div style="font-size:0.82rem;color:var(--txts);margin-bottom:10px;">
+        Busca movimientos de <strong>Caja</strong> (egresos de comprobantes/préstamos, ingresos de abonos) que quedaron
+        "huérfanos" — es decir, generados automáticamente por un comprobante o préstamo que **ya fue eliminado**, por lo
+        que ya no deberían seguir afectando el saldo de caja. Útil si alguna vez eliminaste un comprobante o préstamo
+        antes de que el sistema revirtiera sus movimientos de caja automáticamente.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn btn-secondary" onclick="buscarMovimientosHuerfanos()">🔍 Buscar Movimientos de Caja Huérfanos</button>
+      </div>
+      <div id="huerfanos-caja-resultado"></div>
     </div>
 
   </div>
@@ -6581,6 +6594,71 @@ function filtrarPrestamos(){
   const e = document.getElementById('filter-prest-estado').value;
   renderPrestamos(q, t, e);
 }
+// ══════════ MANTENIMIENTO: MOVIMIENTOS DE CAJA HUÉRFANOS ══════════
+// Detecta egresos/ingresos de caja que fueron generados automáticamente por un
+// comprobante o préstamo que YA FUE ELIMINADO (antes de que existiera la reversión
+// automática), y que por lo tanto siguen afectando el saldo de caja sin justificación real.
+function buscarMovimientosHuerfanos(){
+  if(!DB.recibos) DB.recibos=[];
+  const huerfanos = [];
+
+  DB.recibos.forEach((r,i)=>{
+    // Egreso generado automáticamente al guardar un comprobante
+    if(r.tipo==='egreso' && (r.observaciones||'')==='Generado automáticamente'){
+      const compExiste = DB.comprobantes.some(c=>c.recibo_egreso_ref===r.codigo);
+      if(!compExiste) huerfanos.push({idx:i, recibo:r, motivo:'Egreso de un comprobante de pago que ya no existe'});
+      return;
+    }
+    // Egreso de desembolso de préstamo
+    if(r.tipo==='egreso' && /pr[ée]stamo/i.test(r.concepto||'')){
+      const prestExiste = DB.prestamos.some(p=>p.recibo_egreso_ref===r.codigo);
+      if(!prestExiste) huerfanos.push({idx:i, recibo:r, motivo:'Egreso de desembolso de un préstamo que ya no existe'});
+      return;
+    }
+    // Ingreso de abono a préstamo
+    if(r.tipo==='ingreso' && /abono\s+pr[ée]stamo/i.test(r.concepto||'')){
+      const abonoExiste = DB.prestamos.some(p=>(p.abonos||[]).some(ab=>ab.recibo_ref===r.codigo));
+      if(!abonoExiste) huerfanos.push({idx:i, recibo:r, motivo:'Ingreso de un abono a préstamo que ya no existe'});
+    }
+  });
+
+  const cont = document.getElementById('huerfanos-caja-resultado');
+  if(!huerfanos.length){
+    cont.innerHTML = `<div class="alert alert-success" style="margin-top:8px;">✅ No se encontraron movimientos de caja huérfanos.</div>`;
+    return;
+  }
+
+  const totalAfectado = huerfanos.reduce((a,h)=>a+(h.recibo.tipo==='egreso'?-1:1)*parseFloat(h.recibo.monto||0),0);
+  let html = `<div class="alert alert-error" style="margin-top:8px;">⚠️ Se encontraron ${huerfanos.length} movimiento(s) huérfano(s) en caja. Elimínalos para que el saldo se corrija (impacto neto si los eliminas: ${totalAfectado>=0?'+':''}S/.${totalAfectado.toFixed(2)}):</div>
+  <div class="table-wrap"><table><thead><tr>
+    <th>Código</th><th>Tipo</th><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Caja</th><th>Motivo</th><th>Acción</th>
+  </tr></thead><tbody>`;
+  huerfanos.forEach(h=>{
+    html += `<tr>
+      <td class="td-codigo">${h.recibo.codigo}</td>
+      <td>${h.recibo.tipo==='egreso'?'📤 Egreso':'📥 Ingreso'}</td>
+      <td>${fechaDisplay(h.recibo.fecha)}</td>
+      <td style="font-size:0.78rem;">${h.recibo.concepto||'—'}</td>
+      <td style="text-align:right;font-weight:700;">S/.${fmt(h.recibo.monto)}</td>
+      <td>${h.recibo.apertura_ref||'—'}</td>
+      <td style="font-size:0.75rem;color:#c62828;">${h.motivo}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="eliminarMovimientoHuerfano('${h.recibo.codigo}')">🗑️ Eliminar</button></td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  cont.innerHTML = html;
+}
+
+function eliminarMovimientoHuerfano(codigo){
+  const idx = DB.recibos.findIndex(r=>r.codigo===codigo);
+  if(idx < 0) return;
+  if(!confirm(`¿Eliminar el movimiento ${codigo}? Esto corregirá el saldo de caja.`)) return;
+  DB.recibos.splice(idx,1);
+  guardarDB();
+  buscarMovimientosHuerfanos();
+  renderCaja();
+}
+
 function eliminarPrestamo(i){
   if(!confirm('¿Eliminar este préstamo y todos sus abonos? Si tienen egresos/ingresos de caja vinculados, también se eliminarán.')) return;
   const p = DB.prestamos[i];
