@@ -5006,15 +5006,21 @@ function aplicarDescuentoPrestamos(){
 
   let totalDescuento = 0;
   const detalleDescuentos = [];
-  checks.forEach(chk=>{
+  for(const chk of checks){
     const idx = parseInt(chk.dataset.idx);
     const montoInput = document.querySelector(`.comp-deuda-monto[data-idx="${idx}"]`);
     const monto = parseFloat(montoInput.value)||0;
     if(monto > 0){
+      // Validar que no se descuente más de lo que realmente queda pendiente del préstamo
+      const saldoReal = saldoPrestamo(idx);
+      if(monto > saldoReal + 0.01){
+        alert(`El monto a descontar de ${DB.prestamos[idx]?.codigo||'este préstamo'} (S/. ${monto.toFixed(2)}) supera su saldo pendiente real (S/. ${saldoReal.toFixed(2)}). Ajusta el monto.`);
+        return;
+      }
       totalDescuento += monto;
       detalleDescuentos.push({ prestamoIdx: idx, monto });
     }
-  });
+  }
 
   if(totalDescuento <= 0){ alert('El monto a descontar debe ser mayor a 0.'); return; }
 
@@ -5405,12 +5411,15 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     </div>
     ${parseFloat(c.descuento_prestamos||0)>0?`
     <div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:6px;padding:6px 10px;margin-bottom:7px;font-size:11px;">
-      <div style="font-weight:800;color:#e65100;margin-bottom:3px;">🏦 Descuento por Préstamos</div>
-      ${(c.prestamos_descontados||[]).map(pd=>`<div>• ${pd.codigo}: S/. ${fmt(pd.monto)}</div>`).join('')}
-      <div style="font-weight:800;color:#c62828;margin-top:3px;border-top:1px dashed #ffb74d;padding-top:3px;">Total: S/. ${fmt(c.descuento_prestamos)}</div>
+      <div style="font-weight:800;color:#e65100;margin-bottom:4px;">🏦 Descuento por Préstamo${(c.prestamos_descontados||[]).length>1?'s':''}</div>
+      ${(c.prestamos_descontados||[]).map(pd=>`<div style="display:flex;justify-content:space-between;padding:2px 0;">
+        <span><span style="color:#666;">N° de Crédito:</span> <strong style="color:#1565c0;">${pd.codigo||'—'}</strong></span>
+        <strong>S/. ${fmt(pd.monto)}</strong>
+      </div>`).join('')}
+      <div style="font-weight:800;color:#c62828;margin-top:4px;border-top:1px dashed #ffb74d;padding-top:4px;">Total Descontado: S/. ${fmt(c.descuento_prestamos)}</div>
     </div>`:''}
     ${c.observaciones?`<div style="font-size:11px;margin-bottom:7px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
-    <div style="display:flex;gap:50px;margin-top:auto;padding-top:20px;">
+    <div style="display:flex;gap:50px;margin-top:auto;padding-top:38px;">
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Pagado por (APARCH)</div>
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:9.5px;">${c.productor||''}</span></div>
     </div>
