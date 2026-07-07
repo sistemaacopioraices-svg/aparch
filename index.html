@@ -2146,7 +2146,7 @@ tr:hover td{background:#f9f6f1;}
     <div class="form-group"><label>Fecha Pago</label><input type="date" id="c-fecha"></div>
     <div class="form-group">
       <label>Tipo de Pago</label>
-      <select id="c-tipopago" onchange="calcSaldoComp()">
+      <select id="c-tipopago" onchange="actualizarResumenGuiasComp()">
         <option value="total">Pago Total</option>
         <option value="parcial">Pago Parcial</option>
         <option value="pendiente">Dejar Pendiente</option>
@@ -4925,9 +4925,10 @@ function actualizarResumenGuiasComp(){
   saldoEl.textContent = fmtSPago(totalGuias);
   saldoEl.style.color = totalGuias<=0?'#2e7d32':'#c62828';
 
-  // Auto-llenar monto si es pago total
+  // Auto-llenar monto si es pago total (restando cualquier descuento de préstamo pendiente de aplicar)
   const tipoPago = document.getElementById('c-tipopago').value;
-  if(tipoPago==='total') document.getElementById('c-monto').value = redondearPago(totalGuias).toFixed(2);
+  const totalDescPendiente = (window._descuentosPendientes||[]).reduce((a,d)=>a+d.monto,0);
+  if(tipoPago==='total') document.getElementById('c-monto').value = Math.max(0, redondearPago(totalGuias) - totalDescPendiente).toFixed(2);
   calcSaldoComp();
 }
 
@@ -5063,11 +5064,21 @@ function calcSaldoComp(){
   const total=parseFloat(g.valorrecibido||0);
   const pagadoAntes=totalPagadoGuia(guiaCod)-(editandoCompIdx>=0?parseFloat(DB.comprobantes[editandoCompIdx].monto||0):0);
   const saldoActual=total-pagadoAntes;
-  if(tipo==='total'){ montoEl.value=saldoActual.toFixed(2); montoEl.readOnly=true; }
+  // Si hay un descuento de préstamo pendiente de aplicar, "Pago Total" significa
+  // pagar el saldo COMPLETO MENOS ese descuento (nunca ignorarlo).
+  const totalDescPendiente = (window._descuentosPendientes||[]).reduce((a,d)=>a+d.monto,0);
+  if(tipo==='total'){
+    montoEl.value=Math.max(0, saldoActual - totalDescPendiente).toFixed(2);
+    montoEl.readOnly=true;
+    if(totalDescPendiente>0){
+      const resumen = document.getElementById('comp-descuento-resumen');
+      if(resumen) resumen.style.display='block';
+    }
+  }
   else if(tipo==='pendiente'){ montoEl.value='0'; montoEl.readOnly=true; }
   else { montoEl.readOnly=false; }
   const monto=parseFloat(montoEl.value)||0;
-  const saldoResultante=saldoActual-monto;
+  const saldoResultante=saldoActual-monto-totalDescPendiente;
   saldoEl.value=saldoResultante.toFixed(2);
   saldoEl.style.color=saldoResultante<=0.01?'#2e7d32':'#c62828';
 }
