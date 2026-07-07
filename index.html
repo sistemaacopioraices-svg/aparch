@@ -1356,8 +1356,8 @@ tr:hover td{background:#f9f6f1;}
     </div>
     <div class="table-wrap">
       <table><thead><tr>
-        <th>N°</th><th>Fecha</th><th>N° de Venta</th><th>KG Vendidos</th><th>QQ Vendidos</th>
-        <th>Ganancia</th><th>Acumulado</th><th>Acciones</th>
+        <th>N°</th><th>Fecha</th><th>N° de Venta</th><th>Tipo</th><th>KG Vendidos</th><th>QQ Vendidos</th>
+        <th>Ganancia</th><th>Acumulado</th><th>Obs.</th><th>Acciones</th>
       </tr></thead><tbody id="ganancias-body"></tbody></table>
     </div>
   </div>
@@ -1752,9 +1752,17 @@ tr:hover td{background:#f9f6f1;}
   <div class="form-grid-2">
     <div class="form-group"><label>Fecha</label><input type="date" id="gan-fecha"></div>
     <div class="form-group"><label>N° de Venta</label><input type="text" id="gan-nventa" placeholder="Ej. VTA-CONV-00001"></div>
+    <div class="form-group">
+      <label>Tipo de Venta</label>
+      <select id="gan-tipo">
+        <option value="Pergamino">☕ Café Pergamino</option>
+        <option value="Coco">🌰 Café Coco</option>
+      </select>
+    </div>
     <div class="form-group"><label>KG Vendidos</label><input type="number" id="gan-kg" step="0.01" min="0" oninput="ganCalcularQQ()"></div>
     <div class="form-group"><label>QQ Vendidos</label><input type="number" id="gan-qq" step="0.01" min="0"></div>
-    <div class="form-group form-full"><label>Ganancia Total (S/.)</label><input type="number" id="gan-total-input" step="0.01" min="0" style="font-weight:800;font-size:1.05rem;color:#1b5e20;"></div>
+    <div class="form-group"><label>Ganancia Total (S/.)</label><input type="number" id="gan-total-input" step="0.01" min="0" style="font-weight:800;font-size:1.05rem;color:#1b5e20;"></div>
+    <div class="form-group form-full"><label>Observaciones</label><textarea id="gan-obs" placeholder="Cliente, destino, notas..."></textarea></div>
   </div>
   <div class="form-actions">
     <button class="btn btn-secondary" onclick="cerrarModal('modal-ganancia')">Cancelar</button>
@@ -4362,22 +4370,22 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     </table>
 
     <!-- DETALLE DE TICKETS -->
-    <div style="font-weight:800;font-size:9.5px;text-transform:uppercase;margin-bottom:2px;">Detalle de Tickets</div>
-    <table style="width:100%;border-collapse:collapse;font-size:8.5px;margin-bottom:6px;">
+    <div style="font-weight:800;font-size:10px;text-transform:uppercase;margin-bottom:2px;color:#1a5c2e;">Detalle de Tickets</div>
+    <table style="width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:6px;">
       <thead>
-        <tr style="background:#e8e8e8;">
-          <th style="border:1px solid #999;padding:3px 2px;">Ticket</th>
-          <th style="border:1px solid #999;padding:3px 2px;">Lote</th>
-          <th style="border:1px solid #999;padding:3px 2px;">Sacos</th>
-          <th style="border:1px solid #999;padding:3px 2px;">P.Bruto</th>
-          <th style="border:1px solid #999;padding:3px 2px;">Tara</th>
-          <th style="border:1px solid #999;padding:3px 2px;">D.Hum.</th>
-          <th style="border:1px solid #999;padding:3px 2px;">P.Neto kg</th>
-          <th style="border:1px solid #999;padding:3px 2px;">P.Neto qq</th>
-          <th style="border:1px solid #999;padding:3px 2px;">Compromiso</th>
-          <th style="border:1px solid #999;padding:3px 2px;">Entregado</th>
-          <th style="border:1px solid #999;padding:3px 2px;">Saldo</th>
-          <th style="border:1px solid #999;padding:3px 2px;">Cumpl.</th>
+        <tr style="background:#1a5c2e;">
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Ticket</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Lote</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Sacos</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">P.Bruto</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Tara</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">D.Hum.</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">P.Neto kg</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">P.Neto qq</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Compromiso</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Entregado</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Saldo</th>
+          <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Cumpl.</th>
         </tr>
       </thead>
       <tbody>
@@ -4386,23 +4394,23 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     </table>
 
     <!-- ANÁLISIS FÍSICO Y SENSORIAL -->
-    <div style="font-weight:800;font-size:9.5px;text-transform:uppercase;margin-bottom:2px;">Análisis Físico y Sensorial</div>
-    <table style="width:100%;border-collapse:collapse;font-size:9px;margin-bottom:6px;">
-      <tr style="background:#e8e8e8;">
-        <th style="border:1px solid #999;padding:3px;">Exportación</th>
-        <th style="border:1px solid #999;padding:3px;">Segunda</th>
-        <th style="border:1px solid #999;padding:3px;">Cáscara</th>
-        <th style="border:1px solid #999;padding:3px;">Muestra</th>
-        <th style="border:1px solid #999;padding:3px;">Humedad</th>
-        <th style="border:1px solid #999;padding:3px;">Taza (pts)</th>
+    <div style="font-weight:800;font-size:10px;text-transform:uppercase;margin-bottom:2px;color:#1a5c2e;">Análisis Físico y Sensorial</div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px;">
+      <tr style="background:#1a5c2e;">
+        <th style="border:1px solid #14431f;padding:4px;color:#fff;font-weight:800;">Exportación</th>
+        <th style="border:1px solid #14431f;padding:4px;color:#fff;font-weight:800;">Segunda</th>
+        <th style="border:1px solid #14431f;padding:4px;color:#fff;font-weight:800;">Cáscara</th>
+        <th style="border:1px solid #14431f;padding:4px;color:#fff;font-weight:800;">Muestra</th>
+        <th style="border:1px solid #14431f;padding:4px;color:#fff;font-weight:800;">Humedad</th>
+        <th style="border:1px solid #14431f;padding:4px;color:#fff;font-weight:800;">Taza (pts)</th>
       </tr>
       <tr style="text-align:center;font-weight:700;">
-        <td style="border:1px solid #999;padding:3px;">${g.exportacion||'—'}%</td>
-        <td style="border:1px solid #999;padding:3px;">${g.segunda||'—'}%</td>
-        <td style="border:1px solid #999;padding:3px;">${g.cascara||'—'}%</td>
-        <td style="border:1px solid #999;padding:3px;">300 g</td>
-        <td style="border:1px solid #999;padding:3px;">${g.humedadanalisis||'—'}%</td>
-        <td style="border:1px solid #999;padding:3px;">${g.taza||'—'}</td>
+        <td style="border:1px solid #999;padding:4px;">${g.exportacion||'—'}%</td>
+        <td style="border:1px solid #999;padding:4px;">${g.segunda||'—'}%</td>
+        <td style="border:1px solid #999;padding:4px;">${g.cascara||'—'}%</td>
+        <td style="border:1px solid #999;padding:4px;">300 g</td>
+        <td style="border:1px solid #999;padding:4px;">${g.humedadanalisis||'—'}%</td>
+        <td style="border:1px solid #999;padding:4px;">${g.taza||'—'}</td>
       </tr>
     </table>
 
@@ -9337,21 +9345,25 @@ function abrirModalGanancia(idx){
   document.getElementById('ganancia-form-alert').innerHTML='';
   document.getElementById('gan-fecha').value = g ? g.fecha : hoy();
   document.getElementById('gan-nventa').value = g ? g.nventa : '';
+  document.getElementById('gan-tipo').value = g ? (g.tipo||'Pergamino') : 'Pergamino';
   document.getElementById('gan-kg').value = g ? g.kg : '';
   document.getElementById('gan-qq').value = g ? g.qq : '';
   const qqEl = document.getElementById('gan-qq');
   qqEl.dataset.editadoManual = g ? '1' : '';
   qqEl.oninput = function(){ this.dataset.editadoManual='1'; };
   document.getElementById('gan-total-input').value = g ? g.ganancia : '';
+  document.getElementById('gan-obs').value = g ? (g.observaciones||'') : '';
   abrirModal('modal-ganancia');
 }
 
 function guardarGanancia(){
   const fecha = document.getElementById('gan-fecha').value;
   const nventa = document.getElementById('gan-nventa').value.trim();
+  const tipo = document.getElementById('gan-tipo').value;
   const kg = parseFloat(document.getElementById('gan-kg').value)||0;
   const qq = parseFloat(document.getElementById('gan-qq').value)||0;
   const ganancia = parseFloat(document.getElementById('gan-total-input').value)||0;
+  const observaciones = document.getElementById('gan-obs').value.trim();
 
   const faltantes = [];
   if(!fecha) faltantes.push('Fecha');
@@ -9363,7 +9375,7 @@ function guardarGanancia(){
     return;
   }
 
-  const registro = { fecha, nventa, kg, qq, ganancia };
+  const registro = { fecha, nventa, tipo, kg, qq, ganancia, observaciones };
 
   if(editandoGananciaIdx >= 0){
     DB.ganancias[editandoGananciaIdx] = registro;
@@ -9394,20 +9406,23 @@ function renderGanancias(){
   let kgTotal=0, qqTotal=0, ganTotal=0;
 
   if(!ordenadas.length){
-    tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="ico">💰</span>Aún no hay ganancias registradas.</div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10"><div class="empty-state"><span class="ico">💰</span>Aún no hay ganancias registradas.</div></td></tr>`;
   } else {
     tb.innerHTML = ordenadas.map((g,i)=>{
       kgTotal += parseFloat(g.kg||0);
       qqTotal += parseFloat(g.qq||0);
       ganTotal += parseFloat(g.ganancia||0);
+      const badgeTipo = g.tipo==='Coco' ? '🌰 Coco' : '☕ Pergamino';
       return `<tr>
         <td>${i+1}</td>
         <td>${fechaDisplay(g.fecha)}</td>
         <td class="td-codigo">${g.nventa}</td>
+        <td>${badgeTipo}</td>
         <td style="text-align:right;">${fmtKg(g.kg)} kg</td>
         <td style="text-align:right;">${parseFloat(g.qq||0).toFixed(2)}</td>
         <td style="text-align:right;font-weight:700;color:#1b5e20;">S/.${fmtMonto(g.ganancia)}</td>
         <td style="text-align:right;font-weight:800;color:#1a5c2e;">S/.${fmtMonto(ganTotal)}</td>
+        <td style="font-size:0.78rem;color:#666;max-width:160px;">${g.observaciones||'—'}</td>
         <td><div style="display:flex;gap:3px;">
           <button class="btn btn-secondary btn-sm" onclick="abrirModalGanancia(${g._idxOriginal})">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="eliminarGanancia(${g._idxOriginal})">🗑️</button>
