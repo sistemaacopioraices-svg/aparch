@@ -254,6 +254,9 @@ tr:hover td{background:#f9f6f1;}
   <a class="nav-item" onclick="showSection('kardex')" href="#">
     <span class="ico">📦</span> Kárdex de Ventas
   </a>
+  <a class="nav-item" onclick="showSection('ganancias')" href="#">
+    <span class="ico">💰</span> Registro de Ganancias
+  </a>
   <div class="nav-section">Configuración</div>
   <a class="nav-item admin-only" onclick="showSection('masivo')" href="#">
     <span class="ico">⚡</span> Generación Masiva
@@ -1326,6 +1329,40 @@ tr:hover td{background:#f9f6f1;}
   </div>
 </div>
 
+<!-- ══════════ REGISTRO DE GANANCIAS ══════════ -->
+<div class="section" id="sec-ganancias">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">💰 Registro de Ganancias</div>
+      <button class="btn btn-primary" onclick="abrirModalGanancia()">+ Nueva Ganancia</button>
+    </div>
+    <div class="stats-grid" style="margin-bottom:16px;">
+      <div class="stat-card">
+        <div class="stat-label">🧾 N° de Registros</div>
+        <div class="stat-val" id="gan-count">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">⚖️ KG Vendidos (total)</div>
+        <div class="stat-val" id="gan-kg-total">0 kg</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">📦 QQ Vendidos (total)</div>
+        <div class="stat-val" id="gan-qq-total">0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">💰 Ganancia Acumulada</div>
+        <div class="stat-val" id="gan-total" style="color:#1b5e20;">S/. 0.00</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>N°</th><th>Fecha</th><th>N° de Venta</th><th>KG Vendidos</th><th>QQ Vendidos</th>
+        <th>Ganancia</th><th>Acumulado</th><th>Acciones</th>
+      </tr></thead><tbody id="ganancias-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -1702,6 +1739,27 @@ tr:hover td{background:#f9f6f1;}
     </div>
   </div>
   <div id="print-arqueo-content"></div>
+</div></div>
+
+<!-- ══════════ MODAL REGISTRO DE GANANCIAS ══════════ -->
+<div class="modal-overlay" id="modal-ganancia">
+<div class="modal" style="max-width:520px;">
+  <div class="modal-header">
+    <div class="modal-title">💰 Registrar Ganancia</div>
+    <button class="modal-close" onclick="cerrarModal('modal-ganancia')">✕</button>
+  </div>
+  <div id="ganancia-form-alert"></div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>Fecha</label><input type="date" id="gan-fecha"></div>
+    <div class="form-group"><label>N° de Venta</label><input type="text" id="gan-nventa" placeholder="Ej. VTA-CONV-00001"></div>
+    <div class="form-group"><label>KG Vendidos</label><input type="number" id="gan-kg" step="0.01" min="0" oninput="ganCalcularQQ()"></div>
+    <div class="form-group"><label>QQ Vendidos</label><input type="number" id="gan-qq" step="0.01" min="0"></div>
+    <div class="form-group form-full"><label>Ganancia Total (S/.)</label><input type="number" id="gan-total-input" step="0.01" min="0" style="font-weight:800;font-size:1.05rem;color:#1b5e20;"></div>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-ganancia')">Cancelar</button>
+    <button class="btn btn-primary" onclick="guardarGanancia()">💾 Guardar</button>
+  </div>
 </div></div>
 
 <!-- ══════════ MODAL COMPRA CAFÉ COCO ══════════ -->
@@ -2198,7 +2256,7 @@ tr:hover td{background:#f9f6f1;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[] };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[] };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -2355,6 +2413,7 @@ function cargarDB(){
   if(!DB.cafecoco) DB.cafecoco=[];
   if(!DB.kardex) DB.kardex=[];
   if(!DB.arqueos) DB.arqueos=[];
+  if(!DB.ganancias) DB.ganancias=[];
 }
 
 // ── BACKUP JSON ──
@@ -2725,6 +2784,7 @@ const secTitles={dashboard:'📊 Dashboard',tickets:'🎫 Ticket de Entrada',gui
   comprobantes:'🧾 Comprobante de Pagos',socios:'👥 Socios / Productores',
   prestamos:'💰 Préstamos', caja:'🏦 Caja', cafecoco:'🌰 Compra Café Coco',
   kardex:'📦 Kárdex de Ventas', masivo:'⚡ Generación Masiva',
+  ganancias:'💰 Registro de Ganancias',
   config:'⚙️ Configuración',exportar:'📤 Exportar Datos'};
 
 function showSection(id){
@@ -2746,6 +2806,7 @@ function showSection(id){
   if(id==='prestamos') renderPrestamos();
   if(id==='caja'){ migrarEgresosCafeCoco(true); renderCaja(); }
   if(id==='kardex'){ renderKardex(); }
+  if(id==='ganancias'){ renderGanancias(); }
   if(id==='masivo'){ renderMasivo(); }
   if(id==='cafecoco') renderCafeCoco();
 }
@@ -9233,6 +9294,111 @@ function eliminarKardex(i){
 
 // Inicializar kardex
 (function(){ if(!DB.kardex) DB.kardex=[]; })();
+
+// ══════════════════════════════════════════
+// REGISTRO DE GANANCIAS
+// ══════════════════════════════════════════
+let editandoGananciaIdx = -1;
+
+function ganCalcularQQ(){
+  const kg = parseFloat(document.getElementById('gan-kg').value)||0;
+  const qqEl = document.getElementById('gan-qq');
+  // Solo autocompletar si el usuario no ha escrito un valor distinto manualmente
+  if(!qqEl.dataset.editadoManual){
+    qqEl.value = kg>0 ? (kg/55.2).toFixed(2) : '';
+  }
+}
+
+function abrirModalGanancia(idx){
+  editandoGananciaIdx = idx!==undefined ? idx : -1;
+  const g = idx!==undefined ? DB.ganancias[idx] : null;
+  document.getElementById('ganancia-form-alert').innerHTML='';
+  document.getElementById('gan-fecha').value = g ? g.fecha : hoy();
+  document.getElementById('gan-nventa').value = g ? g.nventa : '';
+  document.getElementById('gan-kg').value = g ? g.kg : '';
+  document.getElementById('gan-qq').value = g ? g.qq : '';
+  const qqEl = document.getElementById('gan-qq');
+  qqEl.dataset.editadoManual = g ? '1' : '';
+  qqEl.oninput = function(){ this.dataset.editadoManual='1'; };
+  document.getElementById('gan-total-input').value = g ? g.ganancia : '';
+  abrirModal('modal-ganancia');
+}
+
+function guardarGanancia(){
+  const fecha = document.getElementById('gan-fecha').value;
+  const nventa = document.getElementById('gan-nventa').value.trim();
+  const kg = parseFloat(document.getElementById('gan-kg').value)||0;
+  const qq = parseFloat(document.getElementById('gan-qq').value)||0;
+  const ganancia = parseFloat(document.getElementById('gan-total-input').value)||0;
+
+  const faltantes = [];
+  if(!fecha) faltantes.push('Fecha');
+  if(!nventa) faltantes.push('N° de Venta');
+  if(kg<=0) faltantes.push('KG Vendidos');
+  if(ganancia<=0) faltantes.push('Ganancia Total');
+  if(faltantes.length){
+    showAlert('ganancia-form-alert','error',`Completa los siguientes campos: ${faltantes.join(', ')}.`);
+    return;
+  }
+
+  const registro = { fecha, nventa, kg, qq, ganancia };
+
+  if(editandoGananciaIdx >= 0){
+    DB.ganancias[editandoGananciaIdx] = registro;
+  } else {
+    DB.ganancias.push(registro);
+  }
+
+  guardarDB();
+  cerrarModal('modal-ganancia');
+  renderGanancias();
+}
+
+function eliminarGanancia(idx){
+  if(!confirm('¿Eliminar este registro de ganancia?')) return;
+  DB.ganancias.splice(idx,1);
+  guardarDB();
+  renderGanancias();
+}
+
+function renderGanancias(){
+  if(!DB.ganancias) DB.ganancias=[];
+  // Ordenar por fecha ascendente (y orden de registro) para que el acumulado tenga sentido cronológico
+  const ordenadas = [...DB.ganancias]
+    .map((g,i)=>({...g, _idxOriginal:i}))
+    .sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+
+  const tb = document.getElementById('ganancias-body');
+  let kgTotal=0, qqTotal=0, ganTotal=0;
+
+  if(!ordenadas.length){
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="ico">💰</span>Aún no hay ganancias registradas.</div></td></tr>`;
+  } else {
+    tb.innerHTML = ordenadas.map((g,i)=>{
+      kgTotal += parseFloat(g.kg||0);
+      qqTotal += parseFloat(g.qq||0);
+      ganTotal += parseFloat(g.ganancia||0);
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${fechaDisplay(g.fecha)}</td>
+        <td class="td-codigo">${g.nventa}</td>
+        <td style="text-align:right;">${fmtKg(g.kg)} kg</td>
+        <td style="text-align:right;">${parseFloat(g.qq||0).toFixed(2)}</td>
+        <td style="text-align:right;font-weight:700;color:#1b5e20;">S/.${fmtMonto(g.ganancia)}</td>
+        <td style="text-align:right;font-weight:800;color:#1a5c2e;">S/.${fmtMonto(ganTotal)}</td>
+        <td><div style="display:flex;gap:3px;">
+          <button class="btn btn-secondary btn-sm" onclick="abrirModalGanancia(${g._idxOriginal})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarGanancia(${g._idxOriginal})">🗑️</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('gan-count').textContent = ordenadas.length;
+  document.getElementById('gan-kg-total').textContent = fmtKg(kgTotal)+' kg';
+  document.getElementById('gan-qq-total').textContent = qqTotal.toFixed(2);
+  document.getElementById('gan-total').textContent = 'S/. '+fmtMonto(ganTotal);
+}
 
 (function init(){
   cargarDB();
