@@ -4346,26 +4346,26 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
       </tr>
       <tr>
         <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">RENDIMIENTO</td>
-        <td style="border:1px solid #999;padding:3px 6px;font-weight:800;color:#1a5c2e;">${g.rend_export||'—'}%</td>
+        <td style="border:1px solid #999;padding:3px 6px;font-weight:900;color:#1a5c2e;font-size:12px;">${g.rend_export||'—'}%</td>
         <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRECIO KG</td>
-        <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">S/. ${getPrecioKgGuia(g).toFixed(4)}</td>
+        <td style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:11px;">S/. ${getPrecioKgGuia(g).toFixed(4)}</td>
         <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRECIO QQ</td>
-        <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">S/. ${fmt(g.precioqq)}</td>
+        <td style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:11px;">S/. ${fmt(g.precioqq)}</td>
       </tr>
     </table>
 
     <!-- VALOR TOTAL -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
       <tr>
-        <td style="border:1.5px solid #000;padding:5px 8px;background:#eef7ee;width:70%;">
-          <span style="font-size:8.5px;color:#555;text-transform:uppercase;font-weight:700;">Valor Total del Recibo:</span>
-          <span style="font-size:17px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${fmtPago(valorTotal)}</span>
+        <td style="border:1.5px solid #000;padding:6px 8px;background:#eef7ee;width:70%;">
+          <span style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700;">Valor Total del Recibo:</span>
+          <span style="font-size:23px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${fmtPago(valorTotal)}</span>
         </td>
-        <td style="border:1.5px solid #000;padding:5px 8px;font-size:8.5px;font-style:italic;color:#444;">${valorLetras}</td>
+        <td style="border:1.5px solid #000;padding:6px 8px;font-size:9.5px;font-style:italic;color:#444;">${valorLetras}</td>
       </tr>
       ${primaQQ>0||estimadoKg>0?`<tr>
-        ${primaQQ>0?`<td style="border:1px solid #999;padding:3px 6px;font-size:9px;"><span style="color:#555;">Prima:</span> <strong style="color:#1565c0;">+S/. ${fmt(primaSol)}</strong></td>`:'<td style="border:1px solid #999;padding:3px 6px;"></td>'}
-        ${estimadoKg>0?`<td style="border:1px solid #999;padding:3px 6px;font-size:9px;"><span style="color:#555;">Compromiso Total:</span> <strong style="color:#e65100;">${fmt(estimadoKg)} kg</strong></td>`:'<td style="border:1px solid #999;padding:3px 6px;"></td>'}
+        ${primaQQ>0?`<td style="border:1px solid #999;padding:3px 6px;font-size:10px;"><span style="color:#555;">Prima:</span> <strong style="color:#1565c0;font-size:11px;">+S/. ${fmt(primaSol)}</strong></td>`:'<td style="border:1px solid #999;padding:3px 6px;"></td>'}
+        ${estimadoKg>0?`<td style="border:1px solid #999;padding:3px 6px;font-size:10px;"><span style="color:#555;">Compromiso Total:</span> <strong style="color:#e65100;font-size:11px;">${fmt(estimadoKg)} kg</strong></td>`:'<td style="border:1px solid #999;padding:3px 6px;"></td>'}
       </tr>`:''}
     </table>
 
@@ -4415,16 +4415,16 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     </table>
 
     <!-- FIRMAS -->
-    <table style="width:100%;border-collapse:collapse;margin-top:auto;padding-top:18px;">
-      <tr>
-        <td style="width:50%;text-align:center;border-top:1.5px solid #000;padding-top:3px;font-size:9px;font-weight:700;text-transform:uppercase;">
-          ${g.productor||''}<br><span style="font-weight:400;text-transform:none;font-size:8px;">Productor (A)</span>
-        </td>
-        <td style="width:50%;text-align:center;border-top:1.5px solid #000;padding-top:3px;font-size:9px;font-weight:700;text-transform:uppercase;">
-          APARCH<br><span style="font-weight:400;text-transform:none;font-size:8px;">Responsable de Área</span>
-        </td>
-      </tr>
-    </table>
+    <div style="display:flex;gap:60px;margin-top:auto;padding-top:18px;">
+      <div style="flex:1;text-align:center;border-top:1.5px solid #000;padding-top:4px;">
+        <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;">${g.productor||''}</div>
+        <div style="font-weight:400;font-size:9px;color:#555;">Productor (A)</div>
+      </div>
+      <div style="flex:1;text-align:center;border-top:1.5px solid #000;padding-top:4px;">
+        <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;">APARCH</div>
+        <div style="font-weight:400;font-size:9px;color:#555;">Responsable de Área</div>
+      </div>
+    </div>
   </div>`;
 }
 function verPrintGuia(idx){
