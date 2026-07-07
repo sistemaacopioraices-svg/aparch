@@ -1647,7 +1647,7 @@ tr:hover td{background:#f9f6f1;}
   <div id="recibo-form-alert"></div>
   <input type="hidden" id="r-tipo">
   <div class="form-grid-2">
-    <div class="form-group"><label>N° Recibo</label><input type="text" id="r-codigo" readonly style="background:#eee;"></div>
+    <div class="form-group"><label>N° Recibo <span style="font-weight:400;color:#888;">(editable — puedes reutilizar un correlativo eliminado)</span></label><input type="text" id="r-codigo"></div>
     <div class="form-group"><label>Fecha</label><input type="date" id="r-fecha"></div>
     <div class="form-group form-full">
       <label id="r-persona-label">Recibí de / Pagado a</label>
@@ -7661,6 +7661,13 @@ function guardarRecibo(){
   if(!concepto){ showAlert('recibo-form-alert','error','Ingrese el concepto.'); return; }
   if(isNaN(monto) || monto <= 0){ showAlert('recibo-form-alert','error','Ingrese un monto válido.'); return; }
   if(!fecha){ showAlert('recibo-form-alert','error','Ingrese la fecha.'); return; }
+
+  // ── Validar código de recibo (editable, para poder reutilizar correlativos eliminados) ──
+  const codigoRecibo = (document.getElementById('r-codigo').value||'').trim().toUpperCase();
+  if(!codigoRecibo){ showAlert('recibo-form-alert','error','Ingrese el N° de recibo.'); return; }
+  const codigoReciboDuplicado = (DB.recibos||[]).some((x,i)=> i!==editandoReciboIdx && (x.codigo||'').toUpperCase()===codigoRecibo);
+  if(codigoReciboDuplicado){ showAlert('recibo-form-alert','error',`Ya existe un recibo con el código ${codigoRecibo}. Usa otro código o elimina primero el existente.`); return; }
+  document.getElementById('r-codigo').value = codigoRecibo;
 
   // Validar saldo suficiente para egresos
   const idxAp = cajaAbiertaActual();
