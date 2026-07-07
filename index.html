@@ -1271,7 +1271,7 @@ tr:hover td{background:#f9f6f1;}
       </div>
       <div class="form-group">
         <label>KG Acopiados (de selección) <span style="color:#1565c0;font-size:0.7rem;">(editable — ajusta por diferencia de balanza)</span></label>
-        <input type="number" id="kd-kg-acopiados" step="0.01" min="0" oninput="kardexKgAcopiadosEditado=true;calcKardex();" style="background:#e8f5e9;color:#1b5e20;font-weight:700;border:2px solid #1b5e20;">
+        <input type="number" id="kd-kg-acopiados" step="0.01" min="0" oninput="kardexKgAcopiadosManual();" style="background:#e8f5e9;color:#1b5e20;font-weight:700;border:2px solid #1b5e20;">
       </div>
       <div class="form-group">
         <label>KG Netos a Vender <span style="color:#c62828;font-size:0.7rem;">(editable)</span></label>
@@ -9099,6 +9099,18 @@ function kardexRenderDiferencia(i){
 }
 
 let kardexKgAcopiadosEditado = false;
+
+// Se ejecuta cuando el usuario edita manualmente "KG Acopiados" (por diferencia de balanza).
+// Reparte el MISMO costo total pagado (fijo, según los orígenes seleccionados) entre el
+// nuevo total de kg indicado, para que la utilidad refleje el kg real vendido.
+function kardexKgAcopiadosManual(){
+  kardexKgAcopiadosEditado = true;
+  const totalCostoPond = kardexOrigenesTemp.reduce((a,o)=>a+(o.kgAjustado*o.costoProm),0);
+  const kgAcopiadosManual = parseFloat(document.getElementById('kd-kg-acopiados').value) || 0;
+  const costoProm = kgAcopiadosManual > 0 ? totalCostoPond/kgAcopiadosManual : 0;
+  document.getElementById('kd-costo-prom').value = costoProm.toFixed(4);
+  calcKardex();
+}
 
 function kardexRecalcularTotales(){
   const totalKgAcopAuto = kardexOrigenesTemp.reduce((a,o)=>a+o.kgAjustado,0);
