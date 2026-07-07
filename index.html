@@ -3530,7 +3530,7 @@ function verPrintTicket(idx){
   const sG=parseFloat(t.seg_g||0), sP=parseFloat(t.seg_pct||0).toFixed(2);
   const cG=parseFloat(t.cas_g||0), cP=parseFloat(t.cas_pct||0).toFixed(2);
   document.getElementById('print-ticket-content').innerHTML=`
-  <div id="print-zona-ticket" style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:22px 18px;">
+  <div id="print-zona-ticket" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:420px;margin:0 auto;padding:22px 18px;">
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
@@ -3573,7 +3573,7 @@ function verPrintTicket(idx){
 function imprimirTicket(){
   const c=document.getElementById('print-zona-ticket').outerHTML;
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Ticket APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial;background:#fff;}@page{size:80mm auto;margin:6mm;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><title>Ticket APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;}@page{size:80mm auto;margin:6mm;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
   w.document.close();
 }
 
@@ -4229,7 +4229,7 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   const esConv = (g.certificacion||'').toUpperCase().includes('CONVENCIONAL');
   const colorCertif = esConv ? '#e65100' : '#1a5c2e';
 
-  return `<div style="font-family:Arial,sans-serif;font-size:12.5px;border:2.5px solid #1a5c2e;border-radius:8px;padding:10px 14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:46%;">
+  return `<div style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;font-size:12.5px;border:2.5px solid #1a5c2e;border-radius:8px;padding:10px 14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:46%;">
 
     <!-- ENCABEZADO -->
     <div style="display:flex;align-items:center;border-bottom:3px solid #1a5c2e;padding-bottom:6px;margin-bottom:6px;">
@@ -4495,16 +4495,16 @@ function imprimirGuia(){
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>Guía APARCH</title><style>
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:Arial,sans-serif;background:#fff;}
+    body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
     table{border-collapse:collapse;width:100%;}
     td,th{font-size:7.5px;padding:2px 3px;}
     @page{size:A4 portrait;margin:5mm;}
-    @media print{
-      body{print-color-adjust:exact;-webkit-print-color-adjust:exact;}
-      #print-zona-guia{display:flex;flex-direction:column;height:calc(297mm - 10mm);}
-      #print-zona-guia > div:first-child{flex:1;min-height:0;overflow:hidden;}
-      #print-zona-guia > div:last-child{flex:1;min-height:0;overflow:hidden;}
-    }
+    body{print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+    /* Estas reglas se aplican SIEMPRE (no solo en @media print) para que el ajuste
+       automático por JavaScript pueda medir el espacio real disponible antes de imprimir. */
+    #print-zona-guia{display:flex;flex-direction:column;height:calc(297mm - 10mm);}
+    #print-zona-guia > div:first-child{flex:1;min-height:0;overflow:hidden;}
+    #print-zona-guia > div:last-child{flex:1;min-height:0;overflow:hidden;}
     .copia-div{display:flex;flex-direction:column;}
   </style></head><body>${c}<script>
     window.onload=function(){
@@ -4525,7 +4525,7 @@ function imprimirGuia(){
           }
         });
       }catch(e){ console.warn('Ajuste de impresión de guía:', e); }
-      window.print();
+      setTimeout(function(){ window.print(); }, 50);
     };
   <\/script></body></html>`);
   w.document.close();
@@ -5219,67 +5219,67 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
   }).join('');
 
   return `
-  <div class="copia-guia" style="border:2px solid #333;border-radius:8px;padding:16px 18px;font-size:13px;page-break-inside:avoid;">
-    <div style="text-align:right;margin-bottom:6px;">
+  <div class="copia-guia" style="border:2px solid #333;border-radius:8px;padding:10px 14px;font-size:13px;page-break-inside:avoid;">
+    <div style="text-align:right;margin-bottom:4px;">
       <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #333;padding-bottom:10px;margin-bottom:12px;">
-      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #333;padding-bottom:6px;margin-bottom:8px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:14.5px;font-weight:900;line-height:1.2;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:9.5px;color:#555;line-height:1.4;margin-top:2px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
-        <div style="font-size:11.5px;font-weight:700;margin-top:3px;">COMPROBANTE DE PAGO</div>
-        <div style="font-size:21px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
+        <div style="font-size:13.5px;font-weight:900;line-height:1.15;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:9px;color:#555;line-height:1.3;margin-top:1px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:11px;font-weight:700;margin-top:2px;">COMPROBANTE DE PAGO</div>
+        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
       </div>
       <div style="text-align:right;font-size:10px;color:#555;flex-shrink:0;">
         <div><strong>Fecha:</strong> ${fechaDisplay(c.fecha)}</div>
-        <div style="background:#e8f5e9;color:#1a5c2e;font-weight:800;padding:3px 8px;border-radius:5px;margin-top:4px;">
+        <div style="background:#e8f5e9;color:#1a5c2e;font-weight:800;padding:3px 8px;border-radius:5px;margin-top:3px;">
           ${nGuias} GUÍA${nGuias>1?'S':''} INCLUIDA${nGuias>1?'S':''}
         </div>
       </div>
     </div>
 
     <!-- Datos del productor -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:10px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:9px 12px;">
-      <div style="grid-column:1/-1;"><span style="font-size:9px;color:#666;font-weight:600;">PRODUCTOR: </span><strong style="font-size:14.5px;">${c.productor||'—'}</strong></div>
-      <div><span style="font-size:9px;color:#666;font-weight:600;">DNI: </span><strong style="font-size:12.5px;">${c.dni||'—'}</strong></div>
-      <div><span style="font-size:9px;color:#666;font-weight:600;">FORMA PAGO: </span><strong style="font-size:12.5px;">${c.formapago||'—'}</strong></div>
-      <div><span style="font-size:9px;color:#666;font-weight:600;">TIPO: </span><strong style="font-size:12.5px;">${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
-      ${c.apertura_ref?`<div><span style="font-size:9px;color:#666;font-weight:600;">CAJA: </span><strong style="font-size:12.5px;">${c.apertura_ref}</strong></div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-bottom:7px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:6px 10px;">
+      <div style="grid-column:1/-1;"><span style="font-size:9px;color:#666;font-weight:600;">PRODUCTOR: </span><strong style="font-size:13.5px;">${c.productor||'—'}</strong></div>
+      <div><span style="font-size:9px;color:#666;font-weight:600;">DNI: </span><strong style="font-size:12px;">${c.dni||'—'}</strong></div>
+      <div><span style="font-size:9px;color:#666;font-weight:600;">FORMA PAGO: </span><strong style="font-size:12px;">${c.formapago||'—'}</strong></div>
+      <div><span style="font-size:9px;color:#666;font-weight:600;">TIPO: </span><strong style="font-size:12px;">${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
+      ${c.apertura_ref?`<div><span style="font-size:9px;color:#666;font-weight:600;">CAJA: </span><strong style="font-size:12px;">${c.apertura_ref}</strong></div>`:''}
     </div>
 
     <!-- Guías incluidas -->
     ${nGuias>0?`
-    <div style="margin-bottom:10px;">
-      <div style="font-size:9.5px;font-weight:800;color:#1a5c2e;text-transform:uppercase;border-bottom:1.5px solid #c8e6c9;padding-bottom:3px;margin-bottom:5px;">
+    <div style="margin-bottom:7px;">
+      <div style="font-size:9.5px;font-weight:800;color:#1a5c2e;text-transform:uppercase;border-bottom:1.5px solid #c8e6c9;padding-bottom:2px;margin-bottom:3px;">
         📋 Guías incluidas en este comprobante (${nGuias})
       </div>
       ${guiasHtml}
     </div>`:''}
 
     <!-- Montos -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;text-align:center;">
-      <div style="border:1.5px solid #ccc;padding:10px;border-radius:7px;background:#f9f9f9;">
-        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:4px;font-weight:700;">Total Guía${nGuias>1?'s':''}</div>
-        <div style="font-size:17px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:7px;text-align:center;">
+      <div style="border:1.5px solid #ccc;padding:7px;border-radius:7px;background:#f9f9f9;">
+        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Total Guía${nGuias>1?'s':''}</div>
+        <div style="font-size:16px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
       </div>
-      <div style="border:2.5px solid #1a5c2e;padding:10px;border-radius:7px;background:#f0faf4;">
-        <div style="font-size:9px;color:#2e7d32;text-transform:uppercase;margin-bottom:4px;font-weight:700;">Este Pago</div>
-        <div style="font-size:21px;font-weight:900;color:#1a5c2e;">S/. ${fmtPago(c.monto)}</div>
+      <div style="border:2.5px solid #1a5c2e;padding:7px;border-radius:7px;background:#f0faf4;">
+        <div style="font-size:9px;color:#2e7d32;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Este Pago</div>
+        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">S/. ${fmtPago(c.monto)}</div>
       </div>
-      <div style="border:1.5px solid ${saldo<=0.01?'#a5d6a7':'#ef9a9a'};padding:10px;border-radius:7px;background:${saldo<=0.01?'#e8f5e9':'#fce4ec'};">
-        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:4px;font-weight:700;">Saldo</div>
-        <div style="font-size:17px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
+      <div style="border:1.5px solid ${saldo<=0.01?'#a5d6a7':'#ef9a9a'};padding:7px;border-radius:7px;background:${saldo<=0.01?'#e8f5e9':'#fce4ec'};">
+        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Saldo</div>
+        <div style="font-size:16px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
       </div>
     </div>
     ${parseFloat(c.descuento_prestamos||0)>0?`
-    <div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11.5px;">
-      <div style="font-weight:800;color:#e65100;margin-bottom:4px;">🏦 Descuento por Préstamos</div>
+    <div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:6px;padding:6px 10px;margin-bottom:7px;font-size:11px;">
+      <div style="font-weight:800;color:#e65100;margin-bottom:3px;">🏦 Descuento por Préstamos</div>
       ${(c.prestamos_descontados||[]).map(pd=>`<div>• ${pd.codigo}: S/. ${fmt(pd.monto)}</div>`).join('')}
-      <div style="font-weight:800;color:#c62828;margin-top:4px;border-top:1px dashed #ffb74d;padding-top:4px;">Total: S/. ${fmt(c.descuento_prestamos)}</div>
+      <div style="font-weight:800;color:#c62828;margin-top:3px;border-top:1px dashed #ffb74d;padding-top:3px;">Total: S/. ${fmt(c.descuento_prestamos)}</div>
     </div>`:''}
-    ${c.observaciones?`<div style="font-size:11.5px;margin-bottom:10px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:32px;">
+    ${c.observaciones?`<div style="font-size:11px;margin-bottom:7px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:auto;padding-top:20px;">
       <div style="text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Pagado por (APARCH)</div>
       <div style="text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:9.5px;">${c.productor||''}</span></div>
     </div>
@@ -5314,10 +5314,34 @@ function imprimirComprobante(){
   const c=document.getElementById('print-zona-comp').outerHTML;
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>Comprobante APARCH</title><style>
-    *{box-sizing:border-box;} body{font-family:Arial,sans-serif;padding:14px;margin:0;}
-    @page{size:A4;margin:10mm;}
-    @media print{.copia-guia{break-inside:avoid;}}
-  </style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+    *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
+    @page{size:A4;margin:8mm;}
+    body{print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+    /* Se aplican siempre (no solo en @media print) para que el ajuste automático por
+       JavaScript pueda medir el espacio real disponible antes de imprimir. */
+    #print-zona-comp{display:flex;flex-direction:column;height:calc(297mm - 16mm);}
+    #print-zona-comp > div:first-child{flex:1;min-height:0;overflow:hidden;}
+    #print-zona-comp > div:last-child{flex:1;min-height:0;overflow:hidden;}
+  </style></head><body>${c}<script>
+    window.onload=function(){
+      try{
+        var cont = document.getElementById('print-zona-comp');
+        var first = cont.children[0];
+        var last  = cont.children[cont.children.length-1];
+        [first,last].forEach(function(el){
+          var avail = el.clientHeight;
+          var natural = el.scrollHeight;
+          if(natural > avail + 1 && avail > 0){
+            var scale = avail / natural;
+            el.style.transformOrigin = 'top left';
+            el.style.transform = 'scale(' + scale + ')';
+            el.style.width = (100/scale) + '%';
+          }
+        });
+      }catch(e){ console.warn('Ajuste de impresión de comprobante:', e); }
+      setTimeout(function(){ window.print(); }, 50);
+    };
+  <\/script></body></html>`);
   w.document.close();
 }
 
@@ -7617,7 +7641,7 @@ function verPrintRecibo(idx){
   const etiqueta = esIngreso ? 'RECIBO DE INGRESO' : 'RECIBO DE EGRESO';
 
   document.getElementById('print-recibo-content').innerHTML = `
-  <div id="print-zona-recibo" style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px 22px;border:2px solid ${colorPrincipal};border-radius:8px;">
+  <div id="print-zona-recibo" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px 22px;border:2px solid ${colorPrincipal};border-radius:8px;">
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid ${colorPrincipal};padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
@@ -7654,7 +7678,7 @@ function verPrintRecibo(idx){
 function imprimirRecibo(){
   const c = document.getElementById('print-zona-recibo').outerHTML;
   const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Recibo APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;padding:12px;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><title>Recibo APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;padding:12px;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
   w.document.close();
 }
 
