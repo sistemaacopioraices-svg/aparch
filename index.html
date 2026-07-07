@@ -5254,7 +5254,8 @@ function _ejecutarGuardadoComprobante(apCaja){
       if(!p) return;
       if(!p.abonos) p.abonos=[];
       p.abonos.push({ fecha:comp.fecha, monto:d.monto.toFixed(2), tipo:'parcial',
-        formapago:'Descuento en Guía', obs:`Descontado de guía(s) ${compGuiasTemp.join(', ')}`, usuario:SESSION.user });
+        formapago:'Descuento en Guía', obs:`Descontado de guía(s) ${compGuiasTemp.join(', ')}`,
+        usuario:SESSION.user, comp_ref: comp.codigo });
     });
     window._descuentosPendientes = null;
   }
@@ -5327,11 +5328,19 @@ function renderComprobantes(filtro){
 }
 function filtrarComprobantes(){ _resetPag('comprobantes'); renderComprobantes(document.getElementById('search-comp').value.toLowerCase()); }
 function eliminarComp(i){
-  if(!confirm('¿Eliminar comprobante? Si tiene un egreso de caja vinculado, también se eliminará.')) return;
+  if(!confirm('¿Eliminar comprobante? Si tiene un egreso de caja o un descuento de préstamo vinculado, también se revertirán.')) return;
   const comp = DB.comprobantes[i];
   if(comp && comp.recibo_egreso_ref && DB.recibos){
     const idxRecibo = DB.recibos.findIndex(r=>r.codigo===comp.recibo_egreso_ref);
     if(idxRecibo >= 0) DB.recibos.splice(idxRecibo,1);
+  }
+  // Revertir cualquier abono a préstamo que se haya aplicado desde este comprobante
+  // (para que el saldo del préstamo y de caja vuelvan a su estado real)
+  if(comp && parseFloat(comp.descuento_prestamos||0) > 0){
+    (DB.prestamos||[]).forEach(p=>{
+      if(!p.abonos) return;
+      p.abonos = p.abonos.filter(ab => ab.comp_ref !== comp.codigo);
+    });
   }
   // Guías afectadas por este comprobante (para recalcular su estado_pago tras eliminarlo)
   const guiasAfectadas = comp ? (comp.guias_ref && comp.guias_ref.length ? comp.guias_ref : (comp.guia_ref ? [comp.guia_ref] : [])) : [];
@@ -6573,8 +6582,22 @@ function filtrarPrestamos(){
   renderPrestamos(q, t, e);
 }
 function eliminarPrestamo(i){
-  if(!confirm('¿Eliminar este préstamo y todos sus abonos?')) return;
-  DB.prestamos.splice(i,1); guardarDB(); renderPrestamos();
+  if(!confirm('¿Eliminar este préstamo y todos sus abonos? Si tienen egresos/ingresos de caja vinculados, también se eliminarán.')) return;
+  const p = DB.prestamos[i];
+  if(p && DB.recibos){
+    // Revertir el egreso de caja generado al desembolsar este préstamo (si existe)
+    if(p.recibo_egreso_ref){
+      const idxRecibo = DB.recibos.findIndex(r=>r.codigo===p.recibo_egreso_ref);
+      if(idxRecibo >= 0) DB.recibos.splice(idxRecibo,1);
+    }
+    // Revertir los ingresos de caja generados por cada abono manual registrado
+    (p.abonos||[]).forEach(ab=>{
+      if(!ab.recibo_ref) return;
+      const idxRecibo = DB.recibos.findIndex(r=>r.codigo===ab.recibo_ref);
+      if(idxRecibo >= 0) DB.recibos.splice(idxRecibo,1);
+    });
+  }
+  DB.prestamos.splice(i,1); guardarDB(); renderPrestamos(); renderCaja();
 }
 
 // ── ABONOS ──
@@ -6646,6 +6669,7 @@ function guardarAbono(){
       observaciones: abono.obs || `Abono préstamo ${p.codigo}`,
       apertura_ref: ap.codigo, usuario: SESSION.user
     });
+    abono.recibo_ref = codIng;
   }
 
   guardarDB(); cerrarModal('modal-abono'); renderPrestamos();
