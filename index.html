@@ -4679,7 +4679,10 @@ function totalPagadoGuia(guiaCodigo){
     const guiasRef = comp.guias_ref && comp.guias_ref.length > 0
       ? comp.guias_ref
       : (comp.guia_ref ? [comp.guia_ref] : []);
-    const monto = parseFloat(comp.monto||0);
+    // El valor "saldado" de la guía incluye tanto el efectivo entregado como cualquier
+    // descuento de préstamo aplicado (ese descuento también cancela parte de la deuda,
+    // aunque no haya salido efectivo de caja por esa parte).
+    const monto = parseFloat(comp.monto||0) + parseFloat(comp.descuento_prestamos||0);
 
     if(guiasRef.length <= 1){
       // Un solo comprobante para esta guía — monto completo
@@ -4747,7 +4750,7 @@ function saldoPendienteGuiaExcluyendoComp(guiaCodigo, excluirIdx){
     if(c.estado==='Anulado') return;
     const guiasRef = c.guias_ref && c.guias_ref.length ? c.guias_ref : (c.guia_ref ? [c.guia_ref] : []);
     if(!guiasRef.includes(guiaCodigo)) return;
-    const monto = parseFloat(c.monto||0);
+    const monto = parseFloat(c.monto||0) + parseFloat(c.descuento_prestamos||0);
     if(guiasRef.length <= 1){
       pagado += monto;
     } else {
@@ -5147,15 +5150,17 @@ function guardarComprobante(){
   if(codigoDuplicado){ showAlert('comp-form-alert','error',`Ya existe un comprobante con el código ${codigoComp}. Usa otro código o elimina primero el existente.`); return; }
   document.getElementById('c-codigo').value = codigoComp;
 
-  // ── Validar que el monto coincida con la suma de saldos pendientes de las guías seleccionadas ──
+  // ── Validar que el monto (+ descuento de préstamo, si aplica) coincida con la suma de
+  // saldos pendientes de las guías seleccionadas ──
   // (evita el error de ingresar un monto que cubre varias guías pero solo vincular 1 al comprobante)
   if(tipo!=='pendiente'){
     const totalEsperado = compGuiasTemp.reduce((a,cod)=>a + Math.max(0, saldoPendienteGuiaExcluyendoComp(cod, editandoCompIdx)), 0);
-    const diferencia = monto - totalEsperado;
+    const totalDescAplicado = (window._descuentosPendientes||[]).reduce((a,d)=>a+d.monto,0);
+    const diferencia = (monto + totalDescAplicado) - totalEsperado;
     if(Math.abs(diferencia) > 1){
       const msg = diferencia > 0
-        ? `⚠️ El monto ingresado (S/. ${monto.toFixed(2)}) es MAYOR a la suma de saldos pendientes de las guías seleccionadas (S/. ${totalEsperado.toFixed(2)}).\n\nDiferencia: S/. ${diferencia.toFixed(2)}\n\n¿Olvidaste agregar alguna guía? Si continúas, el excedente quedará asignado solo a las guías seleccionadas.\n\n¿Deseas continuar de todas formas?`
-        : `⚠️ El monto ingresado (S/. ${monto.toFixed(2)}) es MENOR a la suma de saldos pendientes de las guías seleccionadas (S/. ${totalEsperado.toFixed(2)}).\n\nDiferencia: S/. ${diferencia.toFixed(2)}\n\n¿Deseas continuar de todas formas (quedará como pago parcial)?`;
+        ? `⚠️ El monto ingresado (S/. ${monto.toFixed(2)}${totalDescAplicado>0?` + S/. ${totalDescAplicado.toFixed(2)} de descuento de préstamo`:''}) es MAYOR a la suma de saldos pendientes de las guías seleccionadas (S/. ${totalEsperado.toFixed(2)}).\n\nDiferencia: S/. ${diferencia.toFixed(2)}\n\n¿Olvidaste agregar alguna guía? Si continúas, el excedente quedará asignado solo a las guías seleccionadas.\n\n¿Deseas continuar de todas formas?`
+        : `⚠️ El monto ingresado (S/. ${monto.toFixed(2)}${totalDescAplicado>0?` + S/. ${totalDescAplicado.toFixed(2)} de descuento de préstamo`:''}) es MENOR a la suma de saldos pendientes de las guías seleccionadas (S/. ${totalEsperado.toFixed(2)}).\n\nDiferencia: S/. ${diferencia.toFixed(2)}\n\n¿Deseas continuar de todas formas (quedará como pago parcial)?`;
       if(!confirm(msg)) return;
     }
   }
