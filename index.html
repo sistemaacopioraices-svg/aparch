@@ -406,9 +406,6 @@ tr:hover td{background:#f9f6f1;}
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
         </label>
-        <button class="btn btn-secondary btn-sm" onclick="recalcularEstadosPago()" title="Recalcula el estado de pago de todas las guías basado en los comprobantes">
-          🔄 Recalcular Pagos
-        </button>
         <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
       </div>
     </div>
@@ -760,46 +757,6 @@ tr:hover td{background:#f9f6f1;}
           <tbody id="tabla-config-body"></tbody>
         </table>
       </div>
-    </div>
-
-    <!-- MANTENIMIENTO DE DATOS -->
-    <div class="card" style="grid-column:1/-1;">
-      <div class="card-header">
-        <div class="card-title">🧹 Mantenimiento de Datos</div>
-      </div>
-      <div style="font-size:0.82rem;color:var(--txts);margin-bottom:10px;">
-        Busca registros con el mismo código (por ejemplo, dos guías con el N° de guía repetido) que pueden causar errores
-        de cálculo o selectores duplicados, y permite eliminar las copias sobrantes conservando la más reciente.
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <button class="btn btn-secondary" onclick="buscarDuplicados()">🔍 Buscar Duplicados</button>
-      </div>
-      <div id="duplicados-resultado"></div>
-
-      <div style="border-top:1px solid var(--borde);margin:16px 0 12px;"></div>
-
-      <div style="font-size:0.82rem;color:var(--txts);margin-bottom:10px;">
-        Busca guías que se registraron <strong>sin vincular su ticket</strong> en el detalle (por eso el ticket sigue
-        apareciendo como "disponible" al crear otra guía, aunque ya fue usado). Vincula automáticamente los casos sin
-        ambigüedad (mismo productor y sin otro candidato posible) y te avisa cuáles necesitan revisión manual.
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <button class="btn btn-secondary" onclick="vincularTicketsHuerfanos()">🔗 Vincular Tickets con Guías</button>
-      </div>
-      <div id="vinculacion-resultado"></div>
-
-      <div style="border-top:1px solid var(--borde);margin:16px 0 12px;"></div>
-
-      <div style="font-size:0.82rem;color:var(--txts);margin-bottom:10px;">
-        Busca movimientos de <strong>Caja</strong> (egresos de comprobantes/préstamos, ingresos de abonos) que quedaron
-        "huérfanos" — es decir, generados automáticamente por un comprobante o préstamo que **ya fue eliminado**, por lo
-        que ya no deberían seguir afectando el saldo de caja. Útil si alguna vez eliminaste un comprobante o préstamo
-        antes de que el sistema revirtiera sus movimientos de caja automáticamente.
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <button class="btn btn-secondary" onclick="buscarMovimientosHuerfanos()">🔍 Buscar Movimientos de Caja Huérfanos</button>
-      </div>
-      <div id="huerfanos-caja-resultado"></div>
     </div>
 
   </div>
@@ -1255,8 +1212,18 @@ tr:hover td{background:#f9f6f1;}
     </div>
     <div id="kd-form-alert"></div>
 
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;color:#e65100;">
+        <input type="checkbox" id="kd-venta-manual" onchange="toggleVentaManual()" style="width:16px;height:16px;">
+        🖊️ Venta manual (sin vincular guías/compras — opcional)
+      </label>
+      <div style="font-size:0.75rem;color:#888;margin-top:3px;">
+        Actívalo si quieres registrar una venta directamente con KG, precio y costo, sin descontar stock de ninguna guía o compra específica.
+      </div>
+    </div>
+
     <!-- Selección de guías / compras a incluir -->
-    <div style="margin-bottom:14px;">
+    <div id="kd-origen-bloque" style="margin-bottom:14px;">
       <div style="font-size:0.78rem;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:8px;">
         1️⃣ Seleccionar Guías/Compras a incluir en esta venta
       </div>
@@ -2819,7 +2786,7 @@ function showSection(id){
   document.getElementById('topbar-title').textContent=secTitles[id]||id;
   if(id==='dashboard') renderDashboard();
   if(id==='tickets') renderTickets();
-  if(id==='guias') renderGuias();
+  if(id==='guias'){ vincularTicketsHuerfanos(); renderGuias(); }
   if(id==='comprobantes') renderComprobantes();
   if(id==='socios') renderSocios();
   if(id==='config'){ renderTablaPreciosConfig(); renderUsuarios(); actualizarCampaña(); cargarGdriveClientIdEnConfig(); actualizarEstadoSheets(); }
@@ -2951,7 +2918,7 @@ function renderDashboard(){
     const lista = [...guias].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,8);
     tb.innerHTML = lista.length ? lista.map(g=>{
       const qq=((g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0)/55.2).toFixed(2);
-      const ep=g.estado_pago||'Pendiente';
+      const ep=estadoPagoLive(g);
       const col=ep==='Pagado Total'?'#2e7d32':ep==='Pago Parcial'?'#e65100':'#c62828';
       return `<tr>
         <td class="td-codigo">${g.codigo}</td>
@@ -4024,12 +3991,24 @@ function guardarGuia(){
   guardarDB(); cerrarModal('modal-guia'); renderGuias(); showSection('guias');
 }
 
+// Calcula el estado de pago de una guía SIEMPRE en vivo (nunca desde el campo guardado),
+// para que la tabla de guías y los selectores estén siempre correctos sin necesidad de
+// recalcular manualmente.
+function estadoPagoLive(g){
+  const pagado = totalPagadoGuia(g.codigo);
+  const totG = parseFloat(g.valorrecibido||0);
+  const saldoG = totG - pagado;
+  if(saldoG <= 0.01) return 'Pagado Total';
+  if(pagado > 0.01) return 'Pago Parcial';
+  return 'Pendiente';
+}
+
 function renderGuias(filtro, desde, hasta, estado){
   const lista = DB.guias.filter(g=>{
     const matchTxt = !filtro || (g.codigo||'').toLowerCase().includes(filtro)||(g.productor||'').toLowerCase().includes(filtro)||(g.base||'').toLowerCase().includes(filtro)||(g.dni||'').toLowerCase().includes(filtro);
     const matchDesde = !desde || (g.fecha||'') >= desde;
     const matchHasta = !hasta || (g.fecha||'') <= hasta;
-    const matchEst   = !estado || (g.estado_pago||'Pendiente') === estado;
+    const matchEst   = !estado || estadoPagoLive(g) === estado;
     const matchTab   = _certifMatch(g.certificacion, _gTab);
     return matchTxt && matchDesde && matchHasta && matchEst && matchTab;
   }).sort((a,b)=>{
@@ -4051,7 +4030,7 @@ function renderGuias(filtro, desde, hasta, estado){
 
   tb.innerHTML=paginaGuias.map(g=>{
     const ri=DB.guias.indexOf(g);
-    const ep=g.estado_pago||'Pendiente';
+    const ep=estadoPagoLive(g);
     const badgeEp=ep==='Pagado Total'?'badge-verde':ep==='Pago Parcial'?'badge-dorado':'badge-rojo';
     return `<tr>
       <td class="td-codigo">${g.codigo}</td><td>${fechaDisplay(g.fecha)}</td><td>${g.campana||'—'}</td>
@@ -4232,30 +4211,32 @@ function vincularTicketsHuerfanos(){
   if(vinculados.length || reparados.length) guardarDB();
 
   const cont = document.getElementById('vinculacion-resultado');
-  let html = '';
-  if(reparados.length){
-    html += `<div class="alert alert-success" style="margin-top:8px;">🔧 Se repararon ${reparados.length} enlace(s) de un solo sentido (el ticket ya declaraba su guía, pero la guía no lo tenía en su detalle):</div>
-    <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Ticket reparado</th><th>Productor</th></tr></thead><tbody>
-      ${reparados.map(v=>`<tr><td class="td-codigo">${v.guia}</td><td class="td-codigo">${v.ticket}</td><td>${v.productor}</td></tr>`).join('')}
-    </tbody></table></div>`;
+  if(cont){
+    let html = '';
+    if(reparados.length){
+      html += `<div class="alert alert-success" style="margin-top:8px;">🔧 Se repararon ${reparados.length} enlace(s) de un solo sentido (el ticket ya declaraba su guía, pero la guía no lo tenía en su detalle):</div>
+      <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Ticket reparado</th><th>Productor</th></tr></thead><tbody>
+        ${reparados.map(v=>`<tr><td class="td-codigo">${v.guia}</td><td class="td-codigo">${v.ticket}</td><td>${v.productor}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    }
+    if(vinculados.length){
+      html += `<div class="alert alert-success" style="margin-top:8px;">✅ Se vincularon ${vinculados.length} ticket(s) automáticamente:</div>
+      <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Ticket vinculado</th><th>Productor</th></tr></thead><tbody>
+        ${vinculados.map(v=>`<tr><td class="td-codigo">${v.guia}</td><td class="td-codigo">${v.ticket}</td><td>${v.productor}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    }
+    if(sinResolver.length){
+      html += `<div class="alert alert-error" style="margin-top:10px;">⚠️ ${sinResolver.length} guía(s) no se pudieron vincular automáticamente (revisa y vincula manualmente editando la guía):</div>
+      <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Motivo</th><th>Candidatos</th></tr></thead><tbody>
+        ${sinResolver.map(s=>`<tr><td class="td-codigo">${s.guia}</td><td>${s.motivo}</td><td style="font-size:0.75rem;">${(s.candidatos||[]).join('<br>')}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    }
+    if(!vinculados.length && !reparados.length && !sinResolver.length){
+      html = `<div class="alert alert-success" style="margin-top:8px;">✅ Todas las guías ya tienen su ticket vinculado en el detalle.</div>`;
+    }
+    cont.innerHTML = html;
   }
-  if(vinculados.length){
-    html += `<div class="alert alert-success" style="margin-top:8px;">✅ Se vincularon ${vinculados.length} ticket(s) automáticamente:</div>
-    <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Ticket vinculado</th><th>Productor</th></tr></thead><tbody>
-      ${vinculados.map(v=>`<tr><td class="td-codigo">${v.guia}</td><td class="td-codigo">${v.ticket}</td><td>${v.productor}</td></tr>`).join('')}
-    </tbody></table></div>`;
-  }
-  if(sinResolver.length){
-    html += `<div class="alert alert-error" style="margin-top:10px;">⚠️ ${sinResolver.length} guía(s) no se pudieron vincular automáticamente (revisa y vincula manualmente editando la guía):</div>
-    <div class="table-wrap"><table><thead><tr><th>Guía</th><th>Motivo</th><th>Candidatos</th></tr></thead><tbody>
-      ${sinResolver.map(s=>`<tr><td class="td-codigo">${s.guia}</td><td>${s.motivo}</td><td style="font-size:0.75rem;">${(s.candidatos||[]).join('<br>')}</td></tr>`).join('')}
-    </tbody></table></div>`;
-  }
-  if(!vinculados.length && !reparados.length && !sinResolver.length){
-    html = `<div class="alert alert-success" style="margin-top:8px;">✅ Todas las guías ya tienen su ticket vinculado en el detalle.</div>`;
-  }
-  cont.innerHTML = html;
-  renderGuias(); renderTickets();
+  if(vinculados.length || reparados.length){ renderGuias(); renderTickets(); }
 }
 
 function eliminarGuiaDuplicadaIdx(idx){
@@ -4814,10 +4795,8 @@ function abrirModalComprobante(idx){
     if(compGuiasTemp.includes(g.codigo)) return;
     // Ocultar la guía si es la del comprobante que se edita (ya está en compGuiasTemp)
     const esGuiaActual = c && ((c.guia_ref===g.codigo)||(c.guias_ref||[]).includes(g.codigo));
-    // Ocultar si saldo <= 0 (pagada total o sin valor)
+    // Ocultar si saldo <= 0 (pagada total o sin valor) — cálculo siempre en vivo
     if(saldo <= 0.01 && !esGuiaActual) return;
-    // Ocultar si el estado_pago ya es "Pagado Total"
-    if((g.estado_pago||'').includes('Pagado Total') && !esGuiaActual) return;
     selG.innerHTML+=`<option value="${g.codigo}">${g.codigo} — ${g.productor} | Saldo: S/.${fmtPago(saldo)}</option>`;
     countPendientes++;
   });
@@ -5786,7 +5765,7 @@ function exportarExcel(tipo){
         g.rend_export, parseFloat(qq.toFixed(2)), g.precioqq, g.precikg,
         primaQQ, parseFloat((qq*primaQQ).toFixed(2)),
         descQQ, parseFloat((qq*descQQ).toFixed(2)),
-        g.valorrecibido, g.estado_pago];
+        g.valorrecibido, estadoPagoLive(g)];
     });
     n='Guias_APARCH';
   } else if(tipo==='comprobantes'){
@@ -5830,7 +5809,7 @@ function exportarTodo(){
       g.rend_export, parseFloat(qq.toFixed(2)), g.precioqq, g.precikg,
       primaQQ, parseFloat((qq*primaQQ).toFixed(2)),
       descQQ, parseFloat((qq*descQQ).toFixed(2)),
-      g.valorrecibido, g.estado_pago];
+      g.valorrecibido, estadoPagoLive(g)];
   })]),'Guias');
   const hC=['N° Comp.','Fecha','Guía Ref.','Productor','Total','Monto','Tipo Pago','Forma','Obs'];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hC,...DB.comprobantes.map(c=>[c.codigo,c.fecha,c.guia_ref,c.productor,c.total_guia,c.monto,c.tipopago,c.formapago,c.observaciones])]),'Comprobantes');
@@ -7275,8 +7254,8 @@ function imprimirTodasGuias(){
   }
 
   const total    = DB.guias.length;
-  const pend     = DB.guias.filter(g=>!g.estado_pago||g.estado_pago==='Pendiente'||g.estado_pago==='Pago Parcial').length;
-  const pagadas  = DB.guias.filter(g=>g.estado_pago==='Pagado Total').length;
+  const pend     = DB.guias.filter(g=>estadoPagoLive(g)!=='Pagado Total').length;
+  const pagadas  = DB.guias.filter(g=>estadoPagoLive(g)==='Pagado Total').length;
 
   document.getElementById('pm-count-todas').textContent = total;
   document.getElementById('pm-count-pend').textContent  = pend;
@@ -7296,9 +7275,9 @@ function ejecutarImpresionMasiva(){
 
   let guiasAImprimir = [...DB.guias];
   if(tipo === 'pendientes'){
-    guiasAImprimir = DB.guias.filter(g=>!g.estado_pago||g.estado_pago==='Pendiente'||g.estado_pago==='Pago Parcial');
+    guiasAImprimir = DB.guias.filter(g=>estadoPagoLive(g)!=='Pagado Total');
   } else if(tipo === 'pagadas'){
-    guiasAImprimir = DB.guias.filter(g=>g.estado_pago==='Pagado Total');
+    guiasAImprimir = DB.guias.filter(g=>estadoPagoLive(g)==='Pagado Total');
   }
 
   if(!guiasAImprimir.length){
@@ -9385,8 +9364,32 @@ function calcKardex(){
   document.getElementById('kd-margen').style.color = margen >= 0 ? '#1b5e20' : '#c62828';
 }
 
+function toggleVentaManual(){
+  const manual = document.getElementById('kd-venta-manual').checked;
+  document.getElementById('kd-origen-bloque').style.display = manual ? 'none' : '';
+  const kgAcopEl = document.getElementById('kd-kg-acopiados');
+  const costoPromEl = document.getElementById('kd-costo-prom');
+  if(manual){
+    kardexOrigenesTemp = [];
+    document.getElementById('kd-origenes-lista').innerHTML = '';
+    kgAcopEl.value = '';
+    costoPromEl.readOnly = false;
+    costoPromEl.style.background = '#fff';
+    costoPromEl.style.border = '2px solid #1565c0';
+    costoPromEl.oninput = function(){ calcKardex(); };
+  } else {
+    kardexKgAcopiadosEditado = false;
+    costoPromEl.readOnly = true;
+    costoPromEl.style.background = '#fff8e1';
+    costoPromEl.style.border = '';
+    costoPromEl.oninput = null;
+    kardexRecalcularTotales();
+  }
+}
+
 function guardarKardex(){
-  if(!kardexOrigenesTemp.length){ showAlert('kd-form-alert','error','Selecciona al menos una guía o compra de origen.'); return; }
+  const modoManual = document.getElementById('kd-venta-manual').checked;
+  if(!modoManual && !kardexOrigenesTemp.length){ showAlert('kd-form-alert','error','Selecciona al menos una guía o compra de origen, o activa "Venta manual".'); return; }
   const kgVenta = parseFloat(document.getElementById('kd-kg-venta').value)||0;
   const precio  = parseFloat(document.getElementById('kd-precio-venta').value)||0;
   const fecha   = document.getElementById('kd-fecha').value;
@@ -9407,8 +9410,9 @@ function guardarKardex(){
 
   const mov = {
     codigo, tipo:kardexTipo, fecha, cliente,
-    origenes: kardexOrigenesTemp.map(o=>o.ref.split(':')[1]),
-    origenes_detalle: kardexOrigenesTemp.map(o=>({ref:o.ref, kgAjustado:o.kgAjustado, costoProm:o.costoProm})),
+    venta_manual: modoManual,
+    origenes: modoManual ? [] : kardexOrigenesTemp.map(o=>o.ref.split(':')[1]),
+    origenes_detalle: modoManual ? [] : kardexOrigenesTemp.map(o=>({ref:o.ref, kgAjustado:o.kgAjustado, costoProm:o.costoProm})),
     kg_acopiados: document.getElementById('kd-kg-acopiados').value,
     kg_venta: kgVenta.toFixed(2),
     precio_venta: precio.toFixed(4),
@@ -9447,6 +9451,8 @@ function limpiarKardexForm(){
   document.getElementById('kd-observaciones').value = '';
   document.getElementById('kd-origenes-lista').innerHTML = '';
   document.getElementById('kd-form-alert').innerHTML = '';
+  const chkManual = document.getElementById('kd-venta-manual');
+  if(chkManual){ chkManual.checked = false; toggleVentaManual(); }
   kardexPoblarOrigen();
 }
 
@@ -9506,7 +9512,7 @@ function renderKardex(){
       <td class="td-codigo">${k.codigo}</td>
       <td>${fechaDisplay(k.fecha)}</td>
       <td><span class="badge ${k.tipo==='conv'?'badge-verde':''}" style="${k.tipo==='coco'?'background:#fff3e0;color:#e65100;':''}">${k.tipo==='conv'?'☕ Conv.':'🌰 Coco'}</span></td>
-      <td><strong>${k.cliente||'—'}</strong></td>
+      <td><strong>${k.cliente||'—'}</strong>${k.venta_manual?' <span class="badge" style="background:#fff3e0;color:#e65100;font-size:0.62rem;">🖊️ Manual</span>':''}</td>
       <td style="text-align:right;font-weight:700;">${fmtKg(k.kg_venta)}</td>
       <td style="text-align:right;">S/.${parseFloat(k.precio_venta||0).toFixed(4)}</td>
       <td style="text-align:right;font-weight:700;color:#2e7d32;">S/.${fmtMonto(k.ingreso)}</td>
