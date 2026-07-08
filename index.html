@@ -1721,6 +1721,19 @@ tr:hover td{background:#f9f6f1;}
   <div id="print-arqueo-content"></div>
 </div></div>
 
+<!-- ══════════ MODAL IMPRESIÓN VENTA KARDEX ══════════ -->
+<div class="modal-overlay" id="modal-print-kardex">
+<div class="modal" style="max-width:560px;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Vista Previa Venta</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="imprimirKardex()">🖨️ Imprimir</button>
+      <button class="modal-close" onclick="cerrarModal('modal-print-kardex')">✕</button>
+    </div>
+  </div>
+  <div id="print-kardex-content"></div>
+</div></div>
+
 <!-- ══════════ MODAL REGISTRO DE GANANCIAS ══════════ -->
 <div class="modal-overlay" id="modal-ganancia">
 <div class="modal" style="max-width:520px;">
@@ -9432,6 +9445,103 @@ function guardarKardex(){
   showAlert('kd-form-alert','success',`✅ Venta ${codigo} registrada. Utilidad: S/. ${utilidad.toFixed(2)}`);
 }
 
+function editarKardex(idx){
+  const k = DB.kardex[idx];
+  if(!k) return;
+
+  // Cambiar de pestaña primero si corresponde (esto resetea el formulario)
+  if(kardexTipo !== k.tipo){
+    switchKardexTab(k.tipo);
+  }
+
+  editandoKardexIdx = idx;
+  document.getElementById('kd-codigo').value       = k.codigo;
+  document.getElementById('kd-fecha').value        = k.fecha||'';
+  document.getElementById('kd-cliente').value      = k.cliente||'';
+  document.getElementById('kd-observaciones').value= k.observaciones||'';
+
+  const chkManual = document.getElementById('kd-venta-manual');
+  chkManual.checked = !!k.venta_manual;
+  toggleVentaManual();
+
+  if(k.venta_manual){
+    document.getElementById('kd-kg-acopiados').value = k.kg_acopiados||'';
+    document.getElementById('kd-costo-prom').value   = k.costo_prom||'';
+  } else {
+    kardexOrigenesTemp = (k.origenes_detalle||[]).map(o=>({...o}));
+    kardexKgAcopiadosEditado = true;
+    kardexRenderOrigenes();
+    document.getElementById('kd-kg-acopiados').value = k.kg_acopiados||'';
+    document.getElementById('kd-costo-prom').value   = k.costo_prom||'';
+  }
+
+  document.getElementById('kd-kg-venta').value     = k.kg_venta||'';
+  document.getElementById('kd-precio-venta').value = k.precio_venta||'';
+  calcKardex();
+
+  showAlert('kd-form-alert','success', `✏️ Editando venta ${k.codigo}. Modifica los campos y presiona "Registrar Venta" para guardar los cambios.`);
+  document.getElementById('kd-form-titulo').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function verPrintKardex(idx){
+  const k = DB.kardex[idx];
+  if(!k) return;
+  const util = parseFloat(k.utilidad||0);
+  const origenesHtml = (k.origenes_detalle||[]).length
+    ? `<div style="margin-top:8px;">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#555;margin-bottom:3px;">Orígenes incluidos</div>
+        <table style="width:100%;border-collapse:collapse;font-size:9.5px;">
+          <thead><tr style="background:#1a5c2e;color:#fff;">
+            <th style="border:1px solid #14431f;padding:3px;">Referencia</th>
+            <th style="border:1px solid #14431f;padding:3px;">KG Incluidos</th>
+            <th style="border:1px solid #14431f;padding:3px;">Costo/kg</th>
+          </tr></thead>
+          <tbody>${k.origenes_detalle.map(o=>`<tr>
+            <td style="border:1px solid #ccc;padding:3px;">${(o.ref||'').split(':')[1]||o.ref||'—'}</td>
+            <td style="border:1px solid #ccc;padding:3px;text-align:right;">${fmtKg(o.kgAjustado)} kg</td>
+            <td style="border:1px solid #ccc;padding:3px;text-align:right;">S/.${parseFloat(o.costoProm||0).toFixed(4)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`
+    : `<div style="margin-top:8px;font-size:10px;color:#888;font-style:italic;">Venta manual — sin orígenes vinculados.</div>`;
+
+  document.getElementById('print-kardex-content').innerHTML = `
+  <div id="print-zona-kardex" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:520px;margin:0 auto;padding:16px 18px;border:1.5px solid #000;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:12.5px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:8px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:10px;font-weight:700;margin-top:2px;">COMPROBANTE DE VENTA — ${k.tipo==='conv'?'CAFÉ PERGAMINO CONVENCIONAL':'CAFÉ COCO'}</div>
+        <div style="font-size:18px;font-weight:900;color:#1a5c2e;">${k.codigo}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;font-size:10.5px;margin-bottom:10px;">
+      <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(k.fecha)}</strong></div>
+      <div><span style="color:#666;">Cliente: </span><strong>${k.cliente||'—'}</strong></div>
+      <div><span style="color:#666;">KG Vendidos: </span><strong>${fmtKg(k.kg_venta)} kg</strong></div>
+      <div><span style="color:#666;">Precio Venta: </span><strong>S/. ${parseFloat(k.precio_venta||0).toFixed(4)}/kg</strong></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-bottom:8px;">
+      <div style="background:#e8f5e9;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#2e7d32;">INGRESO</div><div style="font-weight:800;font-size:13px;color:#2e7d32;">S/.${fmtMonto(k.ingreso)}</div></div>
+      <div style="background:#fff3e0;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#e65100;">COSTO</div><div style="font-weight:800;font-size:13px;color:#e65100;">S/.${fmtMonto(k.costo)}</div></div>
+      <div style="background:${util>=0?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:8px;color:${util>=0?'#2e7d32':'#c62828'};">UTILIDAD</div><div style="font-weight:900;font-size:13px;color:${util>=0?'#2e7d32':'#c62828'};">S/.${fmtMonto(util)}</div></div>
+      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#555;">MARGEN</div><div style="font-weight:800;font-size:13px;">${parseFloat(k.margen||0).toFixed(1)}%</div></div>
+    </div>
+    ${origenesHtml}
+    ${k.observaciones?`<div style="font-size:10px;margin-top:8px;"><b>Obs.:</b> ${k.observaciones}</div>`:''}
+    <div style="font-size:8px;color:#999;margin-top:16px;text-align:right;">Registrado por: ${k.usuario||'—'}</div>
+  </div>`;
+  abrirModal('modal-print-kardex');
+}
+
+function imprimirKardex(){
+  const c = document.getElementById('print-zona-kardex').outerHTML;
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Venta APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  w.document.close();
+}
+
 function limpiarKardexForm(){
   kardexOrigenesTemp=[];
   editandoKardexIdx=-1;
@@ -9521,6 +9631,8 @@ function renderKardex(){
       <td style="text-align:center;color:${parseFloat(k.margen||0)>=0?'#1b5e20':'#c62828'};">${parseFloat(k.margen||0).toFixed(1)}%</td>
       <td style="font-size:0.75rem;max-width:120px;">${k.observaciones||'—'}</td>
       <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-secondary btn-sm" onclick="editarKardex(${ri})">✏️</button>
+        <button class="btn btn-dorado btn-sm" onclick="verPrintKardex(${ri})">🖨️</button>
         <button class="btn btn-danger btn-sm" onclick="eliminarKardex(${ri})">🗑️</button>
       </div></td>
     </tr>`;
