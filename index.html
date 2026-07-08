@@ -4971,14 +4971,14 @@ function mostrarDeudaSocio(nombreSocio){
     const cfg  = TIPOS_PRESTAMO[p.tipo] || {ico:'💰',nombre:p.tipo};
     const sald = saldoPrestamo(i);
     return `<tr>
-      <td style="text-align:center;"><input type="checkbox" class="comp-deuda-check" data-idx="${i}" data-saldo="${sald}" onchange="calcDeudaSeleccionada()"></td>
+      <td style="text-align:center;"><input type="checkbox" class="comp-deuda-check" data-idx="${i}" data-saldo="${sald}" onchange="calcDeudaSeleccionada();aplicarDescuentoPrestamosAuto();"></td>
       <td class="td-codigo">${p.codigo}</td>
       <td>${cfg.ico} ${cfg.nombre}</td>
       <td style="text-align:right;font-weight:700;color:#c62828;">S/. ${fmt(sald)}</td>
       <td>
         <input type="number" class="comp-deuda-monto" data-idx="${i}" max="${sald}" min="0" step="0.01"
           value="${sald.toFixed(2)}" style="width:90px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;" disabled
-          oninput="limitarMontoDescuento(this,${sald});calcDeudaSeleccionada();">
+          oninput="limitarMontoDescuento(this,${sald});calcDeudaSeleccionada();aplicarDescuentoPrestamosAuto();">
       </td>
     </tr>`;
   }).join('');
@@ -5015,8 +5015,27 @@ function calcDeudaSeleccionada(){
 
 // ── Aplica el descuento seleccionado, reduciendo el monto a pagar de la guía ──
 function aplicarDescuentoPrestamos(){
+  _procesarDescuentoPrestamos(true);
+}
+
+// Se ejecuta automáticamente cada vez que se marca/desmarca un préstamo o se edita el monto
+// a descontar, para no depender de que el usuario recuerde presionar el botón manualmente.
+function aplicarDescuentoPrestamosAuto(){
   const checks = Array.from(document.querySelectorAll('.comp-deuda-check')).filter(c=>c.checked);
-  if(!checks.length){ alert('Selecciona al menos un préstamo para descontar.'); return; }
+  if(!checks.length){
+    // Nada seleccionado: limpiar cualquier descuento pendiente y recalcular sin descuento
+    window._descuentosPendientes = null;
+    const resumen = document.getElementById('comp-descuento-resumen');
+    if(resumen) resumen.style.display = 'none';
+    actualizarResumenGuiasComp();
+    return;
+  }
+  _procesarDescuentoPrestamos(false);
+}
+
+function _procesarDescuentoPrestamos(mostrarAlertas){
+  const checks = Array.from(document.querySelectorAll('.comp-deuda-check')).filter(c=>c.checked);
+  if(!checks.length){ if(mostrarAlertas) alert('Selecciona al menos un préstamo para descontar.'); return; }
 
   let totalDescuento = 0;
   const detalleDescuentos = [];
@@ -5028,7 +5047,7 @@ function aplicarDescuentoPrestamos(){
       // Validar que no se descuente más de lo que realmente queda pendiente del préstamo
       const saldoReal = saldoPrestamo(idx);
       if(monto > saldoReal + 0.01){
-        alert(`El monto a descontar de ${DB.prestamos[idx]?.codigo||'este préstamo'} (S/. ${monto.toFixed(2)}) supera su saldo pendiente real (S/. ${saldoReal.toFixed(2)}). Ajusta el monto.`);
+        if(mostrarAlertas) alert(`El monto a descontar de ${DB.prestamos[idx]?.codigo||'este préstamo'} (S/. ${monto.toFixed(2)}) supera su saldo pendiente real (S/. ${saldoReal.toFixed(2)}). Ajusta el monto.`);
         return;
       }
       totalDescuento += monto;
@@ -5036,18 +5055,20 @@ function aplicarDescuentoPrestamos(){
     }
   }
 
-  if(totalDescuento <= 0){ alert('El monto a descontar debe ser mayor a 0.'); return; }
+  if(totalDescuento <= 0){ if(mostrarAlertas) alert('El monto a descontar debe ser mayor a 0.'); return; }
 
   // Guardar el detalle de descuentos pendientes de aplicar (se confirman al guardar el comprobante)
   window._descuentosPendientes = detalleDescuentos;
 
-  // Recalcular el monto a pagar: saldo de guía - descuento
-  const guiaCod = document.getElementById('c-guia-sel').value;
-  const g = DB.guias.find(x=>x.codigo===guiaCod);
-  if(!g) return;
-  const totalGuia = parseFloat(g.valorrecibido||0);
-  const pagadoAntes = totalPagadoGuia(guiaCod);
-  const saldoGuia = totalGuia - pagadoAntes;
+  // Recalcular el monto a pagar: saldo TOTAL de TODAS las guías seleccionadas en el comprobante - descuento
+  // (usa compGuiasTemp, la lista real de guías agregadas — el campo "c-guia-sel" queda vacío
+  // después de agregar cada guía, así que NO sirve como referencia aquí).
+  if(!compGuiasTemp || !compGuiasTemp.length){ if(mostrarAlertas) alert('Selecciona primero al menos una guía de entrada.'); return; }
+  const saldoGuia = compGuiasTemp.reduce((a,cod)=>{
+    const g = DB.guias.find(x=>x.codigo===cod);
+    if(!g) return a;
+    return a + (parseFloat(g.valorrecibido||0) - totalPagadoGuia(cod));
+  }, 0);
 
   const montoNeto = Math.max(0, saldoGuia - totalDescuento);
 
@@ -5063,7 +5084,7 @@ function aplicarDescuentoPrestamos(){
   document.getElementById('cd-descuento').textContent  = fmtS(totalDescuento);
   document.getElementById('cd-neto').textContent       = fmtS(montoNeto);
 
-  showAlert('comp-form-alert','success', `✅ Descuento de S/. ${totalDescuento.toFixed(2)} aplicado. El monto a pagar se ajustó automáticamente.`);
+  if(mostrarAlertas) showAlert('comp-form-alert','success', `✅ Descuento de S/. ${totalDescuento.toFixed(2)} aplicado. El monto a pagar se ajustó automáticamente a S/. ${montoNeto.toFixed(2)}.`);
 }
 
 function calcSaldoComp(){
@@ -5101,6 +5122,13 @@ function guardarComprobante(){
   if(!compGuiasTemp || !compGuiasTemp.length){
     showAlert('comp-form-alert','error','Seleccione al menos una guía de entrada.');
     return;
+  }
+
+  // ── Red de seguridad: si hay préstamos marcados con monto pero el descuento aún no se
+  // procesó (por ejemplo, se marcó justo antes de guardar), aplicarlo automáticamente ahora ──
+  const checksPendientes = Array.from(document.querySelectorAll('.comp-deuda-check')).filter(c=>c.checked);
+  if(checksPendientes.length && !window._descuentosPendientes){
+    aplicarDescuentoPrestamosAuto();
   }
 
   // Usar la primera guía para datos del productor
