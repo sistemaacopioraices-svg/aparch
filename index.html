@@ -85,7 +85,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 
 /* ── STATS ── */
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
-.stat-card{background:var(--bgc);border-radius:var(--radio);padding:18px 18px 14px;box-shadow:var(--sombra);border-left:4px solid var(--verde-c);}
+.stat-card{background:var(--bgc);border-radius:var(--radio);padding:18px 18px 14px;box-shadow:var(--sombra);border-left:4px solid var(--verde-c);transition:transform .18s,box-shadow .18s;}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.12);}
 .stat-card.cafe{border-left-color:var(--cafe-c);}
 .stat-card.dorado{border-left-color:var(--dorado);}
 .stat-card.azul{border-left-color:#3a7bd5;}
@@ -99,14 +100,17 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 .card-title{font-size:.96rem;font-weight:700;color:var(--verde);display:flex;align-items:center;gap:8px;}
 
 /* ── BUTTONS ── */
-.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:7px;font-size:0.82rem;font-weight:600;cursor:pointer;border:none;transition:all .18s;text-decoration:none;}
-.btn-primary{background:var(--verde);color:#fff;}.btn-primary:hover{background:var(--verde-m);}
-.btn-secondary{background:var(--bg);border:1px solid var(--borde);color:var(--txt);}.btn-secondary:hover{background:var(--borde);}
-.btn-dorado{background:var(--dorado);color:#fff;}.btn-dorado:hover{background:#a87a10;}
-.btn-danger{background:#c0392b;color:#fff;}.btn-danger:hover{background:#922b21;}
-.btn-export{background:#217346;color:#fff;}.btn-export:hover{background:#145a30;}
-.btn-info{background:#1565c0;color:#fff;}.btn-info:hover{background:#0d47a1;}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:7px;font-size:0.82rem;font-weight:600;cursor:pointer;border:none;transition:all .18s;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.08);}
+.btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.14);}
+.btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+.btn-primary{background:linear-gradient(135deg,var(--verde-m),var(--verde));color:#fff;}.btn-primary:hover{background:linear-gradient(135deg,var(--verde),#0e3d1c);}
+.btn-secondary{background:var(--bgc);border:1px solid var(--borde);color:var(--txt);box-shadow:0 1px 2px rgba(0,0,0,.05);}.btn-secondary:hover{background:var(--bg);border-color:var(--verde-c);}
+.btn-dorado{background:linear-gradient(135deg,var(--dorado-c),var(--dorado));color:#fff;}.btn-dorado:hover{background:linear-gradient(135deg,var(--dorado),#a87a10);}
+.btn-danger{background:linear-gradient(135deg,#d9483a,#c0392b);color:#fff;}.btn-danger:hover{background:linear-gradient(135deg,#c0392b,#922b21);}
+.btn-export{background:linear-gradient(135deg,#279a5a,#217346);color:#fff;}.btn-export:hover{background:linear-gradient(135deg,#217346,#145a30);}
+.btn-info{background:linear-gradient(135deg,#1976d2,#1565c0);color:#fff;}.btn-info:hover{background:linear-gradient(135deg,#1565c0,#0d47a1);}
 .btn-sm{padding:4px 9px;font-size:0.74rem;}
+.btn-sm:hover{transform:none;}
 
 /* ── FORM ── */
 .form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;min-width:0;}
@@ -130,15 +134,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 /* ── TABLE ── */
 .table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--borde);}
 table{width:100%;border-collapse:collapse;font-size:0.8rem;}
-thead{background:var(--verde);color:#fff;}
+thead{background:linear-gradient(135deg,var(--verde-m),var(--verde));color:#fff;}
 th{padding:9px 8px;text-align:left;font-weight:600;font-size:0.72rem;letter-spacing:.3px;white-space:nowrap;}
 td{padding:8px 8px;border-bottom:1px solid var(--borde);vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
-tr:hover td{background:#f9f6f1;}
+tr:hover td{background:#f4f8f4;}
 .td-codigo{font-family:monospace;font-size:0.8rem;font-weight:700;color:var(--verde);}
 
 /* ── BADGE ── */
-.badge{display:inline-block;padding:2px 7px;border-radius:12px;font-size:0.68rem;font-weight:600;}
+.badge{display:inline-block;padding:2px 7px;border-radius:12px;font-size:0.68rem;font-weight:700;letter-spacing:.2px;}
 .badge-verde{background:#e8f5e9;color:#2e7d32;}
 .badge-cafe{background:#fbe9e7;color:#bf360c;}
 .badge-dorado{background:#fff8e1;color:#f57f17;}
@@ -378,6 +382,7 @@ tr:hover td{background:#f9f6f1;}
     <div class="card-header">
       <div class="card-title">🎫 Tickets de Entrada</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-export" onclick="exportarExcel('tickets')">📥 Exportar Excel</button>
         <button class="btn btn-dorado" onclick="imprimirTodosTickets()">🖨️ Imprimir Todos</button>
         <button class="btn btn-primary" onclick="abrirModalTicket()">+ Nuevo Ticket</button>
       </div>
@@ -412,6 +417,7 @@ tr:hover td{background:#f9f6f1;}
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
         </label>
+        <button class="btn btn-export" onclick="exportarExcel('guias')">📥 Exportar Excel</button>
         <button class="btn btn-dorado" onclick="imprimirTodasGuias()">🖨️ Imprimir Todas</button>
         <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
       </div>
@@ -459,6 +465,7 @@ tr:hover td{background:#f9f6f1;}
     <div class="card-header">
       <div class="card-title">🧾 Comprobantes de Pago</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-export" onclick="exportarExcel('comprobantes')">📥 Exportar Excel</button>
         <button class="btn btn-dorado" onclick="imprimirTodosComprobantes()">🖨️ Imprimir Todos</button>
         <button class="btn btn-primary" onclick="abrirModalComprobante()">+ Nuevo Comprobante</button>
       </div>
@@ -1006,7 +1013,10 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header">
       <div class="card-title">💰 Registro de Préstamos</div>
-      <button class="btn btn-primary" onclick="abrirModalPrestamo()">+ Nuevo Préstamo</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-export" onclick="exportarExcel('prestamos')">📥 Exportar Excel</button>
+        <button class="btn btn-primary" onclick="abrirModalPrestamo()">+ Nuevo Préstamo</button>
+      </div>
     </div>
     <div class="search-bar">
       <input type="text" id="search-prest" placeholder="🔍 Buscar por socio, tipo, código..." oninput="filtrarPrestamos()">
@@ -1067,7 +1077,8 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header">
       <div class="card-title">🏦 Control de Caja — Apertura / Cierre</div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-export" onclick="exportarExcel('aperturas')">📥 Exportar Excel</button>
         <button class="btn btn-dorado" onclick="abrirModalArqueo()">🧮 Arqueo de Caja</button>
         <button class="btn btn-primary" id="btn-abrir-caja" onclick="abrirModalAperturaCaja()">🔓 Abrir Caja</button>
         <button class="btn btn-danger" id="btn-cerrar-caja" onclick="cerrarCajaActual()" style="display:none;">🔒 Cerrar Caja</button>
@@ -1085,7 +1096,8 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header">
       <div class="card-title">🧾 Recibos de Ingreso y Egreso</div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-export" onclick="exportarExcel('recibos')">📥 Exportar Excel</button>
         <button class="btn btn-primary" onclick="abrirModalRecibo('ingreso')">+ Recibo de Ingreso</button>
         <button class="btn btn-danger" onclick="abrirModalRecibo('egreso')">+ Recibo de Egreso</button>
       </div>
@@ -1307,6 +1319,7 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header">
       <div class="card-title" id="kd-lista-titulo">📋 Ventas Registradas</div>
+      <button class="btn btn-export" onclick="exportarExcel('kardex')">📥 Exportar Excel</button>
     </div>
     <div class="table-wrap">
       <table><thead><tr>
@@ -1324,7 +1337,10 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header">
       <div class="card-title">💰 Registro de Ganancias</div>
-      <button class="btn btn-primary" onclick="abrirModalGanancia()">+ Nueva Ganancia</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-export" onclick="exportarExcel('ganancias')">📥 Exportar Excel</button>
+        <button class="btn btn-primary" onclick="abrirModalGanancia()">+ Nueva Ganancia</button>
+      </div>
     </div>
     <div class="stats-grid" style="margin-bottom:16px;">
       <div class="stat-card">
@@ -1411,7 +1427,9 @@ tr:hover td{background:#f9f6f1;}
     </div>
 
     <div class="card">
-      <div class="card-header"><div class="card-title">📋 Lotes de Producción Registrados</div></div>
+      <div class="card-header"><div class="card-title">📋 Lotes de Producción Registrados</div>
+        <button class="btn btn-export" onclick="exportarExcel('tostadoProduccion')">📥 Exportar Excel</button>
+      </div>
       <div class="table-wrap">
         <table><thead><tr>
           <th>N° Lote</th><th>Fecha</th><th>KG Verde</th><th>Merma%</th><th>KG Tostado</th>
@@ -1455,7 +1473,9 @@ tr:hover td{background:#f9f6f1;}
     </div>
 
     <div class="card">
-      <div class="card-header"><div class="card-title">📋 Ventas Registradas</div></div>
+      <div class="card-header"><div class="card-title">📋 Ventas Registradas</div>
+        <button class="btn btn-export" onclick="exportarExcel('tostadoVentas')">📥 Exportar Excel</button>
+      </div>
       <div class="table-wrap">
         <table><thead><tr>
           <th>N° Venta</th><th>Fecha</th><th>Cliente</th><th>KG Vendidos</th><th>Precio/kg</th>
@@ -2618,7 +2638,7 @@ function restaurarDesdeJSON(input){
       if(!confirm(msg)){ input.value = ''; return; }
 
       // Restaurar — copiar todos los campos de datos al DB
-      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex'].forEach(key => {
+      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas'].forEach(key => {
         if(data[key] !== undefined) DB[key] = data[key];
       });
 
@@ -2890,6 +2910,10 @@ function abrirVentanaImpresion(bodyHtml, titulo, extraStyle, customScript){
   body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
   table{border-collapse:collapse;width:100%;}
   @media print{ body{print-color-adjust:exact;-webkit-print-color-adjust:exact;} }
+  /* Evita que la firma/pie de página quede sola en una hoja aparte al imprimir un
+     documento individual (ticket, recibo, arqueo, venta, etc.). */
+  #print-zona-ticket, #print-zona-recibo, #print-zona-cierre, #print-zona-arqueo,
+  #print-zona-cc, #print-zona-kardex, #print-zona-tostado { page-break-inside: avoid; }
   ${extraStyle||''}
 </style></head><body>
 ${bodyHtml}
@@ -6022,6 +6046,26 @@ function exportarExcel(tipo){
       parseFloat(p.interes||0), parseFloat(p.total||0), totalPagadoPrestamo(pi), saldoPrestamo(pi),
       p.vencimiento, estadoPrestamo(pi)]);
     n='Prestamos_APARCH';
+  } else if(tipo==='cafecoco'){
+    h=['N° Compra','Fecha','DNI','Nombres','Sacos','Kg Bruto','Tara','Kg Neto','Precio Kg','Total','Observación'];
+    d=(DB.cafecoco||[]).map(c=>[c.codigo,c.fecha,c.dni,c.nombres,c.sacos,c.kgbruto,c.tara,c.kgneto,c.preciokg,c.total,c.observacion]);
+    n='CompraCafeCoco_APARCH';
+  } else if(tipo==='kardex'){
+    h=['N° Venta','Fecha','Tipo','Cliente','KG Vendidos','Precio S/./kg','Ingreso S/.','Costo S/.','Utilidad S/.','Margen%','Manual','Obs.'];
+    d=(DB.kardex||[]).map(k=>[k.codigo,k.fecha,k.tipo==='conv'?'Convencional':'Coco',k.cliente,parseFloat(k.kg_venta||0),parseFloat(k.precio_venta||0),parseFloat(k.ingreso||0),parseFloat(k.costo||0),parseFloat(k.utilidad||0),parseFloat(k.margen||0),k.venta_manual?'Sí':'No',k.observaciones]);
+    n='KardexVentas_APARCH';
+  } else if(tipo==='ganancias'){
+    h=['N°','Fecha','N° de Venta','Tipo','KG Vendidos','QQ Vendidos','Ganancia S/.','Obs.'];
+    d=(DB.ganancias||[]).map((g,i)=>[i+1,g.fecha,g.nventa,g.tipo,parseFloat(g.kg||0),parseFloat(g.qq||0),parseFloat(g.ganancia||0),g.observaciones]);
+    n='RegistroGanancias_APARCH';
+  } else if(tipo==='tostadoProduccion'){
+    h=['N° Lote','Fecha','KG Verde','Merma%','KG Tostado','Costo M.P. S/.','Otros Costos S/.','Costo Total S/.','Costo/KG S/.','Obs.'];
+    d=(DB.tostadoProduccion||[]).map(p=>[p.lote,p.fecha,parseFloat(p.kg_verde||0),parseFloat(p.merma_pct||0),parseFloat(p.kg_tostado||0),parseFloat(p.costo_mp||0),parseFloat(p.otros_costos||0),parseFloat(p.costo_total||0),parseFloat(p.costo_kg||0),p.observaciones]);
+    n='TostadoProduccion_APARCH';
+  } else if(tipo==='tostadoVentas'){
+    h=['N° Venta','Fecha','Cliente','DNI','KG Vendidos','Precio/kg S/.','Costo/kg S/.','Ingreso S/.','Costo S/.','Utilidad S/.','Margen%','Obs.'];
+    d=(DB.tostadoVentas||[]).map(v=>[v.nventa,v.fecha,v.cliente,v.cliente_dni,parseFloat(v.kg||0),parseFloat(v.precio||0),parseFloat(v.costo_kg||0),parseFloat(v.ingreso||0),parseFloat(v.costo||0),parseFloat(v.utilidad||0),parseFloat(v.margen||0),v.observaciones]);
+    n='TostadoVentas_APARCH';
   }
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([h,...d]),n.split('_')[0]);
@@ -7283,7 +7327,7 @@ async function gdriveCargar(){
     if(!confirm(`📥 CARGAR DATOS DESDE GOOGLE DRIVE\n\nFecha del backup: ${fecha}\nTickets: ${info.tickets||0}\nGuías: ${info.guias||0}\nComprobantes: ${info.comprobantes||0}\nSocios: ${info.socios||0}\n\n⚠️ ESTO REEMPLAZARÁ tus datos actuales.\n¿Continuar?`)) return;
 
     // Restaurar datos
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas'].forEach(key=>{
       if(data[key]!==undefined) DB[key]=data[key];
     });
     guardarDB(); marcarRespaldado();
@@ -7426,7 +7470,7 @@ async function sheetsCargarManual(){
     const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
     if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos actuales.\n¿Continuar?`)) return;
 
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas'].forEach(key=>{
       if(db[key]!==undefined) DB[key]=db[key];
     });
     guardarDB(); marcarRespaldado();
