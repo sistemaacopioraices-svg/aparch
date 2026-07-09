@@ -1640,9 +1640,25 @@ tr:hover td{background:#f4f8f4;}
 <div class="modal" style="max-width:700px;">
   <div class="modal-header">
     <div class="modal-title">📄 Detalle del Préstamo</div>
-    <button class="modal-close" onclick="cerrarModal('modal-detalle-prest')">✕</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-dorado" onclick="imprimirEstadoCuentaPrestamo()">🖨️ Imprimir Estado de Cuenta</button>
+      <button class="modal-close" onclick="cerrarModal('modal-detalle-prest')">✕</button>
+    </div>
   </div>
   <div id="detalle-prest-content"></div>
+</div></div>
+
+<!-- ══════════ MODAL IMPRESIÓN COMPROBANTE DE ABONO ══════════ -->
+<div class="modal-overlay" id="modal-print-abono">
+<div class="modal" style="max-width:560px;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Vista Previa Comprobante de Abono</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="imprimirAbono()">🖨️ Imprimir</button>
+      <button class="modal-close" onclick="cerrarModal('modal-print-abono')">✕</button>
+    </div>
+  </div>
+  <div id="print-abono-content"></div>
 </div></div>
 
 <!-- ══════════ MODAL IMPRESIÓN MASIVA GUÍAS ══════════ -->
@@ -7062,6 +7078,8 @@ function guardarAbono(){
 
   guardarDB(); cerrarModal('modal-abono'); renderPrestamos();
   const saldNew = saldoPrestamo(idx);
+  const abonoIdxGuardado = DB.prestamos[idx].abonos.length - 1;
+  setTimeout(()=>verPrintAbono(idx, abonoIdxGuardado), 200);
   if(saldNew<=0.05) alert('✅ Préstamo liquidado completamente.');
   else if(cajaIdx>=0) alert(`✅ Abono registrado.\n📥 Ingreso S/. ${fmt(monto)} registrado en caja.`);
 }
@@ -7070,6 +7088,7 @@ function guardarAbono(){
 function verDetallePrestamo(idx){
   const p = DB.prestamos[idx];
   if(!p) return;
+  _prestIdxActual = idx;
   const paid = totalPagadoPrestamo(idx);
   const sald = saldoPrestamo(idx);
   const est  = estadoPrestamo(idx);
@@ -7084,8 +7103,9 @@ function verDetallePrestamo(idx){
         <td>${ab.formapago||'—'}</td>
         <td style="font-size:0.75rem;">${ab.obs||'—'}</td>
         <td style="font-size:0.75rem;">${ab.usuario||'—'}</td>
+        <td><button class="btn btn-dorado btn-sm" onclick="verPrintAbono(${idx},${i})" title="Imprimir comprobante">🖨️</button></td>
       </tr>`).join('')
-    : '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:10px;">Sin abonos registrados</td></tr>';
+    : '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:10px;">Sin abonos registrados</td></tr>';
 
   document.getElementById('detalle-prest-content').innerHTML = `
   <div style="background:${cfg.bg};border:1px solid ${cfg.color}44;border-radius:10px;padding:14px 18px;margin-bottom:14px;">
@@ -7118,12 +7138,126 @@ function verDetallePrestamo(idx){
   <div style="font-weight:700;font-size:0.8rem;color:#555;text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid #eee;padding-bottom:4px;">Historial de Abonos</div>
   <div class="table-wrap">
     <table><thead><tr>
-      <th>#</th><th>Fecha</th><th>Monto</th><th>Forma Pago</th><th>Obs.</th><th>Usuario</th>
+      <th>#</th><th>Fecha</th><th>Monto</th><th>Forma Pago</th><th>Obs.</th><th>Usuario</th><th>Acción</th>
     </tr></thead><tbody>${abonosRows}</tbody></table>
   </div>
   ${p.observaciones?`<div style="margin-top:10px;font-size:0.8rem;color:#555;"><b>Observaciones:</b> ${p.observaciones}</div>`:''}`;
 
   abrirModal('modal-detalle-prest');
+}
+
+let _prestIdxActual = -1;
+
+// ── IMPRESIÓN: ESTADO DE CUENTA DEL PRÉSTAMO ──
+function imprimirEstadoCuentaPrestamo(){
+  const p = DB.prestamos[_prestIdxActual];
+  if(!p) return;
+  const paid = totalPagadoPrestamo(_prestIdxActual);
+  const sald = saldoPrestamo(_prestIdxActual);
+  const est  = estadoPrestamo(_prestIdxActual);
+  const cfg  = TIPOS_PRESTAMO[p.tipo]||{ico:'💰',nombre:p.tipo};
+
+  const abonosRows = (p.abonos||[]).length
+    ? (p.abonos||[]).map((ab,i)=>`<tr>
+        <td style="border:1px solid #ccc;padding:4px 6px;">${i+1}</td>
+        <td style="border:1px solid #ccc;padding:4px 6px;">${fechaDisplay(ab.fecha)}</td>
+        <td style="border:1px solid #ccc;padding:4px 6px;text-align:right;font-weight:700;color:#2e7d32;">S/. ${parseFloat(ab.monto).toFixed(2)}</td>
+        <td style="border:1px solid #ccc;padding:4px 6px;">${ab.formapago||'—'}</td>
+        <td style="border:1px solid #ccc;padding:4px 6px;font-size:9px;">${ab.obs||'—'}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="5" style="border:1px solid #ccc;text-align:center;padding:8px;color:#999;font-style:italic;">Sin abonos registrados</td></tr>`;
+
+  const html = `
+  <div style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:560px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:8.5px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">ESTADO DE CUENTA — ${cfg.nombre.toUpperCase()}</div>
+        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${p.codigo}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:13px;">${p.socio||'—'}</strong></div>
+      <div><span style="color:#666;">DNI: </span><strong>${p.dni||'—'}</strong></div>
+      <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(p.fecha)}</strong></div>
+      <div><span style="color:#666;">Vencimiento: </span><strong>${fechaDisplay(p.vencimiento)}</strong></div>
+      <div><span style="color:#666;">Estado: </span><strong style="color:${est==='Pagado'?'#2e7d32':est==='Vencido'?'#c62828':'#0d47a1'};">${est}</strong></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-bottom:12px;">
+      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#555;">MONTO PRÉSTAMO</div><div style="font-weight:800;font-size:12px;">S/.${fmt(p.monto)}</div></div>
+      <div style="background:#fff3e0;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#e65100;">TOTAL A DEVOLVER</div><div style="font-weight:800;font-size:12px;color:#e65100;">S/.${fmt(p.total)}</div></div>
+      <div style="background:#e8f5e9;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#2e7d32;">PAGADO</div><div style="font-weight:800;font-size:12px;color:#2e7d32;">S/.${fmt(paid)}</div></div>
+      <div style="background:${sald<=0.05?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:8px;color:${sald<=0.05?'#2e7d32':'#c62828'};">SALDO</div><div style="font-weight:900;font-size:12px;color:${sald<=0.05?'#2e7d32':'#c62828'};">S/.${fmt(sald)}</div></div>
+    </div>
+    <div style="font-weight:800;font-size:9.5px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Historial de Abonos</div>
+    <table style="width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:14px;">
+      <thead><tr style="background:#1a5c2e;color:#fff;">
+        <th style="border:1px solid #14431f;padding:4px 6px;">#</th>
+        <th style="border:1px solid #14431f;padding:4px 6px;">Fecha</th>
+        <th style="border:1px solid #14431f;padding:4px 6px;">Monto</th>
+        <th style="border:1px solid #14431f;padding:4px 6px;">Forma Pago</th>
+        <th style="border:1px solid #14431f;padding:4px 6px;">Obs.</th>
+      </tr></thead>
+      <tbody>${abonosRows}</tbody>
+    </table>
+    ${p.observaciones?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${p.observaciones}</div>`:''}
+    <div style="display:flex;gap:50px;margin-top:auto;padding-top:24px;">
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">APARCH</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:9px;">${p.socio||''}</span></div>
+    </div>
+  </div>`;
+  abrirVentanaImpresion(html, `Estado de Cuenta ${p.codigo}`, 'body{padding:12px;}');
+}
+
+// ── IMPRESIÓN: COMPROBANTE DE ABONO (se genera automáticamente al registrar un pago) ──
+function verPrintAbono(prestamoIdx, abonoIdx){
+  const p = DB.prestamos[prestamoIdx];
+  if(!p) return;
+  const ab = (p.abonos||[])[abonoIdx];
+  if(!ab) return;
+  const sald = saldoPrestamo(prestamoIdx);
+  const cfg  = TIPOS_PRESTAMO[p.tipo]||{ico:'💰',nombre:p.tipo};
+
+  document.getElementById('print-abono-content').innerHTML = `
+  <div id="print-zona-abono" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:520px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:8.5px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">COMPROBANTE DE ABONO A PRÉSTAMO</div>
+        <div style="font-size:17px;font-weight:900;color:#1a5c2e;">${p.codigo}${ab.recibo_ref?` · ${ab.recibo_ref}`:''}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:13px;">${p.socio||'—'}</strong></div>
+      <div><span style="color:#666;">DNI: </span><strong>${p.dni||'—'}</strong></div>
+      <div><span style="color:#666;">Tipo Préstamo: </span><strong>${cfg.nombre}</strong></div>
+      <div><span style="color:#666;">Fecha de Abono: </span><strong>${fechaDisplay(ab.fecha)}</strong></div>
+      <div><span style="color:#666;">Forma de Pago: </span><strong>${ab.formapago||'—'}</strong></div>
+    </div>
+    <div style="background:#eef7ee;border:1.5px solid #000;border-radius:6px;padding:8px 12px;margin-bottom:10px;text-align:right;">
+      <span style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700;">Monto Abonado:</span>
+      <span style="font-size:20px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${parseFloat(ab.monto).toFixed(2)}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin-bottom:14px;">
+      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#555;">SALDO ANTERIOR</div><div style="font-weight:700;font-size:12px;">S/.${(sald+parseFloat(ab.monto)).toFixed(2)}</div></div>
+      <div style="background:${sald<=0.05?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:8px;color:${sald<=0.05?'#2e7d32':'#c62828'};">SALDO ACTUAL</div><div style="font-weight:900;font-size:12px;color:${sald<=0.05?'#2e7d32':'#c62828'};">S/.${sald.toFixed(2)}</div></div>
+    </div>
+    ${ab.obs?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${ab.obs}</div>`:''}
+    <div style="display:flex;gap:50px;margin-top:auto;padding-top:30px;">
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Recibido por (APARCH)</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:9px;">${p.socio||''}</span></div>
+    </div>
+  </div>`;
+  abrirModal('modal-print-abono');
+}
+
+function imprimirAbono(){
+  const c = document.getElementById('print-zona-abono').outerHTML;
+  abrirVentanaImpresion(c, 'Comprobante de Abono APARCH', 'body{padding:12px;}');
 }
 
 // Inicializar prestamos en DB si no existe
