@@ -4011,7 +4011,7 @@ function estadoPagoLive(g){
   const pagado = totalPagadoGuia(g.codigo);
   const totG = parseFloat(g.valorrecibido||0);
   const saldoG = totG - pagado;
-  if(saldoG <= 0.01) return 'Pagado Total';
+  if(saldoG <= 0.05) return 'Pagado Total';
   if(pagado > 0.01) return 'Pago Parcial';
   return 'Pendiente';
 }
@@ -4809,7 +4809,7 @@ function abrirModalComprobante(idx){
     // Ocultar la guía si es la del comprobante que se edita (ya está en compGuiasTemp)
     const esGuiaActual = c && ((c.guia_ref===g.codigo)||(c.guias_ref||[]).includes(g.codigo));
     // Ocultar si saldo <= 0 (pagada total o sin valor) — cálculo siempre en vivo
-    if(saldo <= 0.01 && !esGuiaActual) return;
+    if(saldo <= 0.05 && !esGuiaActual) return;
     selG.innerHTML+=`<option value="${g.codigo}">${g.codigo} — ${g.productor} | Saldo: S/.${fmtPago(saldo)}</option>`;
     countPendientes++;
   });
@@ -5109,7 +5109,7 @@ function calcSaldoComp(){
   const monto=parseFloat(montoEl.value)||0;
   const saldoResultante=saldoActual-monto-totalDescPendiente;
   saldoEl.value=saldoResultante.toFixed(2);
-  saldoEl.style.color=saldoResultante<=0.01?'#2e7d32':'#c62828';
+  saldoEl.style.color=saldoResultante<=0.05?'#2e7d32':'#c62828';
 }
 
 function guardarComprobante(){
@@ -5352,7 +5352,7 @@ function renderComprobantes(filtro){
       <td style="text-align:right;">S/.${fmtPago(tot)}</td>
       <td style="text-align:right;color:#2e7d32;font-weight:700;">S/.${fmtPago(pagado)}</td>
       <td style="text-align:right;font-weight:800;font-size:0.9rem;">S/.${fmtPago(c.monto)}</td>
-      <td style="text-align:right;font-weight:700;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/.${fmtPago(saldo)}</td>
+      <td style="text-align:right;font-weight:700;color:${saldo<=0.05?'#2e7d32':'#c62828'};">S/.${fmtPago(saldo)}</td>
       <td>${c.formapago||'—'}${c.apertura_ref?` <span class="tag" title="Egreso registrado en caja ${c.apertura_ref}">🏦</span>`:''}</td>
       <td><span class="badge ${badgeTipo}" title="Tipo de pago seleccionado al registrar (no siempre refleja el saldo real si es un pago en bloque)">${tipo==='total'?'Pago Total':tipo==='parcial'?'Parcial':'Pendiente'}</span></td>
       <td><div style="display:flex;gap:3px;">
@@ -5459,9 +5459,9 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
         <div style="font-size:9px;color:#2e7d32;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Este Pago</div>
         <div style="font-size:19px;font-weight:900;color:#1a5c2e;">S/. ${fmtPago(c.monto)}</div>
       </div>
-      <div style="border:1.5px solid ${saldo<=0.01?'#a5d6a7':'#ef9a9a'};padding:7px;border-radius:7px;background:${saldo<=0.01?'#e8f5e9':'#fce4ec'};">
+      <div style="border:1.5px solid ${saldo<=0.05?'#a5d6a7':'#ef9a9a'};padding:7px;border-radius:7px;background:${saldo<=0.05?'#e8f5e9':'#fce4ec'};">
         <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Saldo</div>
-        <div style="font-size:16px;font-weight:900;color:${saldo<=0.01?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
+        <div style="font-size:16px;font-weight:900;color:${saldo<=0.05?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
       </div>
     </div>
     <div style="border:1px solid #999;border-radius:6px;padding:4px 8px;margin-bottom:7px;font-size:9.5px;font-style:italic;color:#444;">
@@ -6351,7 +6351,7 @@ function estadoPrestamo(idx){
   const p = DB.prestamos[idx];
   if(!p) return 'Vigente';
   const saldo = saldoPrestamo(idx);
-  if(saldo <= 0.01) return 'Pagado';
+  if(saldo <= 0.05) return 'Pagado';
   if(p.vencimiento && new Date(p.vencimiento) < new Date()) return 'Vencido';
   return 'Vigente';
 }
@@ -6600,7 +6600,7 @@ function renderPrestamos(filtro, tipoF, estadoF){
       <td style="text-align:right;color:#e65100;">S/. ${fmt(p.interes)}</td>
       <td style="text-align:right;font-weight:700;color:#1b5e20;">S/. ${fmt(p.total)}</td>
       <td style="text-align:right;color:#2e7d32;">S/. ${fmt(paid)}</td>
-      <td style="text-align:right;font-weight:800;color:${sald<=0.01?'#2e7d32':'#c62828'};">S/. ${fmt(sald)}</td>
+      <td style="text-align:right;font-weight:800;color:${sald<=0.05?'#2e7d32':'#c62828'};">S/. ${fmt(sald)}</td>
       <td style="text-align:center;font-size:0.76rem;">${fechaDisplay(p.vencimiento)}</td>
       <td><span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:0.7rem;font-weight:700;${estBadge}">${est}</span></td>
       <td>
@@ -6743,7 +6743,7 @@ function abrirModalAbono(idx){
   document.getElementById('ab-socio').textContent = p.socio;
   document.getElementById('ab-total').textContent  = fmtS(p.total);
   document.getElementById('ab-saldo').textContent  = fmtS(sald);
-  document.getElementById('ab-saldo').style.color  = sald<=0.01?'#2e7d32':'#c62828';
+  document.getElementById('ab-saldo').style.color  = sald<=0.05?'#2e7d32':'#c62828';
   document.getElementById('abono-alert').innerHTML = '';
   abrirModal('modal-abono');
 }
@@ -6759,7 +6759,7 @@ function calcMontoAbono(){
   const result = Math.max(0, sald-monto);
   const resultEl = document.getElementById('ab-saldo-result');
   resultEl.value = result.toFixed(2);
-  resultEl.style.color = result<=0.01?'#2e7d32':'#c62828';
+  resultEl.style.color = result<=0.05?'#2e7d32':'#c62828';
 }
 
 function guardarAbono(){
@@ -6802,7 +6802,7 @@ function guardarAbono(){
 
   guardarDB(); cerrarModal('modal-abono'); renderPrestamos();
   const saldNew = saldoPrestamo(idx);
-  if(saldNew<=0.01) alert('✅ Préstamo liquidado completamente.');
+  if(saldNew<=0.05) alert('✅ Préstamo liquidado completamente.');
   else if(cajaIdx>=0) alert(`✅ Abono registrado.\n📥 Ingreso S/. ${fmt(monto)} registrado en caja.`);
 }
 
