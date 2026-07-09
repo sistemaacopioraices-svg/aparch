@@ -1335,6 +1335,7 @@ tr:hover td{background:#f4f8f4;}
       <div class="card-title" id="kd-lista-titulo">📋 Ventas Registradas</div>
       <button class="btn btn-export" onclick="exportarExcel('kardex')">📥 Exportar Excel</button>
     </div>
+    <div id="kd-incompletas-alert"></div>
     <div class="table-wrap">
       <table><thead><tr>
         <th>N° Venta</th><th>Fecha</th><th>Tipo</th><th>Cliente</th>
@@ -10035,9 +10036,37 @@ function limpiarKardexForm(){
   kardexPoblarOrigen();
 }
 
+// Detecta ventas del kárdex con datos incompletos (sin precio de venta o sin cliente),
+// típicamente registros antiguos guardados antes de que esos campos fueran obligatorios.
+function kardexDetectarIncompletas(){
+  const cont = document.getElementById('kd-incompletas-alert');
+  if(!cont) return;
+  const incompletas = (DB.kardex||[])
+    .map((k,i)=>({...k, _idx:i}))
+    .filter(k => !(parseFloat(k.precio_venta)>0) || !k.cliente);
+
+  if(!incompletas.length){ cont.innerHTML=''; return; }
+
+  cont.innerHTML = `<div class="alert alert-error" style="margin-bottom:10px;">
+    ⚠️ Hay ${incompletas.length} venta(s) con datos incompletos (sin precio o sin cliente) — probablemente registradas antes de que esos campos fueran obligatorios. Revísalas para que su utilidad sea correcta:
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+      ${incompletas.map(k=>{
+        const faltantes = [];
+        if(!(parseFloat(k.precio_venta)>0)) faltantes.push('Precio de Venta');
+        if(!k.cliente) faltantes.push('Cliente');
+        return `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:5px;padding:5px 8px;">
+          <span><strong class="td-codigo">${k.codigo}</strong> (${k.tipo==='conv'?'Convencional':'Coco'}) — falta: ${faltantes.join(', ')}</span>
+          <button class="btn btn-secondary btn-sm" onclick="editarKardex(${k._idx})">✏️ Completar</button>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
 function renderKardex(){
   if(!DB.kardex) DB.kardex=[];
   limpiarKardexForm();
+  kardexDetectarIncompletas();
 
   const lista = DB.kardex.filter(k=>k.tipo===kardexTipo).reverse();
 
