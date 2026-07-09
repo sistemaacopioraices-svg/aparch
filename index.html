@@ -374,7 +374,10 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header">
       <div class="card-title">🎫 Tickets de Entrada</div>
-      <button class="btn btn-primary" onclick="abrirModalTicket()">+ Nuevo Ticket</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-dorado" onclick="imprimirTodosTickets()">🖨️ Imprimir Todos</button>
+        <button class="btn btn-primary" onclick="abrirModalTicket()">+ Nuevo Ticket</button>
+      </div>
     </div>
     <!-- TABS CERTIFICACIÓN -->
     <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
@@ -406,6 +409,7 @@ tr:hover td{background:#f9f6f1;}
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
         </label>
+        <button class="btn btn-dorado" onclick="imprimirTodasGuias()">🖨️ Imprimir Todas</button>
         <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
       </div>
     </div>
@@ -451,7 +455,10 @@ tr:hover td{background:#f9f6f1;}
   <div class="card">
     <div class="card-header">
       <div class="card-title">🧾 Comprobantes de Pago</div>
-      <button class="btn btn-primary" onclick="abrirModalComprobante()">+ Nuevo Comprobante</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-dorado" onclick="imprimirTodosComprobantes()">🖨️ Imprimir Todos</button>
+        <button class="btn btn-primary" onclick="abrirModalComprobante()">+ Nuevo Comprobante</button>
+      </div>
     </div>
     <!-- TABS CERTIFICACIÓN -->
     <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
@@ -3586,13 +3593,12 @@ function eliminarTicket(i){
 }
 
 // Print ticket
-function verPrintTicket(idx){
-  const t=DB.tickets[idx];
+function generarTicketHTML(t){
   const eG=parseFloat(t.exp_g||0), eP=parseFloat(t.exp_pct||0).toFixed(2);
   const sG=parseFloat(t.seg_g||0), sP=parseFloat(t.seg_pct||0).toFixed(2);
   const cG=parseFloat(t.cas_g||0), cP=parseFloat(t.cas_pct||0).toFixed(2);
-  document.getElementById('print-ticket-content').innerHTML=`
-  <div id="print-zona-ticket" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:420px;margin:0 auto;padding:22px 18px;">
+  return `
+  <div class="ticket-bloque" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:420px;margin:0 auto;padding:22px 18px;border:1px solid #ccc;border-radius:8px;">
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
@@ -3630,12 +3636,38 @@ function verPrintTicket(idx){
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">V°B° Gerente</div>
     </div>
   </div>`;
+}
+
+function verPrintTicket(idx){
+  const t=DB.tickets[idx];
+  document.getElementById('print-ticket-content').innerHTML=`<div id="print-zona-ticket">${generarTicketHTML(t)}</div>`;
   abrirModal('modal-print-ticket');
 }
 function imprimirTicket(){
   const c=document.getElementById('print-zona-ticket').outerHTML;
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>Ticket APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;}@page{size:80mm auto;margin:6mm;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  w.document.close();
+}
+
+// Imprime TODOS los tickets actualmente visibles (respeta el filtro de búsqueda/pestaña activo)
+function imprimirTodosTickets(){
+  const filtro = (document.getElementById('search-ticket')?.value||'').toLowerCase();
+  const lista = DB.tickets.filter(t=>{
+    const matchTxt = !filtro || (t.codigo||'').toLowerCase().includes(filtro)||(t.productor||'').toLowerCase().includes(filtro)||(t.lote||'').toLowerCase().includes(filtro);
+    const matchTab = _certifMatch(t.certificacion, _tkTab);
+    return matchTxt && matchTab;
+  });
+  if(!lista.length){ alert('No hay tickets para imprimir con el filtro actual.'); return; }
+  if(!confirm(`¿Imprimir ${lista.length} ticket(s)?`)) return;
+
+  const bloques = lista.map((t,i)=>`<div style="page-break-after:${i===lista.length-1?'avoid':'always'};padding:8px 0;">${generarTicketHTML(t)}</div>`).join('\n');
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Tickets APARCH</title><meta charset="UTF-8"><style>
+    *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;}
+    @page{size:A4;margin:8mm;} table{border-collapse:collapse;width:100%;}
+    @media print{ body{print-color-adjust:exact;-webkit-print-color-adjust:exact;} }
+  </style></head><body>${bloques}<script>window.onload=function(){window.print();};<\/script></body></html>`);
   w.document.close();
 }
 
@@ -5508,6 +5540,44 @@ function verPrintComp(idx){
     ${copiaCaja}
   </div>`;
   abrirModal('modal-print-comp');
+}
+
+// Imprime TODOS los comprobantes actualmente visibles (respeta el filtro de búsqueda/pestaña activo)
+function imprimirTodosComprobantes(){
+  const filtro = (document.getElementById('search-comp')?.value||'').toLowerCase();
+  const lista = DB.comprobantes.filter(c=>{
+    const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
+    const certif = guiasRef.length ? (DB.guias.find(x=>x.codigo===guiasRef[0])?.certificacion||'') : '';
+    const matchTxt = !filtro || (c.codigo||'').toLowerCase().includes(filtro)||(c.productor||'').toLowerCase().includes(filtro)||(c.dni||'').toLowerCase().includes(filtro);
+    return matchTxt && _certifMatch(certif, _cpTab) && c.estado!=='Anulado';
+  });
+  if(!lista.length){ alert('No hay comprobantes para imprimir con el filtro actual.'); return; }
+  if(!confirm(`¿Imprimir ${lista.length} comprobante(s)? (${lista.length*2} páginas: copia Productor + copia Caja de cada uno)`)) return;
+
+  const bloques = lista.map((c,i)=>{
+    const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
+    const tot = guiasRef.reduce((a,cod)=>{
+      const g = DB.guias.find(x=>x.codigo===cod);
+      return a + (g ? parseFloat(g.valorrecibido||0) : 0);
+    }, 0) || parseFloat(c.total_guia||0);
+    const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0);
+    const saldo  = Math.max(0, tot - pagado);
+    const copiaProductor = generarCopiaComprobante(c, tot, pagado, saldo, '📄 Copia Productor', '#1a5c2e');
+    const copiaCaja      = generarCopiaComprobante(c, tot, pagado, saldo, '🏦 Copia Caja',      '#c8951a');
+    return `<div style="page-break-after:${i===lista.length-1?'avoid':'always'};padding:8px 0;display:flex;flex-direction:column;gap:10px;">
+      ${copiaProductor}
+      <div style="border-top:2px dashed #aaa;margin:4px 0;"></div>
+      ${copiaCaja}
+    </div>`;
+  }).join('\n');
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Comprobantes APARCH</title><meta charset="UTF-8"><style>
+    *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
+    @page{size:A4;margin:8mm;} table{border-collapse:collapse;width:100%;}
+    @media print{ body{print-color-adjust:exact;-webkit-print-color-adjust:exact;} }
+  </style></head><body>${bloques}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  w.document.close();
 }
 
 function imprimirComprobante(){
