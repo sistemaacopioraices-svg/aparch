@@ -9917,24 +9917,28 @@ function editarKardex(idx){
   document.getElementById('kd-cliente').value      = k.cliente||'';
   document.getElementById('kd-observaciones').value= k.observaciones||'';
 
+  // IMPORTANTE: preparar todo el estado (orígenes, kg acopiados manual, gastos) ANTES
+  // de llamar a toggleVentaManual()/kardexRecalcularTotales(), para que esas funciones
+  // no recalculen de golpe con el formulario todavía vacío y pisen los datos reales.
+  if(!k.venta_manual){
+    kardexOrigenesTemp = (k.origenes_detalle||[]).map(o=>({...o}));
+    kardexKgAcopiadosEditado = true;
+  } else {
+    kardexOrigenesTemp = [];
+  }
+  kardexGastosSeleccionados = [...(k.gastos_refs||[])];
+
   const chkManual = document.getElementById('kd-venta-manual');
   chkManual.checked = !!k.venta_manual;
   toggleVentaManual();
 
-  if(k.venta_manual){
-    document.getElementById('kd-kg-acopiados').value = k.kg_acopiados||'';
-    document.getElementById('kd-costo-prom').value   = k.costo_prom||'';
-  } else {
-    kardexOrigenesTemp = (k.origenes_detalle||[]).map(o=>({...o}));
-    kardexKgAcopiadosEditado = true;
-    kardexRenderOrigenes();
-    document.getElementById('kd-kg-acopiados').value = k.kg_acopiados||'';
-    document.getElementById('kd-costo-prom').value   = k.costo_prom||'';
-  }
+  // Ahora sí, fijar los valores reales de la venta (por si toggleVentaManual recalculó algo distinto)
+  document.getElementById('kd-kg-acopiados').value = k.kg_acopiados||'';
+  document.getElementById('kd-costo-prom').value   = k.costo_prom||'';
+  if(!k.venta_manual) kardexRenderOrigenes();
 
   document.getElementById('kd-kg-venta').value     = k.kg_venta||'';
   document.getElementById('kd-precio-venta').value = k.precio_venta||'';
-  kardexGastosSeleccionados = [...(k.gastos_refs||[])];
   kardexRenderGastos();
   calcKardex();
 
