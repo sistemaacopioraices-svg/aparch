@@ -4074,25 +4074,30 @@ function renderGuias(filtro, desde, hasta, estado){
   const totalQQ    = lista.reduce((a,g)=>a+((g.tickets_detalle||[]).reduce((b,t)=>b+(parseFloat(t.pesoneto)||0),0)/55.2),0);
 
   tb.innerHTML=paginaGuias.map(g=>{
-    const ri=DB.guias.indexOf(g);
-    const ep=estadoPagoLive(g);
-    const badgeEp=ep==='Pagado Total'?'badge-verde':ep==='Pago Parcial'?'badge-dorado':'badge-rojo';
-    return `<tr>
-      <td class="td-codigo">${g.codigo}</td><td>${fechaDisplay(g.fecha)}</td><td>${g.campana||'—'}</td>
-      <td><strong>${g.productor||'—'}</strong></td><td>${g.dni||'—'}</td>
-      <td>${g.producto||'—'}</td><td><span class="badge badge-verde" style="font-size:0.65rem;">${g.certificacion||'—'}</span></td>
-      <td>${g.base||'—'}</td><td>${g.formaentrega||'—'}</td>
-      <td style="text-align:center;font-weight:700;color:#1b5e20;">${g.rend_export||'—'}%</td>
-      <td style="text-align:right;">S/.${fmt(g.precioqq)}</td>
-      <td style="text-align:right;">S/.${getPrecioKgGuia(g).toFixed(4)}</td>
-      <td style="text-align:right;font-weight:800;color:#e65100;">S/.${fmtPago(g.valorrecibido)}</td>
-      <td><span class="badge ${badgeEp}">${ep}</span></td>
-      <td><div style="display:flex;gap:3px;">
-        <button class="btn btn-secondary btn-sm" onclick="abrirModalGuia(${ri})">✏️</button>
-        <button class="btn btn-dorado btn-sm" onclick="verPrintGuia(${ri})">🖨️</button>
-        <button class="btn btn-danger btn-sm" onclick="eliminarGuia(${ri})">🗑️</button>
-      </div></td>
-    </tr>`;
+    try{
+      const ri=DB.guias.indexOf(g);
+      const ep=estadoPagoLive(g);
+      const badgeEp=ep==='Pagado Total'?'badge-verde':ep==='Pago Parcial'?'badge-dorado':'badge-rojo';
+      return `<tr>
+        <td class="td-codigo">${g.codigo}</td><td>${fechaDisplay(g.fecha)}</td><td>${g.campana||'—'}</td>
+        <td><strong>${g.productor||'—'}</strong></td><td>${g.dni||'—'}</td>
+        <td>${g.producto||'—'}</td><td><span class="badge badge-verde" style="font-size:0.65rem;">${g.certificacion||'—'}</span></td>
+        <td>${g.base||'—'}</td><td>${g.formaentrega||'—'}</td>
+        <td style="text-align:center;font-weight:700;color:#1b5e20;">${g.rend_export||'—'}%</td>
+        <td style="text-align:right;">S/.${fmt(g.precioqq)}</td>
+        <td style="text-align:right;">S/.${getPrecioKgGuia(g).toFixed(4)}</td>
+        <td style="text-align:right;font-weight:800;color:#e65100;">S/.${fmtPago(g.valorrecibido)}</td>
+        <td><span class="badge ${badgeEp}">${ep}</span></td>
+        <td><div style="display:flex;gap:3px;">
+          <button class="btn btn-secondary btn-sm" onclick="abrirModalGuia(${ri})">✏️</button>
+          <button class="btn btn-dorado btn-sm" onclick="verPrintGuia(${ri})">🖨️</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarGuia(${ri})">🗑️</button>
+        </div></td>
+      </tr>`;
+    }catch(e){
+      console.warn('Error al renderizar guía', g.codigo, e);
+      return `<tr><td colspan="15" style="color:#c62828;">⚠️ Error al mostrar la guía ${g.codigo||'(sin código)'} — revisa sus datos.</td></tr>`;
+    }
   }).join('')
   + `<tr style="background:#f0faf4;font-weight:700;font-size:0.82rem;">
       <td colspan="12" style="text-align:right;color:#555;">Totales filtro (${lista.length} guías):</td>
@@ -4102,6 +4107,7 @@ function renderGuias(filtro, desde, hasta, estado){
   renderPager('guias', lista.length, 'guias-pager');
 }
 function filtrarGuias(){
+  _resetPag('guias');
   const q      = document.getElementById('search-guia').value.toLowerCase();
   const desde  = document.getElementById('filter-guia-desde').value;
   const hasta  = document.getElementById('filter-guia-hasta').value;
