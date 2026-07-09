@@ -1220,10 +1220,15 @@ tr:hover td{background:#f4f8f4;}
       <div class="stat-val" id="kd-costo">S/. 0</div>
       <div class="stat-sub">Lo que se pagó</div>
     </div>
+    <div class="stat-card" style="border-left-color:#e65100;">
+      <div class="stat-label">🚚 Gastos (flete/estiba)</div>
+      <div class="stat-val" id="kd-gastos-stat" style="color:#e65100;">S/. 0</div>
+      <div class="stat-sub">Ya descontados de la utilidad</div>
+    </div>
     <div class="stat-card" style="border-left-color:#2e7d32;">
       <div class="stat-label">📈 Utilidad</div>
       <div class="stat-val" id="kd-utilidad">S/. 0</div>
-      <div class="stat-sub">Ingreso - Costo</div>
+      <div class="stat-sub">Ingreso − Costo − Gastos</div>
     </div>
   </div>
 
@@ -10036,7 +10041,8 @@ function renderKardex(){
   const totalVendido = lista.reduce((a,k)=>a+(parseFloat(k.kg_venta)||0),0);
   const totalIngreso = lista.reduce((a,k)=>a+(parseFloat(k.ingreso)||0),0);
   const totalCosto   = lista.reduce((a,k)=>a+(parseFloat(k.costo)||0),0);
-  const totalUtil    = totalIngreso - totalCosto;
+  const totalGastos  = lista.reduce((a,k)=>a+(parseFloat(k.gastos_total)||0),0);
+  const totalUtil    = totalIngreso - totalCosto - totalGastos;
 
   // Stock disponible
   let totalAcopiado = 0;
@@ -10065,6 +10071,7 @@ function renderKardex(){
   document.getElementById('kd-vendido').textContent  = fmtKg(totalVendido)+' kg';
   document.getElementById('kd-ingreso').textContent  = 'S/. '+fmtMonto(totalIngreso);
   document.getElementById('kd-costo').textContent    = 'S/. '+fmtMonto(totalCosto);
+  document.getElementById('kd-gastos-stat').textContent = 'S/. '+fmtMonto(totalGastos);
   const utilEl = document.getElementById('kd-utilidad');
   utilEl.textContent = 'S/. '+fmtMonto(totalUtil);
   utilEl.style.color = totalUtil>=0?'#1b5e20':'#c62828';
