@@ -3711,7 +3711,7 @@ function renderTickets(filtro){
   }).sort((a,b)=>{
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
-    return nA - nB;
+    return nB - nA; // más recientes primero
   });
 
   const countEl = document.getElementById('tk-tab-count');
@@ -4241,7 +4241,7 @@ function renderGuias(filtro, desde, hasta, estado){
   }).sort((a,b)=>{
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
-    return nA - nB;
+    return nB - nA; // más recientes primero
   });
   const countEl = document.getElementById('g-tab-count');
   if(countEl){ const v=lista.reduce((a,g)=>a+(parseFloat(g.valorrecibido)||0),0); countEl.textContent=`${lista.length} guías | S/. ${fmtPago(v)}`; }
@@ -5531,7 +5531,7 @@ function renderComprobantes(filtro){
   }).sort((a,b)=>{
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
-    return nA - nB;
+    return nB - nA; // más recientes primero
   });
 
   const countEl = document.getElementById('cp-tab-count');
@@ -6811,7 +6811,7 @@ function renderPrestamos(filtro, tipoF, estadoF){
     const matchTipo  = !tipoF  || p.tipo  === tipoF;
     const matchEst   = !estadoF|| est     === estadoF;
     return matchTxt && matchTipo && matchEst;
-  });
+  }).reverse();
 
   // Stats
   let totalPrestado=0, saldoTotal=0, pagados=0, vencidos=0;
@@ -8114,11 +8114,11 @@ function renderRecibos(filtro, tipoF, cajaF){
     const matchCaja = !codigosApertura || codigosApertura.has(r.apertura_ref||'');
     return matchTxt && matchTipo && matchCaja;
   }).sort((a,b)=>{
-    // Fecha ASC luego correlativo numérico ASC
-    if((a.fecha||'') !== (b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
+    // Fecha DESC luego correlativo numérico DESC (más recientes primero)
+    if((a.fecha||'') !== (b.fecha||'')) return (b.fecha||'').localeCompare(a.fecha||'');
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
-    return nA - nB;
+    return nB - nA;
   });
 
   const tb = document.getElementById('recibos-body');
@@ -8652,9 +8652,9 @@ function eliminarCafeCoco(idx){
 
 function renderCafeCoco(filtro){
   if(!DB.cafecoco) DB.cafecoco=[];
-  const lista = filtro
+  const lista = (filtro
     ? DB.cafecoco.filter(c=>(c.codigo||'').toLowerCase().includes(filtro)||(c.dni||'').toLowerCase().includes(filtro)||(c.nombres||'').toLowerCase().includes(filtro))
-    : DB.cafecoco;
+    : [...DB.cafecoco]).reverse();
 
   // Stats
   const totalKg = DB.cafecoco.reduce((a,c)=>a+(parseFloat(c.kgneto)||0),0);
@@ -9810,7 +9810,7 @@ function renderKardex(){
   if(!DB.kardex) DB.kardex=[];
   limpiarKardexForm();
 
-  const lista = DB.kardex.filter(k=>k.tipo===kardexTipo);
+  const lista = DB.kardex.filter(k=>k.tipo===kardexTipo).reverse();
 
   // Calcular totales para stats
   const totalVendido = lista.reduce((a,k)=>a+(parseFloat(k.kg_venta)||0),0);
@@ -9969,31 +9969,36 @@ function eliminarGanancia(idx){
 
 function renderGanancias(){
   if(!DB.ganancias) DB.ganancias=[];
-  // Ordenar por fecha ascendente (y orden de registro) para que el acumulado tenga sentido cronológico
-  const ordenadas = [...DB.ganancias]
-    .map((g,i)=>({...g, _idxOriginal:i}))
-    .sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-
-  const tb = document.getElementById('ganancias-body');
+  // Calcular el acumulado en orden CRONOLÓGICO (para que la suma tenga sentido),
+  // pero mostrar la tabla con los registros más RECIENTES primero.
   let kgTotal=0, qqTotal=0, ganTotal=0;
-
-  if(!ordenadas.length){
-    tb.innerHTML = `<tr><td colspan="10"><div class="empty-state"><span class="ico">💰</span>Aún no hay ganancias registradas.</div></td></tr>`;
-  } else {
-    tb.innerHTML = ordenadas.map((g,i)=>{
+  const conAcumulado = [...DB.ganancias]
+    .map((g,i)=>({...g, _idxOriginal:i}))
+    .sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''))
+    .map((g,i)=>{
       kgTotal += parseFloat(g.kg||0);
       qqTotal += parseFloat(g.qq||0);
       ganTotal += parseFloat(g.ganancia||0);
+      return {...g, _numero:i+1, _acumulado:ganTotal};
+    });
+  const paraMostrar = [...conAcumulado].reverse();
+
+  const tb = document.getElementById('ganancias-body');
+
+  if(!paraMostrar.length){
+    tb.innerHTML = `<tr><td colspan="10"><div class="empty-state"><span class="ico">💰</span>Aún no hay ganancias registradas.</div></td></tr>`;
+  } else {
+    tb.innerHTML = paraMostrar.map(g=>{
       const badgeTipo = g.tipo==='Coco' ? '🌰 Coco' : '☕ Pergamino';
       return `<tr>
-        <td>${i+1}</td>
+        <td>${g._numero}</td>
         <td>${fechaDisplay(g.fecha)}</td>
         <td class="td-codigo">${g.nventa}</td>
         <td>${badgeTipo}</td>
         <td style="text-align:right;">${fmtKg(g.kg)} kg</td>
         <td style="text-align:right;">${parseFloat(g.qq||0).toFixed(2)}</td>
         <td style="text-align:right;font-weight:700;color:#1b5e20;">S/.${fmtMonto(g.ganancia)}</td>
-        <td style="text-align:right;font-weight:800;color:#1a5c2e;">S/.${fmtMonto(ganTotal)}</td>
+        <td style="text-align:right;font-weight:800;color:#1a5c2e;">S/.${fmtMonto(g._acumulado)}</td>
         <td style="font-size:0.78rem;color:#666;max-width:160px;">${g.observaciones||'—'}</td>
         <td><div style="display:flex;gap:3px;">
           <button class="btn btn-secondary btn-sm" onclick="abrirModalGanancia(${g._idxOriginal})">✏️</button>
@@ -10003,7 +10008,7 @@ function renderGanancias(){
     }).join('');
   }
 
-  document.getElementById('gan-count').textContent = ordenadas.length;
+  document.getElementById('gan-count').textContent = paraMostrar.length;
   document.getElementById('gan-kg-total').textContent = fmtKg(kgTotal)+' kg';
   document.getElementById('gan-qq-total').textContent = qqTotal.toFixed(2);
   document.getElementById('gan-total').textContent = 'S/. '+fmtMonto(ganTotal);
@@ -10158,7 +10163,7 @@ function renderTostadoProduccion(){
     tb.innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="ico">🔥</span>Aún no hay lotes de producción registrados.</div></td></tr>`;
     return;
   }
-  tb.innerHTML = [...DB.tostadoProduccion].map((p)=>{
+  tb.innerHTML = [...DB.tostadoProduccion].reverse().map((p)=>{
     const ri = DB.tostadoProduccion.indexOf(p);
     return `<tr>
       <td class="td-codigo">${p.lote}</td><td>${fechaDisplay(p.fecha)}</td>
@@ -10313,7 +10318,7 @@ function renderTostadoVentas(){
     tb.innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="ico">💰</span>Aún no hay ventas registradas.</div></td></tr>`;
     return;
   }
-  tb.innerHTML = [...DB.tostadoVentas].map((v)=>{
+  tb.innerHTML = [...DB.tostadoVentas].reverse().map((v)=>{
     const ri = DB.tostadoVentas.indexOf(v);
     const util = parseFloat(v.utilidad||0);
     return `<tr>
