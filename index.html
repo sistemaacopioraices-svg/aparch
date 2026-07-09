@@ -2743,6 +2743,38 @@ function nextCodigoCertif(tipo, certif){
   return prefix+String(Math.max(...nums)+1).padStart(5,'0');
 }
 // ── Formato global de montos con coma (funciona en todos los navegadores) ──
+// ══════════════════════════════════════════
+// IMPRESIÓN — helper compartido para todas las ventanas de impresión
+// ══════════════════════════════════════════
+// Usa un Blob + URL.createObjectURL en vez de window.open('')+document.write(),
+// que es una API obsoleta y puede activar heurísticas de "experiencia abusiva" /
+// bloqueo de ventanas emergentes en Chrome. Genera un documento HTML completo,
+// independiente, con su propio <title>, y lo abre en una pestaña nueva.
+function abrirVentanaImpresion(bodyHtml, titulo, extraStyle, customScript){
+  const script = customScript || `window.onload=function(){ setTimeout(function(){ window.print(); }, 80); };`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titulo||'APARCH'}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
+  table{border-collapse:collapse;width:100%;}
+  @media print{ body{print-color-adjust:exact;-webkit-print-color-adjust:exact;} }
+  ${extraStyle||''}
+</style></head><body>
+${bodyHtml}
+<script>${script}<\/script>
+</body></html>`;
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if(!w){
+    alert('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio (ícono en la barra de direcciones) e inténtalo de nuevo.');
+    URL.revokeObjectURL(url);
+    return null;
+  }
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  return w;
+}
+
 function fmt(n, dec=2){
   const v = Math.round(parseFloat(n||0) * Math.pow(10,dec)) / Math.pow(10,dec);
   const parts = v.toFixed(dec).split('.');
@@ -3645,9 +3677,7 @@ function verPrintTicket(idx){
 }
 function imprimirTicket(){
   const c=document.getElementById('print-zona-ticket').outerHTML;
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Ticket APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;}@page{size:80mm auto;margin:6mm;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  abrirVentanaImpresion(c, 'Ticket APARCH', '@page{size:80mm auto;margin:6mm;}');
 }
 
 // Imprime TODOS los tickets actualmente visibles (respeta el filtro de búsqueda/pestaña activo)
@@ -3662,13 +3692,7 @@ function imprimirTodosTickets(){
   if(!confirm(`¿Imprimir ${lista.length} ticket(s)?`)) return;
 
   const bloques = lista.map((t,i)=>`<div style="page-break-after:${i===lista.length-1?'avoid':'always'};padding:8px 0;">${generarTicketHTML(t)}</div>`).join('\n');
-  const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Tickets APARCH</title><meta charset="UTF-8"><style>
-    *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;}
-    @page{size:A4;margin:8mm;} table{border-collapse:collapse;width:100%;}
-    @media print{ body{print-color-adjust:exact;-webkit-print-color-adjust:exact;} }
-  </style></head><body>${bloques}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  abrirVentanaImpresion(bloques, 'Tickets APARCH', '@page{size:A4;margin:8mm;}');
 }
 
 // ══════════════════════════════════════════
@@ -4657,21 +4681,16 @@ let _compIdxActual = -1;
 
 function imprimirGuia(){
   const c=document.getElementById('print-zona-guia').outerHTML;
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Guía APARCH</title><style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
-    table{border-collapse:collapse;width:100%;}
+  const estilo = `
     td,th{font-size:7.5px;padding:2px 3px;}
     @page{size:A4 portrait;margin:5mm;}
-    body{print-color-adjust:exact;-webkit-print-color-adjust:exact;}
     /* Estas reglas se aplican SIEMPRE (no solo en @media print) para que el ajuste
        automático por JavaScript pueda medir el espacio real disponible antes de imprimir. */
     #print-zona-guia{display:flex;flex-direction:column;height:calc(297mm - 10mm);}
     #print-zona-guia > div:first-child{flex:1;min-height:0;overflow:hidden;}
     #print-zona-guia > div:last-child{flex:1;min-height:0;overflow:hidden;}
-    .copia-div{display:flex;flex-direction:column;}
-  </style></head><body>${c}<script>
+    .copia-div{display:flex;flex-direction:column;}`;
+  const script = `
     window.onload=function(){
       // Ajuste automático: si el contenido de alguna copia no cabe en el espacio asignado,
       // se reduce proporcionalmente (nunca se recorta) para que las 2 copias entren en 1 sola hoja.
@@ -4690,10 +4709,9 @@ function imprimirGuia(){
           }
         });
       }catch(e){ console.warn('Ajuste de impresión de guía:', e); }
-      setTimeout(function(){ window.print(); }, 50);
-    };
-  <\/script></body></html>`);
-  w.document.close();
+      setTimeout(function(){ window.print(); }, 80);
+    };`;
+  abrirVentanaImpresion(c, 'Guía APARCH', estilo, script);
 }
 
 // ══════════════════════════════════════════
@@ -5577,28 +5595,17 @@ function imprimirTodosComprobantes(){
     </div>`;
   }).join('\n');
 
-  const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Comprobantes APARCH</title><meta charset="UTF-8"><style>
-    *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
-    @page{size:A4;margin:8mm;} table{border-collapse:collapse;width:100%;}
-    @media print{ body{print-color-adjust:exact;-webkit-print-color-adjust:exact;} }
-  </style></head><body>${bloques}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  abrirVentanaImpresion(bloques, 'Comprobantes APARCH', '@page{size:A4;margin:8mm;}');
 }
 
 function imprimirComprobante(){
   const c=document.getElementById('print-zona-comp').outerHTML;
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Comprobante APARCH</title><style>
-    *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
+  const estilo = `
     @page{size:A4;margin:8mm;}
-    body{print-color-adjust:exact;-webkit-print-color-adjust:exact;}
-    /* Se aplican siempre (no solo en @media print) para que el ajuste automático por
-       JavaScript pueda medir el espacio real disponible antes de imprimir. */
     #print-zona-comp{display:flex;flex-direction:column;height:calc(297mm - 16mm);}
     #print-zona-comp > div:first-child{flex:1;min-height:0;overflow:hidden;}
-    #print-zona-comp > div:last-child{flex:1;min-height:0;overflow:hidden;}
-  </style></head><body>${c}<script>
+    #print-zona-comp > div:last-child{flex:1;min-height:0;overflow:hidden;}`;
+  const script = `
     window.onload=function(){
       try{
         var cont = document.getElementById('print-zona-comp');
@@ -5615,10 +5622,9 @@ function imprimirComprobante(){
           }
         });
       }catch(e){ console.warn('Ajuste de impresión de comprobante:', e); }
-      setTimeout(function(){ window.print(); }, 50);
-    };
-  <\/script></body></html>`);
-  w.document.close();
+      setTimeout(function(){ window.print(); }, 80);
+    };`;
+  abrirVentanaImpresion(c, 'Comprobante APARCH', estilo, script);
 }
 
 // ══════════════════════════════════════════
@@ -7403,35 +7409,9 @@ function ejecutarImpresionMasiva(){
       <div style="font-size:12px;color:#aaa;margin-top:4px;">Filtro: ${tipo==='todas'?'Todas':tipo==='pendientes'?'Pendientes/Parciales':'Pagadas'}</div>
     </div>`;
 
-  const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <title>Guías APARCH — ${DB.campana?DB.campana.nombre:''}</title>
-  <meta charset="UTF-8">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; background: #fff; }
-    @page { size: A4; margin: 8mm; }
-    @media print {
-      .guia-bloque { break-inside: avoid; }
-      body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-    }
-    table { border-collapse: collapse; width: 100%; }
-    .copia-guia { margin-bottom: 0; }
-  </style>
-</head>
-<body>
-  ${portada}
-  ${todasLasCopias}
-  <script>
-    window.onload = function(){
-      setTimeout(function(){ window.print(); }, 800);
-    };
-  <\/script>
-</body>
-</html>`);
-  w.document.close();
+  const w = abrirVentanaImpresion(portada + todasLasCopias, `Guías APARCH — ${DB.campana?DB.campana.nombre:''}`,
+    '.guia-bloque{break-inside:avoid;} @page{size:A4;margin:8mm;} .copia-guia{margin-bottom:0;}',
+    'window.onload=function(){ setTimeout(function(){ window.print(); }, 800); };');
 }
 
 // ══════════════════════════════════════════
@@ -8063,9 +8043,7 @@ function verPrintRecibo(idx){
 
 function imprimirRecibo(){
   const c = document.getElementById('print-zona-recibo').outerHTML;
-  const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Recibo APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;padding:12px;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  abrirVentanaImpresion(c, 'Recibo APARCH', 'body{padding:12px;}');
 }
 
 // ── IMPRESIÓN DE ARQUEO/CIERRE ──
@@ -8133,9 +8111,7 @@ function verPrintCierre(idx){
 
 function imprimirCierre(){
   const c = document.getElementById('print-zona-cierre').outerHTML;
-  const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Arqueo de Caja APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  abrirVentanaImpresion(c, 'Cierre de Caja APARCH', 'body{padding:12px;}');
 }
 
 // ══════════════════════════════════════════
@@ -8326,9 +8302,7 @@ function verPrintArqueo(idx){
 
 function imprimirArqueo(){
   const c = document.getElementById('print-zona-arqueo').outerHTML;
-  const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Arqueo de Caja APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  abrirVentanaImpresion(c, 'Arqueo de Caja APARCH', 'body{padding:12px;}');
 }
 
 // ══════════════════════════════════════════
@@ -8587,9 +8561,7 @@ function verPrintCafeCoco(idx){
 
 function imprimirCafeCoco(){
   const c = document.getElementById('print-zona-cc').outerHTML;
-  const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Compra Café Coco APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;padding:12px;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  abrirVentanaImpresion(c, 'Compra Café Coco APARCH', 'body{padding:12px;}');
 }
 
 // ── EXPORTAR EXCEL ──
@@ -9629,9 +9601,7 @@ function verPrintKardex(idx){
 
 function imprimirKardex(){
   const c = document.getElementById('print-zona-kardex').outerHTML;
-  const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Venta APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${c}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  abrirVentanaImpresion(c, 'Venta APARCH', 'body{padding:12px;}');
 }
 
 function limpiarKardexForm(){
