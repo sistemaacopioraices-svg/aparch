@@ -1287,6 +1287,11 @@ tr:hover td{background:#f4f8f4;}
         <label>Costo Promedio (S/./kg)</label>
         <input type="text" id="kd-costo-prom" readonly style="background:#fff8e1;color:#e65100;font-weight:700;">
       </div>
+      <div class="form-group form-full" style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:10px 14px;">
+        <label style="color:#e65100;">🚚 Gastos Adicionales de esta Venta <span style="font-weight:400;color:#888;font-size:0.7rem;">(opcional — flete, estiba, carga... marca los egresos de Caja que correspondan a esta venta; se descuentan de la utilidad)</span></label>
+        <div id="kd-gastos-lista" style="display:flex;flex-direction:column;gap:5px;margin-top:8px;max-height:170px;overflow-y:auto;background:#fff;border-radius:6px;padding:6px;"></div>
+        <div style="text-align:right;margin-top:6px;font-size:0.85rem;">Total Gastos: <strong id="kd-gastos-total-txt" style="color:#e65100;">S/. 0.00</strong></div>
+      </div>
       <div class="form-group">
         <label>Ingreso Total (S/.)</label>
         <input type="text" id="kd-ingreso-total" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;font-size:1.05rem;">
@@ -1294,6 +1299,10 @@ tr:hover td{background:#f4f8f4;}
       <div class="form-group">
         <label>Costo Total (S/.)</label>
         <input type="text" id="kd-costo-total" readonly style="background:#fff8e1;color:#e65100;font-weight:800;">
+      </div>
+      <div class="form-group">
+        <label>Gastos Adicionales (S/.)</label>
+        <input type="text" id="kd-gastos-total" readonly style="background:#fff3e0;color:#e65100;font-weight:700;">
       </div>
       <div class="form-group">
         <label>Utilidad (S/.)</label>
@@ -6067,8 +6076,8 @@ function exportarExcel(tipo){
     d=(DB.cafecoco||[]).map(c=>[c.codigo,c.fecha,c.dni,c.nombres,c.sacos,c.kgbruto,c.tara,c.kgneto,c.preciokg,c.total,c.observacion]);
     n='CompraCafeCoco_APARCH';
   } else if(tipo==='kardex'){
-    h=['N° Venta','Fecha','Tipo','Cliente','KG Vendidos','Precio S/./kg','Ingreso S/.','Costo S/.','Utilidad S/.','Margen%','Manual','Obs.'];
-    d=(DB.kardex||[]).map(k=>[k.codigo,k.fecha,k.tipo==='conv'?'Convencional':'Coco',k.cliente,parseFloat(k.kg_venta||0),parseFloat(k.precio_venta||0),parseFloat(k.ingreso||0),parseFloat(k.costo||0),parseFloat(k.utilidad||0),parseFloat(k.margen||0),k.venta_manual?'Sí':'No',k.observaciones]);
+    h=['N° Venta','Fecha','Tipo','Cliente','KG Vendidos','Precio S/./kg','Ingreso S/.','Costo S/.','Gastos S/.','Utilidad S/.','Margen%','Manual','Obs.'];
+    d=(DB.kardex||[]).map(k=>[k.codigo,k.fecha,k.tipo==='conv'?'Convencional':'Coco',k.cliente,parseFloat(k.kg_venta||0),parseFloat(k.precio_venta||0),parseFloat(k.ingreso||0),parseFloat(k.costo||0),parseFloat(k.gastos_total||0),parseFloat(k.utilidad||0),parseFloat(k.margen||0),k.venta_manual?'Sí':'No',k.observaciones]);
     n='KardexVentas_APARCH';
   } else if(tipo==='ganancias'){
     h=['N°','Fecha','N° de Venta','Tipo','KG Vendidos','QQ Vendidos','Ganancia S/.','Obs.'];
@@ -9689,6 +9698,55 @@ function kardexRenderDiferencia(i){
 }
 
 let kardexKgAcopiadosEditado = false;
+let kardexGastosSeleccionados = [];
+
+// Lista los egresos de Caja candidatos a ser "gastos de esta venta" (flete, estiba, carga...).
+// Solo muestra los que NO están ya usados por OTRA venta del kárdex (o los que ya
+// están marcados en la venta que se está editando, para que sigan apareciendo marcados).
+function kardexRenderGastos(){
+  const cont = document.getElementById('kd-gastos-lista');
+  if(!cont) return;
+  const REGEX_GASTO = /flete|transporte|estiba|carga|carrera|movilidad|peaje|combustible|acarreo/i;
+  const candidatos = (DB.recibos||[]).filter(r=>{
+    if(r.tipo!=='egreso') return false;
+    const yaUsado = r.usado_gasto_venta && r.usado_gasto_venta !== document.getElementById('kd-codigo').value;
+    if(yaUsado) return false;
+    return REGEX_GASTO.test(r.concepto||'') || REGEX_GASTO.test(r.observaciones||'');
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  if(!candidatos.length){
+    cont.innerHTML = `<div style="color:#999;font-size:0.78rem;font-style:italic;padding:6px;">No se encontraron egresos de caja con concepto de flete/transporte/estiba. Puedes registrarlos primero en Caja → Recibo de Egreso.</div>`;
+    kardexCalcGastos();
+    return;
+  }
+  cont.innerHTML = candidatos.map(r=>{
+    const checked = kardexGastosSeleccionados.includes(r.codigo) ? 'checked' : '';
+    return `<label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:5px;cursor:pointer;font-size:0.8rem;" onmouseover="this.style.background='#fff3e0'" onmouseout="this.style.background=''">
+      <input type="checkbox" value="${r.codigo}" ${checked} onchange="kardexToggleGasto('${r.codigo}',this.checked)">
+      <span class="td-codigo" style="min-width:75px;">${r.codigo}</span>
+      <span style="flex:1;color:#555;">${r.concepto||'—'} <span style="color:#999;">(${fechaDisplay(r.fecha)})</span></span>
+      <strong style="color:#e65100;">S/. ${fmt(r.monto)}</strong>
+    </label>`;
+  }).join('');
+  kardexCalcGastos();
+}
+
+function kardexToggleGasto(codigo, checked){
+  if(checked && !kardexGastosSeleccionados.includes(codigo)) kardexGastosSeleccionados.push(codigo);
+  else if(!checked) kardexGastosSeleccionados = kardexGastosSeleccionados.filter(c=>c!==codigo);
+  kardexCalcGastos();
+}
+
+function kardexTotalGastosSeleccionados(){
+  return (DB.recibos||[]).filter(r=>kardexGastosSeleccionados.includes(r.codigo)).reduce((a,r)=>a+(parseFloat(r.monto)||0),0);
+}
+
+function kardexCalcGastos(){
+  const total = kardexTotalGastosSeleccionados();
+  const el = document.getElementById('kd-gastos-total-txt');
+  if(el) el.textContent = 'S/. '+fmtMonto(total);
+  calcKardex();
+}
 
 // Se ejecuta cuando el usuario edita manualmente "KG Acopiados" (por diferencia de balanza).
 // Reparte el MISMO costo total pagado (fijo, según los orígenes seleccionados) entre el
@@ -9734,15 +9792,17 @@ function calcKardex(){
   const kgVenta   = parseFloat(document.getElementById('kd-kg-venta').value)||0;
   const precioV   = parseFloat(document.getElementById('kd-precio-venta').value)||0;
   const costoProm = parseFloat(document.getElementById('kd-costo-prom').value)||0;
+  const gastos    = kardexTotalGastosSeleccionados();
 
   const ingreso  = Math.round(kgVenta * precioV * 10) / 10;
   const costo    = Math.round(kgVenta * costoProm * 10) / 10;
-  const utilidad = Math.round((ingreso - costo) * 10) / 10;
+  const utilidad = Math.round((ingreso - costo - gastos) * 10) / 10;
   const margen   = ingreso > 0 ? (utilidad/ingreso*100) : 0;
 
   // Montos con formato 50,000.00 — usar campos de texto para display
   document.getElementById('kd-ingreso-total').value  = fmtMonto(ingreso);
   document.getElementById('kd-costo-total').value    = fmtMonto(costo);
+  document.getElementById('kd-gastos-total').value   = fmtMonto(gastos);
   document.getElementById('kd-utilidad-mov').value   = fmtMonto(utilidad);
 
   const utilEl = document.getElementById('kd-utilidad-mov');
@@ -9792,10 +9852,24 @@ function guardarKardex(){
     : nextCodigo(DB.kardex.filter(k=>k.tipo===kardexTipo), kardexTipo==='conv'?'VTA-CONV-':'VTA-COCO-');
 
   const costoProm = parseFloat(document.getElementById('kd-costo-prom').value)||0;
+  const gastos    = kardexTotalGastosSeleccionados();
   const ingreso   = Math.round(kgVenta * precio * 10) / 10;
   const costo     = Math.round(kgVenta * costoProm * 10) / 10;
-  const utilidad  = Math.round((ingreso - costo) * 10) / 10;
+  const utilidad  = Math.round((ingreso - costo - gastos) * 10) / 10;
   const margen    = ingreso>0?(utilidad/ingreso*100):0;
+
+  // Liberar la marca de "usado" de los egresos que estaban antes (si se está editando)
+  if(editandoKardexIdx>=0){
+    (DB.kardex[editandoKardexIdx].gastos_refs||[]).forEach(cod=>{
+      const r = DB.recibos.find(x=>x.codigo===cod);
+      if(r && r.usado_gasto_venta===codigo) delete r.usado_gasto_venta;
+    });
+  }
+  // Marcar los egresos seleccionados ahora como usados por esta venta
+  kardexGastosSeleccionados.forEach(cod=>{
+    const r = DB.recibos.find(x=>x.codigo===cod);
+    if(r) r.usado_gasto_venta = codigo;
+  });
 
   const mov = {
     codigo, tipo:kardexTipo, fecha, cliente,
@@ -9808,6 +9882,8 @@ function guardarKardex(){
     costo_prom: costoProm.toFixed(4),
     ingreso: ingreso.toFixed(2),
     costo: costo.toFixed(2),
+    gastos_refs: [...kardexGastosSeleccionados],
+    gastos_total: gastos.toFixed(2),
     utilidad: utilidad.toFixed(2),
     margen: margen.toFixed(2),
     observaciones: document.getElementById('kd-observaciones').value,
@@ -9853,6 +9929,8 @@ function editarKardex(idx){
 
   document.getElementById('kd-kg-venta').value     = k.kg_venta||'';
   document.getElementById('kd-precio-venta').value = k.precio_venta||'';
+  kardexGastosSeleccionados = [...(k.gastos_refs||[])];
+  kardexRenderGastos();
   calcKardex();
 
   showAlert('kd-form-alert','success', `✏️ Editando venta ${k.codigo}. Modifica los campos y presiona "Registrar Venta" para guardar los cambios.`);
@@ -9904,6 +9982,11 @@ function verPrintKardex(idx){
       <div style="background:${util>=0?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:8px;color:${util>=0?'#2e7d32':'#c62828'};">UTILIDAD</div><div style="font-weight:900;font-size:13px;color:${util>=0?'#2e7d32':'#c62828'};">S/.${fmtMonto(util)}</div></div>
       <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#555;">MARGEN</div><div style="font-weight:800;font-size:13px;">${parseFloat(k.margen||0).toFixed(1)}%</div></div>
     </div>
+    ${(k.gastos_refs&&k.gastos_refs.length)?`<div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:9.5px;">
+      <div style="font-weight:800;color:#e65100;margin-bottom:3px;">🚚 Gastos Adicionales Descontados</div>
+      ${k.gastos_refs.map(cod=>{ const r=(DB.recibos||[]).find(x=>x.codigo===cod); return r?`<div>• ${r.codigo} — ${r.concepto||''}: S/.${fmt(r.monto)}</div>`:''; }).join('')}
+      <div style="font-weight:800;color:#c62828;margin-top:3px;border-top:1px dashed #ffb74d;padding-top:3px;">Total Gastos: S/.${fmtMonto(k.gastos_total)}</div>
+    </div>`:''}
     ${origenesHtml}
     ${k.observaciones?`<div style="font-size:10px;margin-top:8px;"><b>Obs.:</b> ${k.observaciones}</div>`:''}
     <div style="font-size:8px;color:#999;margin-top:16px;text-align:right;">Registrado por: ${k.usuario||'—'}</div>
@@ -9930,11 +10013,14 @@ function limpiarKardexForm(){
   document.getElementById('kd-costo-prom').value    = '';
   document.getElementById('kd-ingreso-total').value = '';
   document.getElementById('kd-costo-total').value   = '';
+  document.getElementById('kd-gastos-total').value  = '';
   document.getElementById('kd-utilidad-mov').value  = '';
   document.getElementById('kd-margen').value        = '';
   document.getElementById('kd-observaciones').value = '';
   document.getElementById('kd-origenes-lista').innerHTML = '';
   document.getElementById('kd-form-alert').innerHTML = '';
+  kardexGastosSeleccionados = [];
+  kardexRenderGastos();
   const chkManual = document.getElementById('kd-venta-manual');
   if(chkManual){ chkManual.checked = false; toggleVentaManual(); }
   kardexPoblarOrigen();
@@ -10025,6 +10111,14 @@ function renderKardex(){
 
 function eliminarKardex(i){
   if(!confirm('¿Eliminar esta venta del kárdex?')) return;
+  const k = DB.kardex[i];
+  // Liberar los egresos de caja que estaban marcados como "gasto de esta venta"
+  if(k && k.gastos_refs && k.gastos_refs.length){
+    k.gastos_refs.forEach(cod=>{
+      const r = DB.recibos.find(x=>x.codigo===cod);
+      if(r && r.usado_gasto_venta===k.codigo) delete r.usado_gasto_venta;
+    });
+  }
   DB.kardex.splice(i,1); guardarDB(); renderKardex();
 }
 
