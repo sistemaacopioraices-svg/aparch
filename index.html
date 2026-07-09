@@ -1433,7 +1433,12 @@ tr:hover td{background:#f9f6f1;}
       <div class="form-grid-2">
         <div class="form-group"><label>Fecha</label><input type="date" id="tv-fecha"></div>
         <div class="form-group"><label>N° de Venta</label><input type="text" id="tv-nventa" placeholder="Ej. VTA-TOST-00001"></div>
-        <div class="form-group"><label>Cliente</label><input type="text" id="tv-cliente" placeholder="Nombre del cliente..."></div>
+        <div class="form-group">
+          <label>Cliente <span style="font-weight:400;color:#888;font-size:0.7rem;">(busca entre tus socios o escribe uno externo)</span></label>
+          <input type="text" id="tv-cliente" list="tv-cliente-list" placeholder="Nombre del cliente..." oninput="tostadoAutocompletarCliente()">
+          <datalist id="tv-cliente-list"></datalist>
+        </div>
+        <div class="form-group"><label>DNI <span style="font-weight:400;color:#888;font-size:0.7rem;">(automático si es socio — editable)</span></label><input type="text" id="tv-cliente-dni" placeholder="DNI del cliente..."></div>
         <div class="form-group"><label>KG Vendidos</label><input type="number" id="tv-kg" step="0.01" min="0" oninput="tostadoCalcVenta()"></div>
         <div class="form-group"><label>Precio de Venta (S/./kg)</label><input type="number" id="tv-precio" step="0.01" min="0" oninput="tostadoCalcVenta()" style="font-weight:800;border:2px solid var(--dorado);"></div>
         <div class="form-group"><label>Costo (S/./kg) <span style="font-weight:400;color:#888;font-size:0.7rem;">(según promedio actual)</span></label><input type="text" id="tv-costo-kg" readonly style="background:#eee;"></div>
@@ -1851,6 +1856,19 @@ tr:hover td{background:#f9f6f1;}
     </div>
   </div>
   <div id="print-kardex-content"></div>
+</div></div>
+
+<!-- ══════════ MODAL IMPRESIÓN VENTA CAFÉ TOSTADO ══════════ -->
+<div class="modal-overlay" id="modal-print-tostado">
+<div class="modal" style="max-width:560px;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Vista Previa Comprobante de Compra</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="imprimirTostadoVenta()">🖨️ Imprimir</button>
+      <button class="modal-close" onclick="cerrarModal('modal-print-tostado')">✕</button>
+    </div>
+  </div>
+  <div id="print-tostado-content"></div>
 </div></div>
 
 <!-- ══════════ MODAL REGISTRO DE GANANCIAS ══════════ -->
@@ -10153,17 +10171,34 @@ function limpiarTostadoVentaForm(){
   document.getElementById('tv-fecha').value = hoy();
   document.getElementById('tv-nventa').value = nextCodigo(DB.tostadoVentas||[], 'VTA-TOST-');
   document.getElementById('tv-cliente').value = '';
+  document.getElementById('tv-cliente-dni').value = '';
   document.getElementById('tv-kg').value = '';
   document.getElementById('tv-precio').value = '';
   document.getElementById('tv-obs').value = '';
   document.getElementById('tst-venta-alert').innerHTML = '';
+  tostadoPoblarSocios();
   tostadoActualizarPanelVenta();
+}
+
+// Llena el <datalist> del campo Cliente con los nombres de los socios registrados
+function tostadoPoblarSocios(){
+  const dl = document.getElementById('tv-cliente-list');
+  if(!dl) return;
+  dl.innerHTML = (DB.socios||[]).map(s=>`<option value="${s.nombre}">`).join('');
+}
+
+// Si el nombre escrito coincide exactamente con un socio, autocompleta su DNI
+function tostadoAutocompletarCliente(){
+  const nombre = document.getElementById('tv-cliente').value.trim();
+  const socio = (DB.socios||[]).find(s=>(s.nombre||'').toLowerCase()===nombre.toLowerCase());
+  if(socio) document.getElementById('tv-cliente-dni').value = socio.dni||'';
 }
 
 function guardarTostadoVenta(){
   const fecha = document.getElementById('tv-fecha').value;
   const nventa = document.getElementById('tv-nventa').value.trim();
   const cliente = document.getElementById('tv-cliente').value.trim();
+  const clienteDni = document.getElementById('tv-cliente-dni').value.trim();
   const kg = parseFloat(document.getElementById('tv-kg').value)||0;
   const precio = parseFloat(document.getElementById('tv-precio').value)||0;
   const obs = document.getElementById('tv-obs').value.trim();
@@ -10189,7 +10224,7 @@ function guardarTostadoVenta(){
   const costoTotal = kg*costoKg;
 
   const registro = {
-    fecha, nventa, cliente, kg, precio,
+    fecha, nventa, cliente, cliente_dni: clienteDni, kg, precio,
     costo_kg: costoKg, ingreso, costo: costoTotal,
     utilidad: ingreso-costoTotal, margen: ingreso>0?((ingreso-costoTotal)/ingreso*100):0,
     observaciones: obs, usuario: SESSION.user
@@ -10207,9 +10242,11 @@ function editarTostadoVenta(idx){
   const v = DB.tostadoVentas[idx];
   if(!v) return;
   editandoTostadoVentaIdx = idx;
+  tostadoPoblarSocios();
   document.getElementById('tv-fecha').value = v.fecha;
   document.getElementById('tv-nventa').value = v.nventa;
   document.getElementById('tv-cliente').value = v.cliente||'';
+  document.getElementById('tv-cliente-dni').value = v.cliente_dni||'';
   document.getElementById('tv-kg').value = v.kg;
   document.getElementById('tv-precio').value = v.precio;
   document.getElementById('tv-obs').value = v.observaciones||'';
@@ -10246,15 +10283,70 @@ function renderTostadoVentas(){
       <td style="font-size:0.78rem;color:#666;">${v.observaciones||'—'}</td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-secondary btn-sm" onclick="editarTostadoVenta(${ri})">✏️</button>
+        <button class="btn btn-dorado btn-sm" onclick="verPrintTostadoVenta(${ri})">🖨️</button>
         <button class="btn btn-danger btn-sm" onclick="eliminarTostadoVenta(${ri})">🗑️</button>
       </div></td>
     </tr>`;
   }).join('');
 }
 
+// ── IMPRESIÓN: COMPROBANTE DE COMPRA (venta de café tostado) ──
+function verPrintTostadoVenta(idx){
+  const v = DB.tostadoVentas[idx];
+  if(!v) return;
+  const util = parseFloat(v.utilidad||0);
+  document.getElementById('print-tostado-content').innerHTML = `
+  <div id="print-zona-tostado" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:520px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:8.5px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">COMPROBANTE DE COMPRA — CAFÉ TOSTADO</div>
+        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${v.nventa}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Cliente: </span><strong style="font-size:13px;">${v.cliente||'—'}</strong></div>
+      <div><span style="color:#666;">DNI: </span><strong>${v.cliente_dni||'—'}</strong></div>
+      <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(v.fecha)}</strong></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:12px;">
+      <thead><tr style="background:#1a5c2e;color:#fff;">
+        <th style="border:1px solid #14431f;padding:5px;">Producto</th>
+        <th style="border:1px solid #14431f;padding:5px;">KG</th>
+        <th style="border:1px solid #14431f;padding:5px;">Precio/kg</th>
+        <th style="border:1px solid #14431f;padding:5px;">Subtotal</th>
+      </tr></thead>
+      <tbody><tr>
+        <td style="border:1px solid #ccc;padding:5px;">Café Tostado</td>
+        <td style="border:1px solid #ccc;padding:5px;text-align:center;">${fmtKg(v.kg)}</td>
+        <td style="border:1px solid #ccc;padding:5px;text-align:right;">S/.${parseFloat(v.precio||0).toFixed(2)}</td>
+        <td style="border:1px solid #ccc;padding:5px;text-align:right;font-weight:800;">S/.${fmtMonto(v.ingreso)}</td>
+      </tr></tbody>
+    </table>
+    <div style="background:#eef7ee;border:1.5px solid #000;border-radius:6px;padding:8px 12px;margin-bottom:14px;text-align:right;">
+      <span style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700;">Total a Pagar:</span>
+      <span style="font-size:20px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${fmtMonto(v.ingreso)}</span>
+    </div>
+    ${v.observaciones?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${v.observaciones}</div>`:''}
+    <div style="display:flex;gap:50px;margin-top:auto;padding-top:34px;">
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Entregado por (APARCH)</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Cliente<br><span style="font-style:italic;color:#666;font-size:9px;">${v.cliente||''}</span></div>
+    </div>
+  </div>`;
+  abrirModal('modal-print-tostado');
+}
+
+function imprimirTostadoVenta(){
+  const c = document.getElementById('print-zona-tostado').outerHTML;
+  abrirVentanaImpresion(c, 'Comprobante de Compra APARCH', 'body{padding:12px;}');
+}
+
 function renderTostado(){
   if(!DB.tostadoProduccion) DB.tostadoProduccion=[];
   if(!DB.tostadoVentas) DB.tostadoVentas=[];
+  tostadoPoblarSocios();
 
   const stock = calcularStockTostadoActual();
   document.getElementById('tst-stock-kg').textContent = fmtKg(stock.kgDisponible)+' kg';
