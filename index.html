@@ -518,15 +518,15 @@ tr:hover td{background:#f9f6f1;}
       <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
         <div class="form-group">
           <label>Total Sacos</label>
-          <input type="number" id="mas-sacos" placeholder="370" oninput="masCalcPreliminar()">
+          <input type="number" id="mas-sacos" placeholder="370" oninput="masAutoKgNeto();masCalcPreliminar();">
         </div>
         <div class="form-group">
           <label>Total KG Brutos</label>
-          <input type="number" id="mas-kgbruto" step="0.01" placeholder="25530" oninput="masCalcPreliminar()">
+          <input type="number" id="mas-kgbruto" step="0.01" placeholder="25530" oninput="masAutoKgNeto();masCalcPreliminar();">
         </div>
         <div class="form-group">
-          <label>Total KG Netos</label>
-          <input type="number" id="mas-kgneto" step="0.01" placeholder="ej: 24800" oninput="masCalcPreliminar()">
+          <label>Total KG Netos <span style="font-weight:400;color:#888;font-size:0.7rem;">(automático: Bruto − 0.25×Sacos — editable)</span></label>
+          <input type="number" id="mas-kgneto" step="0.01" placeholder="ej: 24800" oninput="this.dataset.editadoManual='1';masCalcPreliminar();" style="background:#f0faf4;">
         </div>
         <div class="form-group">
           <label>Valor Total a Pagar (S/.)</label>
@@ -5493,7 +5493,9 @@ function verPrintComp(idx){
     const g = DB.guias.find(x=>x.codigo===cod);
     return a + (g ? parseFloat(g.valorrecibido||0) : 0);
   }, 0) || parseFloat(c.total_guia||0);
-  const pagado = parseFloat(c.monto||0);
+  // "Pagado" = TODO lo abonado a estas guías (todos los comprobantes + descuentos de
+  // préstamo), no solo el monto de este comprobante — así el saldo refleja la realidad.
+  const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0);
   const saldo  = Math.max(0, tot - pagado);
 
   const copiaProductor = generarCopiaComprobante(c, tot, pagado, saldo, '📄 Copia Productor', '#1a5c2e');
@@ -8602,6 +8604,18 @@ function renderMasivo(){
   document.getElementById('mas-socios-count').textContent = `${sociosOrg.length} socios orgánicos`;
 }
 
+// Calcula automáticamente el Total KG Netos = KG Brutos − (0.25 kg de tara × N° de sacos),
+// pero nunca sobrescribe si el usuario ya lo editó manualmente.
+function masAutoKgNeto(){
+  const kgnetoEl = document.getElementById('mas-kgneto');
+  if(kgnetoEl.dataset.editadoManual) return;
+  const sacos   = parseFloat(document.getElementById('mas-sacos').value)||0;
+  const kgBruto = parseFloat(document.getElementById('mas-kgbruto').value)||0;
+  if(sacos<=0 || kgBruto<=0){ kgnetoEl.value=''; return; }
+  const kgNeto = Math.max(0, kgBruto - (sacos*0.25));
+  kgnetoEl.value = kgNeto.toFixed(2);
+}
+
 function masCalcPreliminar(){
   const kgNeto = parseFloat(document.getElementById('mas-kgneto').value)||0;
   const valor  = parseFloat(document.getElementById('mas-valor').value)||0;
@@ -9052,6 +9066,8 @@ function masLimpiar(){
   ['mas-sacos','mas-kgbruto','mas-kgneto','mas-valor','mas-precio-qq','mas-precio-kg'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
+  const kgnetoEl = document.getElementById('mas-kgneto');
+  if(kgnetoEl) delete kgnetoEl.dataset.editadoManual;
   document.getElementById('mas-preview').style.display='none';
   document.getElementById('mas-resultado').style.display='none';
   document.getElementById('masivo-alert').innerHTML='';
