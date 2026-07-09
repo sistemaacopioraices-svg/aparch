@@ -257,6 +257,9 @@ tr:hover td{background:#f9f6f1;}
   <a class="nav-item" onclick="showSection('ganancias')" href="#">
     <span class="ico">💰</span> Registro de Ganancias
   </a>
+  <a class="nav-item" onclick="showSection('tostado')" href="#">
+    <span class="ico">🔥</span> Café Tostado
+  </a>
   <div class="nav-section">Configuración</div>
   <a class="nav-item admin-only" onclick="showSection('masivo')" href="#">
     <span class="ico">⚡</span> Generación Masiva
@@ -1350,6 +1353,115 @@ tr:hover td{background:#f9f6f1;}
   </div>
 </div>
 
+<!-- ══════════ CAFÉ TOSTADO ══════════ -->
+<div class="section" id="sec-tostado">
+
+  <!-- RESUMEN DE STOCK -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🔥 Café Tostado — Stock e Indicadores</div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">⚖️ Stock Disponible</div>
+        <div class="stat-val" id="tst-stock-kg" style="color:#1b5e20;">0.00 kg</div>
+      </div>
+      <div class="stat-card cafe">
+        <div class="stat-label">💵 Costo Promedio Actual</div>
+        <div class="stat-val" id="tst-costo-prom">S/. 0.00 /kg</div>
+      </div>
+      <div class="stat-card dorado">
+        <div class="stat-label">📦 Valor del Inventario</div>
+        <div class="stat-val" id="tst-valor-inv">S/. 0.00</div>
+      </div>
+      <div class="stat-card azul">
+        <div class="stat-label">📈 Utilidad Acumulada</div>
+        <div class="stat-val" id="tst-utilidad-acum">S/. 0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="display:flex;gap:8px;margin:16px 0;">
+    <button id="tst-tab-prod" class="btn btn-primary" onclick="switchTostadoTab('prod')">📦 Producción (Tueste)</button>
+    <button id="tst-tab-venta" class="btn btn-secondary" onclick="switchTostadoTab('venta')">💰 Ventas</button>
+  </div>
+
+  <!-- ═══ PANEL PRODUCCIÓN ═══ -->
+  <div id="tst-panel-prod">
+    <div class="card">
+      <div class="card-header"><div class="card-title">📦 Registrar Producción (Tueste)</div></div>
+      <div id="tst-prod-alert"></div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Fecha</label><input type="date" id="tp-fecha"></div>
+        <div class="form-group"><label>N° de Lote</label><input type="text" id="tp-lote" placeholder="Ej. TOST-00001"></div>
+        <div class="form-group"><label>KG Café Verde/Pergamino Usado</label><input type="number" id="tp-kgverde" step="0.01" min="0" oninput="tostadoCalcProduccion()"></div>
+        <div class="form-group"><label>Costo Materia Prima (S/.)</label><input type="number" id="tp-costo-mp" step="0.01" min="0" oninput="tostadoCalcProduccion()"></div>
+        <div class="form-group"><label>Merma de Tueste (%)</label><input type="number" id="tp-merma" step="0.1" min="0" max="60" value="15" oninput="tostadoCalcProduccion()"></div>
+        <div class="form-group"><label>KG Tostado Resultante <span style="font-weight:400;color:#888;font-size:0.7rem;">(automático — editable)</span></label><input type="number" id="tp-kgtostado" step="0.01" min="0" oninput="this.dataset.editadoManual='1';tostadoCalcProduccion();" style="background:#f0faf4;font-weight:800;"></div>
+        <div class="form-group"><label>Otros Costos (gas, empaque, mano de obra)</label><input type="number" id="tp-otros-costos" step="0.01" min="0" value="0" oninput="tostadoCalcProduccion()"></div>
+        <div class="form-group"><label>Costo Total (S/.)</label><input type="text" id="tp-costo-total" readonly style="background:#eee;font-weight:800;"></div>
+        <div class="form-group"><label>Costo por KG Tostado (S/./kg)</label><input type="text" id="tp-costo-kg" readonly style="background:#fff3e0;color:#e65100;font-weight:900;font-size:1.05rem;"></div>
+        <div class="form-group form-full"><label>Observaciones</label><textarea id="tp-obs" placeholder="Tipo de tueste, procedencia del café, notas..."></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="limpiarTostadoProdForm()">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarTostadoProduccion()">💾 Registrar Producción</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">📋 Lotes de Producción Registrados</div></div>
+      <div class="table-wrap">
+        <table><thead><tr>
+          <th>N° Lote</th><th>Fecha</th><th>KG Verde</th><th>Merma%</th><th>KG Tostado</th>
+          <th>Costo M.P.</th><th>Otros Costos</th><th>Costo Total</th><th>Costo/KG</th><th>Obs.</th><th>Acciones</th>
+        </tr></thead><tbody id="tostado-prod-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANEL VENTAS ═══ -->
+  <div id="tst-panel-venta" style="display:none;">
+    <div class="card">
+      <div class="card-header"><div class="card-title">💰 Registrar Venta de Café Tostado</div></div>
+      <div id="tst-venta-alert"></div>
+      <div style="background:#f0faf4;border:1px solid #b2dfcb;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;">
+        Stock disponible: <strong id="tst-venta-stock-disp">0.00 kg</strong> &nbsp;|&nbsp;
+        Costo promedio actual: <strong id="tst-venta-costo-actual">S/. 0.00/kg</strong>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Fecha</label><input type="date" id="tv-fecha"></div>
+        <div class="form-group"><label>N° de Venta</label><input type="text" id="tv-nventa" placeholder="Ej. VTA-TOST-00001"></div>
+        <div class="form-group"><label>Cliente</label><input type="text" id="tv-cliente" placeholder="Nombre del cliente..."></div>
+        <div class="form-group"><label>KG Vendidos</label><input type="number" id="tv-kg" step="0.01" min="0" oninput="tostadoCalcVenta()"></div>
+        <div class="form-group"><label>Precio de Venta (S/./kg)</label><input type="number" id="tv-precio" step="0.01" min="0" oninput="tostadoCalcVenta()" style="font-weight:800;border:2px solid var(--dorado);"></div>
+        <div class="form-group"><label>Costo (S/./kg) <span style="font-weight:400;color:#888;font-size:0.7rem;">(según promedio actual)</span></label><input type="text" id="tv-costo-kg" readonly style="background:#eee;"></div>
+        <div class="form-group"><label>Ingreso Total (S/.)</label><input type="text" id="tv-ingreso" readonly style="background:#f0faf4;font-weight:800;color:#1b5e20;"></div>
+        <div class="form-group"><label>Costo Total (S/.)</label><input type="text" id="tv-costo-total" readonly style="background:#fff3e0;color:#e65100;font-weight:700;"></div>
+        <div class="form-group"><label>Utilidad (S/.)</label><input type="text" id="tv-utilidad" readonly style="background:#e8f5e9;color:#2e7d32;font-weight:900;font-size:1.05rem;"></div>
+        <div class="form-group"><label>Margen %</label><input type="text" id="tv-margen" readonly style="background:#eee;"></div>
+        <div class="form-group form-full"><label>Observaciones</label><textarea id="tv-obs" placeholder="Presentación (bolsas, kg), destino, notas..."></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="limpiarTostadoVentaForm()">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarTostadoVenta()">💾 Registrar Venta</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">📋 Ventas Registradas</div></div>
+      <div class="table-wrap">
+        <table><thead><tr>
+          <th>N° Venta</th><th>Fecha</th><th>Cliente</th><th>KG Vendidos</th><th>Precio/kg</th>
+          <th>Ingreso</th><th>Costo</th><th>Utilidad</th><th>Margen%</th><th>Obs.</th><th>Acciones</th>
+        </tr></thead><tbody id="tostado-venta-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -2264,7 +2376,7 @@ tr:hover td{background:#f9f6f1;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[] };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[] };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -2422,6 +2534,8 @@ function cargarDB(){
   if(!DB.kardex) DB.kardex=[];
   if(!DB.arqueos) DB.arqueos=[];
   if(!DB.ganancias) DB.ganancias=[];
+  if(!DB.tostadoProduccion) DB.tostadoProduccion=[];
+  if(!DB.tostadoVentas) DB.tostadoVentas=[];
 }
 
 // ── BACKUP JSON ──
@@ -2825,6 +2939,7 @@ const secTitles={dashboard:'📊 Dashboard',tickets:'🎫 Ticket de Entrada',gui
   prestamos:'💰 Préstamos', caja:'🏦 Caja', cafecoco:'🌰 Compra Café Coco',
   kardex:'📦 Kárdex de Ventas', masivo:'⚡ Generación Masiva',
   ganancias:'💰 Registro de Ganancias',
+  tostado:'🔥 Café Tostado — Producción y Ventas',
   config:'⚙️ Configuración',exportar:'📤 Exportar Datos'};
 
 function showSection(id){
@@ -2847,6 +2962,7 @@ function showSection(id){
   if(id==='caja'){ migrarEgresosCafeCoco(true); renderCaja(); }
   if(id==='kardex'){ renderKardex(); }
   if(id==='ganancias'){ renderGanancias(); }
+  if(id==='tostado'){ renderTostado(); }
   if(id==='masivo'){ renderMasivo(); }
   if(id==='cafecoco') renderCafeCoco();
 }
@@ -9829,6 +9945,332 @@ function renderGanancias(){
   document.getElementById('gan-kg-total').textContent = fmtKg(kgTotal)+' kg';
   document.getElementById('gan-qq-total').textContent = qqTotal.toFixed(2);
   document.getElementById('gan-total').textContent = 'S/. '+fmtMonto(ganTotal);
+}
+
+// ══════════════════════════════════════════
+// CAFÉ TOSTADO — PRODUCCIÓN Y VENTAS (costeo por promedio ponderado móvil)
+// ══════════════════════════════════════════
+let editandoTostadoProdIdx = -1;
+let editandoTostadoVentaIdx = -1;
+
+function switchTostadoTab(tab){
+  document.getElementById('tst-tab-prod').className  = tab==='prod'  ? 'btn btn-primary' : 'btn btn-secondary';
+  document.getElementById('tst-tab-venta').className = tab==='venta' ? 'btn btn-primary' : 'btn btn-secondary';
+  document.getElementById('tst-panel-prod').style.display  = tab==='prod'  ? '' : 'none';
+  document.getElementById('tst-panel-venta').style.display = tab==='venta' ? '' : 'none';
+  if(tab==='venta') tostadoActualizarPanelVenta();
+}
+
+// Calcula el stock actual (kg disponibles, valor de inventario y costo promedio) recorriendo
+// TODA la producción (+) y ventas (−) en orden cronológico, con promedio ponderado móvil:
+// cada venta "consume" al costo promedio vigente en ese momento, y ese costo se guarda en la
+// propia venta (snapshot), así el historial no cambia aunque el promedio siga moviéndose.
+function calcularStockTostadoActual(excluirVentaIdx){
+  const eventos = [
+    ...(DB.tostadoProduccion||[]).map((p,i)=>({tipo:'prod', fecha:p.fecha||'', orden:i, kg:parseFloat(p.kg_tostado)||0, valor:parseFloat(p.costo_total)||0})),
+    ...(DB.tostadoVentas||[]).map((v,i)=>({tipo:'venta', fecha:v.fecha||'', orden:i, kg:parseFloat(v.kg)||0, _idx:i}))
+  ].filter(e=> !(e.tipo==='venta' && e._idx===excluirVentaIdx))
+   .sort((a,b)=> (a.fecha||'').localeCompare(b.fecha||'') || a.orden-b.orden);
+
+  let kgStock = 0, valorStock = 0;
+  eventos.forEach(e=>{
+    if(e.tipo==='prod'){
+      kgStock += e.kg;
+      valorStock += e.valor;
+    } else {
+      const costoProm = kgStock > 0.001 ? valorStock/kgStock : 0;
+      const costoVenta = Math.min(e.kg, kgStock) * costoProm;
+      kgStock = Math.max(0, kgStock - e.kg);
+      valorStock = Math.max(0, valorStock - costoVenta);
+    }
+  });
+  return {
+    kgDisponible: Math.round(kgStock*100)/100,
+    valorInventario: Math.round(valorStock*100)/100,
+    costoPromedio: kgStock > 0.001 ? valorStock/kgStock : 0
+  };
+}
+
+// ── PRODUCCIÓN ──
+function tostadoCalcProduccion(){
+  const kgVerde = parseFloat(document.getElementById('tp-kgverde').value)||0;
+  const costoMP = parseFloat(document.getElementById('tp-costo-mp').value)||0;
+  const merma   = parseFloat(document.getElementById('tp-merma').value)||0;
+  const otros   = parseFloat(document.getElementById('tp-otros-costos').value)||0;
+
+  const kgTostadoEl = document.getElementById('tp-kgtostado');
+  if(!kgTostadoEl.dataset.editadoManual && kgVerde>0){
+    kgTostadoEl.value = (kgVerde * (1 - merma/100)).toFixed(2);
+  }
+  const kgTostado = parseFloat(kgTostadoEl.value)||0;
+  const costoTotal = costoMP + otros;
+  const costoKg = kgTostado>0 ? costoTotal/kgTostado : 0;
+
+  document.getElementById('tp-costo-total').value = 'S/. '+costoTotal.toFixed(2);
+  document.getElementById('tp-costo-kg').value = 'S/. '+costoKg.toFixed(4)+' /kg';
+}
+
+function limpiarTostadoProdForm(){
+  editandoTostadoProdIdx = -1;
+  document.getElementById('tp-fecha').value = hoy();
+  document.getElementById('tp-lote').value = nextCodigo(DB.tostadoProduccion||[], 'TOST-');
+  document.getElementById('tp-kgverde').value = '';
+  document.getElementById('tp-costo-mp').value = '';
+  document.getElementById('tp-merma').value = '15';
+  const kgTostadoEl = document.getElementById('tp-kgtostado');
+  kgTostadoEl.value = ''; delete kgTostadoEl.dataset.editadoManual;
+  document.getElementById('tp-otros-costos').value = '0';
+  document.getElementById('tp-costo-total').value = '';
+  document.getElementById('tp-costo-kg').value = '';
+  document.getElementById('tp-obs').value = '';
+  document.getElementById('tst-prod-alert').innerHTML = '';
+}
+
+function guardarTostadoProduccion(){
+  const fecha = document.getElementById('tp-fecha').value;
+  const lote  = document.getElementById('tp-lote').value.trim();
+  const kgVerde = parseFloat(document.getElementById('tp-kgverde').value)||0;
+  const costoMP = parseFloat(document.getElementById('tp-costo-mp').value)||0;
+  const merma   = parseFloat(document.getElementById('tp-merma').value)||0;
+  const kgTostado = parseFloat(document.getElementById('tp-kgtostado').value)||0;
+  const otros   = parseFloat(document.getElementById('tp-otros-costos').value)||0;
+  const obs = document.getElementById('tp-obs').value.trim();
+
+  const faltantes = [];
+  if(!fecha) faltantes.push('Fecha');
+  if(!lote) faltantes.push('N° de Lote');
+  if(kgVerde<=0) faltantes.push('KG Café Verde Usado');
+  if(kgTostado<=0) faltantes.push('KG Tostado Resultante');
+  if(faltantes.length){
+    showAlert('tst-prod-alert','error', `Completa los siguientes campos: ${faltantes.join(', ')}.`);
+    return;
+  }
+  const loteDuplicado = (DB.tostadoProduccion||[]).some((x,i)=> i!==editandoTostadoProdIdx && (x.lote||'').toUpperCase()===lote.toUpperCase());
+  if(loteDuplicado){ showAlert('tst-prod-alert','error', `Ya existe un lote con el código ${lote}.`); return; }
+
+  const registro = {
+    fecha, lote, kg_verde:kgVerde, costo_mp:costoMP, merma_pct:merma,
+    kg_tostado:kgTostado, otros_costos:otros,
+    costo_total: costoMP+otros, costo_kg: kgTostado>0 ? (costoMP+otros)/kgTostado : 0,
+    observaciones: obs, usuario: SESSION.user
+  };
+
+  if(editandoTostadoProdIdx >= 0) DB.tostadoProduccion[editandoTostadoProdIdx] = registro;
+  else DB.tostadoProduccion.push(registro);
+
+  guardarDB();
+  limpiarTostadoProdForm();
+  renderTostado();
+}
+
+function editarTostadoProduccion(idx){
+  const p = DB.tostadoProduccion[idx];
+  if(!p) return;
+  editandoTostadoProdIdx = idx;
+  document.getElementById('tp-fecha').value = p.fecha;
+  document.getElementById('tp-lote').value = p.lote;
+  document.getElementById('tp-kgverde').value = p.kg_verde;
+  document.getElementById('tp-costo-mp').value = p.costo_mp;
+  document.getElementById('tp-merma').value = p.merma_pct;
+  const kgTostadoEl = document.getElementById('tp-kgtostado');
+  kgTostadoEl.value = p.kg_tostado;
+  kgTostadoEl.dataset.editadoManual = '1';
+  document.getElementById('tp-otros-costos').value = p.otros_costos;
+  document.getElementById('tp-obs').value = p.observaciones||'';
+  tostadoCalcProduccion();
+  switchTostadoTab('prod');
+  showAlert('tst-prod-alert','success', `✏️ Editando lote ${p.lote}. Guarda para aplicar los cambios.`);
+  document.getElementById('tp-fecha').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function eliminarTostadoProduccion(idx){
+  if(!confirm('¿Eliminar este lote de producción? Esto afectará el stock y costo promedio calculado.')) return;
+  DB.tostadoProduccion.splice(idx,1);
+  guardarDB();
+  renderTostado();
+}
+
+function renderTostadoProduccion(){
+  const tb = document.getElementById('tostado-prod-body');
+  if(!DB.tostadoProduccion || !DB.tostadoProduccion.length){
+    tb.innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="ico">🔥</span>Aún no hay lotes de producción registrados.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = [...DB.tostadoProduccion].map((p)=>{
+    const ri = DB.tostadoProduccion.indexOf(p);
+    return `<tr>
+      <td class="td-codigo">${p.lote}</td><td>${fechaDisplay(p.fecha)}</td>
+      <td style="text-align:right;">${fmtKg(p.kg_verde)} kg</td>
+      <td style="text-align:center;">${parseFloat(p.merma_pct||0).toFixed(1)}%</td>
+      <td style="text-align:right;font-weight:700;color:#1b5e20;">${fmtKg(p.kg_tostado)} kg</td>
+      <td style="text-align:right;">S/.${fmtMonto(p.costo_mp)}</td>
+      <td style="text-align:right;">S/.${fmtMonto(p.otros_costos)}</td>
+      <td style="text-align:right;font-weight:700;">S/.${fmtMonto(p.costo_total)}</td>
+      <td style="text-align:right;font-weight:800;color:#e65100;">S/.${parseFloat(p.costo_kg||0).toFixed(4)}</td>
+      <td style="font-size:0.78rem;color:#666;">${p.observaciones||'—'}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-secondary btn-sm" onclick="editarTostadoProduccion(${ri})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarTostadoProduccion(${ri})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── VENTAS ──
+function tostadoActualizarPanelVenta(){
+  const stock = calcularStockTostadoActual(editandoTostadoVentaIdx>=0?editandoTostadoVentaIdx:undefined);
+  document.getElementById('tst-venta-stock-disp').textContent = fmtKg(stock.kgDisponible)+' kg';
+  document.getElementById('tst-venta-costo-actual').textContent = 'S/. '+stock.costoPromedio.toFixed(4)+'/kg';
+  tostadoCalcVenta();
+}
+
+function tostadoCalcVenta(){
+  const stock = calcularStockTostadoActual(editandoTostadoVentaIdx>=0?editandoTostadoVentaIdx:undefined);
+  const kg = parseFloat(document.getElementById('tv-kg').value)||0;
+  const precio = parseFloat(document.getElementById('tv-precio').value)||0;
+  const costoKg = stock.costoPromedio;
+
+  const ingreso = kg*precio;
+  const costoTotal = kg*costoKg;
+  const utilidad = ingreso-costoTotal;
+  const margen = ingreso>0 ? (utilidad/ingreso*100) : 0;
+
+  document.getElementById('tv-costo-kg').value = 'S/. '+costoKg.toFixed(4);
+  document.getElementById('tv-ingreso').value = 'S/. '+ingreso.toFixed(2);
+  document.getElementById('tv-costo-total').value = 'S/. '+costoTotal.toFixed(2);
+  document.getElementById('tv-utilidad').value = 'S/. '+utilidad.toFixed(2);
+  document.getElementById('tv-margen').value = margen.toFixed(1)+'%';
+
+  if(kg > stock.kgDisponible + 0.01){
+    showAlert('tst-venta-alert','error', `⚠️ Estás vendiendo ${fmtKg(kg)} kg pero solo hay ${fmtKg(stock.kgDisponible)} kg disponibles en stock.`);
+  } else {
+    document.getElementById('tst-venta-alert').innerHTML = '';
+  }
+}
+
+function limpiarTostadoVentaForm(){
+  editandoTostadoVentaIdx = -1;
+  document.getElementById('tv-fecha').value = hoy();
+  document.getElementById('tv-nventa').value = nextCodigo(DB.tostadoVentas||[], 'VTA-TOST-');
+  document.getElementById('tv-cliente').value = '';
+  document.getElementById('tv-kg').value = '';
+  document.getElementById('tv-precio').value = '';
+  document.getElementById('tv-obs').value = '';
+  document.getElementById('tst-venta-alert').innerHTML = '';
+  tostadoActualizarPanelVenta();
+}
+
+function guardarTostadoVenta(){
+  const fecha = document.getElementById('tv-fecha').value;
+  const nventa = document.getElementById('tv-nventa').value.trim();
+  const cliente = document.getElementById('tv-cliente').value.trim();
+  const kg = parseFloat(document.getElementById('tv-kg').value)||0;
+  const precio = parseFloat(document.getElementById('tv-precio').value)||0;
+  const obs = document.getElementById('tv-obs').value.trim();
+
+  const faltantes = [];
+  if(!fecha) faltantes.push('Fecha');
+  if(!nventa) faltantes.push('N° de Venta');
+  if(kg<=0) faltantes.push('KG Vendidos');
+  if(precio<=0) faltantes.push('Precio de Venta');
+  if(faltantes.length){
+    showAlert('tst-venta-alert','error', `Completa los siguientes campos: ${faltantes.join(', ')}.`);
+    return;
+  }
+  const nventaDuplicado = (DB.tostadoVentas||[]).some((x,i)=> i!==editandoTostadoVentaIdx && (x.nventa||'').toUpperCase()===nventa.toUpperCase());
+  if(nventaDuplicado){ showAlert('tst-venta-alert','error', `Ya existe una venta con el código ${nventa}.`); return; }
+
+  const stock = calcularStockTostadoActual(editandoTostadoVentaIdx>=0?editandoTostadoVentaIdx:undefined);
+  if(kg > stock.kgDisponible + 0.01){
+    if(!confirm(`⚠️ Estás vendiendo ${fmtKg(kg)} kg pero solo hay ${fmtKg(stock.kgDisponible)} kg en stock.\n\n¿Deseas continuar de todas formas?`)) return;
+  }
+  const costoKg = stock.costoPromedio;
+  const ingreso = kg*precio;
+  const costoTotal = kg*costoKg;
+
+  const registro = {
+    fecha, nventa, cliente, kg, precio,
+    costo_kg: costoKg, ingreso, costo: costoTotal,
+    utilidad: ingreso-costoTotal, margen: ingreso>0?((ingreso-costoTotal)/ingreso*100):0,
+    observaciones: obs, usuario: SESSION.user
+  };
+
+  if(editandoTostadoVentaIdx >= 0) DB.tostadoVentas[editandoTostadoVentaIdx] = registro;
+  else DB.tostadoVentas.push(registro);
+
+  guardarDB();
+  limpiarTostadoVentaForm();
+  renderTostado();
+}
+
+function editarTostadoVenta(idx){
+  const v = DB.tostadoVentas[idx];
+  if(!v) return;
+  editandoTostadoVentaIdx = idx;
+  document.getElementById('tv-fecha').value = v.fecha;
+  document.getElementById('tv-nventa').value = v.nventa;
+  document.getElementById('tv-cliente').value = v.cliente||'';
+  document.getElementById('tv-kg').value = v.kg;
+  document.getElementById('tv-precio').value = v.precio;
+  document.getElementById('tv-obs').value = v.observaciones||'';
+  switchTostadoTab('venta');
+  tostadoCalcVenta();
+  showAlert('tst-venta-alert','success', `✏️ Editando venta ${v.nventa}. Guarda para aplicar los cambios.`);
+  document.getElementById('tv-fecha').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function eliminarTostadoVenta(idx){
+  if(!confirm('¿Eliminar esta venta? Esto liberará el stock correspondiente.')) return;
+  DB.tostadoVentas.splice(idx,1);
+  guardarDB();
+  renderTostado();
+}
+
+function renderTostadoVentas(){
+  const tb = document.getElementById('tostado-venta-body');
+  if(!DB.tostadoVentas || !DB.tostadoVentas.length){
+    tb.innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="ico">💰</span>Aún no hay ventas registradas.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = [...DB.tostadoVentas].map((v)=>{
+    const ri = DB.tostadoVentas.indexOf(v);
+    const util = parseFloat(v.utilidad||0);
+    return `<tr>
+      <td class="td-codigo">${v.nventa}</td><td>${fechaDisplay(v.fecha)}</td><td>${v.cliente||'—'}</td>
+      <td style="text-align:right;">${fmtKg(v.kg)} kg</td>
+      <td style="text-align:right;">S/.${parseFloat(v.precio||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;color:#1b5e20;">S/.${fmtMonto(v.ingreso)}</td>
+      <td style="text-align:right;color:#e65100;">S/.${fmtMonto(v.costo)}</td>
+      <td style="text-align:right;font-weight:800;color:${util>=0?'#2e7d32':'#c62828'};">S/.${fmtMonto(util)}</td>
+      <td style="text-align:center;">${parseFloat(v.margen||0).toFixed(1)}%</td>
+      <td style="font-size:0.78rem;color:#666;">${v.observaciones||'—'}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-secondary btn-sm" onclick="editarTostadoVenta(${ri})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarTostadoVenta(${ri})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderTostado(){
+  if(!DB.tostadoProduccion) DB.tostadoProduccion=[];
+  if(!DB.tostadoVentas) DB.tostadoVentas=[];
+
+  const stock = calcularStockTostadoActual();
+  document.getElementById('tst-stock-kg').textContent = fmtKg(stock.kgDisponible)+' kg';
+  document.getElementById('tst-costo-prom').textContent = 'S/. '+stock.costoPromedio.toFixed(2)+' /kg';
+  document.getElementById('tst-valor-inv').textContent = 'S/. '+fmtMonto(stock.valorInventario);
+
+  const utilidadAcum = (DB.tostadoVentas||[]).reduce((a,v)=>a+(parseFloat(v.utilidad)||0),0);
+  const elUtil = document.getElementById('tst-utilidad-acum');
+  elUtil.textContent = 'S/. '+fmtMonto(utilidadAcum);
+  elUtil.style.color = utilidadAcum>=0 ? '#1b5e20' : '#c62828';
+
+  if(!document.getElementById('tp-fecha').value) limpiarTostadoProdForm();
+  if(!document.getElementById('tv-fecha').value) limpiarTostadoVentaForm();
+
+  renderTostadoProduccion();
+  renderTostadoVentas();
 }
 
 (function init(){
