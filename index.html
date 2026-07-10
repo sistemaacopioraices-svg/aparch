@@ -776,6 +776,33 @@ tr:hover td{background:#f4f8f4;}
       </div>
     </div>
 
+    <!-- FACTURACIÓN ELECTRÓNICA SUNAT -->
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-header"><div class="card-title">🧾 Facturación Electrónica SUNAT (vía NubeFacT)</div></div>
+      <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.82rem;color:#8a6300;">
+        ⚠️ Necesitas una cuenta activa en <strong>nubefact.com</strong> (RUC + Token API, sección "Integración" de tu cuenta). El token queda
+        guardado en este navegador — no lo compartas y úsalo solo desde un equipo de confianza.
+      </div>
+      <div id="factElec-alert"></div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="fe-habilitado">
+            <option value="0">Deshabilitado</option>
+            <option value="1">Habilitado</option>
+          </select>
+        </div>
+        <div class="form-group"><label>RUC Emisor</label><input type="text" id="fe-ruc" placeholder="20614704994"></div>
+        <div class="form-group form-full"><label>Token API de NubeFacT</label><input type="password" id="fe-token" placeholder="Pégalo desde tu cuenta NubeFacT → Integración"></div>
+        <div class="form-group"><label>Serie Factura</label><input type="text" id="fe-serie-factura" placeholder="F001"></div>
+        <div class="form-group"><label>Serie Boleta</label><input type="text" id="fe-serie-boleta" placeholder="B001"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="probarConexionFacturacion()">🔌 Probar Conexión</button>
+        <button class="btn btn-primary" onclick="guardarConfigFacturacion()">💾 Guardar Configuración</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1676,6 +1703,33 @@ tr:hover td{background:#f4f8f4;}
   <div id="print-abono-content"></div>
 </div></div>
 
+<!-- ══════════ MODAL EMITIR COMPROBANTE ELECTRÓNICO SUNAT ══════════ -->
+<div class="modal-overlay" id="modal-emitir-sunat">
+<div class="modal" style="max-width:520px;">
+  <div class="modal-header">
+    <div class="modal-title">🧾 Emitir <span id="fe-comprobante-tipo">BOLETA</span> Electrónica (SUNAT)</div>
+    <button class="modal-close" onclick="cerrarModal('modal-emitir-sunat')">✕</button>
+  </div>
+  <div id="fe-modal-alert"></div>
+  <div style="background:#f0faf4;border:1px solid #b2dfcb;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;" id="fe-modal-resumen"></div>
+  <div class="form-grid-2">
+    <div class="form-group">
+      <label>Tipo de Documento del Cliente</label>
+      <select id="fe-cliente-tipo" onchange="toggleFeTipoComprobante()">
+        <option value="DNI">DNI (emite Boleta)</option>
+        <option value="RUC">RUC (emite Factura)</option>
+      </select>
+    </div>
+    <div class="form-group"><label>N° de Documento</label><input type="text" id="fe-cliente-doc" placeholder="DNI (8) o RUC (11)"></div>
+    <div class="form-group form-full"><label>Nombre / Razón Social</label><input type="text" id="fe-cliente-nombre" placeholder="Nombre completo o razón social"></div>
+    <div class="form-group form-full"><label>Dirección</label><input type="text" id="fe-cliente-direccion" placeholder="Dirección del cliente (opcional)"></div>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-emitir-sunat')">Cancelar</button>
+    <button class="btn btn-primary" onclick="emitirComprobanteSunat()">🧾 Emitir ante SUNAT</button>
+  </div>
+</div></div>
+
 <!-- ══════════ MODAL IMPRESIÓN MASIVA GUÍAS ══════════ -->
 <div class="modal-overlay" id="modal-print-masivo">
 <div class="modal" style="max-width:480px;width:94vw;">
@@ -2445,7 +2499,7 @@ tr:hover td{background:#f4f8f4;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[] };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'} };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -2605,6 +2659,7 @@ function cargarDB(){
   if(!DB.ganancias) DB.ganancias=[];
   if(!DB.tostadoProduccion) DB.tostadoProduccion=[];
   if(!DB.tostadoVentas) DB.tostadoVentas=[];
+  if(!DB.facturacionConfig) DB.facturacionConfig = {habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'};
 }
 
 // ── BACKUP JSON ──
@@ -2669,7 +2724,7 @@ function restaurarDesdeJSON(input){
       if(!confirm(msg)){ input.value = ''; return; }
 
       // Restaurar — copiar todos los campos de datos al DB
-      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas'].forEach(key => {
+      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig'].forEach(key => {
         if(data[key] !== undefined) DB[key] = data[key];
       });
 
@@ -3029,7 +3084,7 @@ function showSection(id){
   if(id==='guias'){ vincularTicketsHuerfanos(); renderGuias(); }
   if(id==='comprobantes') renderComprobantes();
   if(id==='socios') renderSocios();
-  if(id==='config'){ renderTablaPreciosConfig(); renderUsuarios(); actualizarCampaña(); cargarGdriveClientIdEnConfig(); actualizarEstadoSheets(); }
+  if(id==='config'){ renderTablaPreciosConfig(); renderUsuarios(); actualizarCampaña(); cargarGdriveClientIdEnConfig(); actualizarEstadoSheets(); cargarConfigFacturacion(); }
   if(id==='exportar') updateExportCounts();
   if(id==='prestamos') renderPrestamos();
   if(id==='caja'){ migrarEgresosCafeCoco(true); renderCaja(); }
@@ -7476,7 +7531,7 @@ async function gdriveCargar(){
     if(!confirm(`📥 CARGAR DATOS DESDE GOOGLE DRIVE\n\nFecha del backup: ${fecha}\nTickets: ${info.tickets||0}\nGuías: ${info.guias||0}\nComprobantes: ${info.comprobantes||0}\nSocios: ${info.socios||0}\n\n⚠️ ESTO REEMPLAZARÁ tus datos actuales.\n¿Continuar?`)) return;
 
     // Restaurar datos
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig'].forEach(key=>{
       if(data[key]!==undefined) DB[key]=data[key];
     });
     guardarDB(); marcarRespaldado();
@@ -7619,7 +7674,7 @@ async function sheetsCargarManual(){
     const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
     if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos actuales.\n¿Continuar?`)) return;
 
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig'].forEach(key=>{
       if(db[key]!==undefined) DB[key]=db[key];
     });
     guardarDB(); marcarRespaldado();
@@ -10133,6 +10188,7 @@ function renderKardex(){
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-secondary btn-sm" onclick="editarKardex(${ri})">✏️</button>
         <button class="btn btn-dorado btn-sm" onclick="verPrintKardex(${ri})">🖨️</button>
+        ${k.factura_electronica ? `<button class="btn btn-info btn-sm" onclick="window.open('${k.factura_electronica.enlace_pdf}','_blank')" title="${k.factura_electronica.tipo} ${k.factura_electronica.serie}-${k.factura_electronica.numero}">🧾✅</button>` : `<button class="btn btn-info btn-sm" onclick="abrirModalFacturacion('kardex',${ri})" title="Emitir comprobante electrónico SUNAT">🧾</button>`}
         <button class="btn btn-danger btn-sm" onclick="eliminarKardex(${ri})">🗑️</button>
       </div></td>
     </tr>`;
@@ -10601,6 +10657,7 @@ function renderTostadoVentas(){
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-secondary btn-sm" onclick="editarTostadoVenta(${ri})">✏️</button>
         <button class="btn btn-dorado btn-sm" onclick="verPrintTostadoVenta(${ri})">🖨️</button>
+        ${v.factura_electronica ? `<button class="btn btn-info btn-sm" onclick="window.open('${v.factura_electronica.enlace_pdf}','_blank')" title="${v.factura_electronica.tipo} ${v.factura_electronica.serie}-${v.factura_electronica.numero}">🧾✅</button>` : `<button class="btn btn-info btn-sm" onclick="abrirModalFacturacion('tostado',${ri})" title="Emitir comprobante electrónico SUNAT">🧾</button>`}
         <button class="btn btn-danger btn-sm" onclick="eliminarTostadoVenta(${ri})">🗑️</button>
       </div></td>
     </tr>`;
@@ -10680,6 +10737,176 @@ function renderTostado(){
 
   renderTostadoProduccion();
   renderTostadoVentas();
+}
+
+// ══════════════════════════════════════════
+// FACTURACIÓN ELECTRÓNICA SUNAT — vía NubeFacT (PSE/OSE autorizado)
+// ══════════════════════════════════════════
+function cargarConfigFacturacion(){
+  if(!DB.facturacionConfig) DB.facturacionConfig = {habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'};
+  const c = DB.facturacionConfig;
+  const elH = document.getElementById('fe-habilitado');
+  if(!elH) return; // sección aún no renderizada
+  elH.value = c.habilitado ? '1' : '0';
+  document.getElementById('fe-ruc').value = c.ruc || '20614704994';
+  document.getElementById('fe-token').value = c.token || '';
+  document.getElementById('fe-serie-factura').value = c.serieFactura || 'F001';
+  document.getElementById('fe-serie-boleta').value = c.serieBoleta || 'B001';
+}
+
+function guardarConfigFacturacion(){
+  DB.facturacionConfig = {
+    habilitado: document.getElementById('fe-habilitado').value === '1',
+    ruc: document.getElementById('fe-ruc').value.trim(),
+    token: document.getElementById('fe-token').value.trim(),
+    serieFactura: document.getElementById('fe-serie-factura').value.trim() || 'F001',
+    serieBoleta: document.getElementById('fe-serie-boleta').value.trim() || 'B001'
+  };
+  guardarDB();
+  showAlert('factElec-alert','success','✅ Configuración de Facturación Electrónica guardada.');
+}
+
+async function probarConexionFacturacion(){
+  const ruc = document.getElementById('fe-ruc').value.trim();
+  const token = document.getElementById('fe-token').value.trim();
+  if(!ruc || !token){ showAlert('factElec-alert','error','Completa el RUC y el Token antes de probar.'); return; }
+  showAlert('factElec-alert','success','🔌 Probando conexión con NubeFacT...');
+  try{
+    // NubeFacT no tiene un endpoint de "ping" dedicado; probamos autenticación con una
+    // consulta mínima (puede devolver error de datos, pero si el token es inválido
+    // devuelve un error de autenticación distinto, lo cual ya confirma la conexión).
+    const resp = await fetch(`https://api.nubefact.com/api/v1/${ruc}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Token token="${token}"` },
+      body: JSON.stringify({ operacion: 'generar_comprobante' })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(resp.status === 401 || (data.errors && /token|autenticaci/i.test(data.errors))){
+      showAlert('factElec-alert','error', `❌ Token o RUC incorrectos. Verifica en tu cuenta NubeFacT → Integración.`);
+    } else {
+      showAlert('factElec-alert','success', `✅ Conexión establecida con NubeFacT (respuesta recibida). Ya puedes emitir comprobantes desde Kárdex de Ventas o Café Tostado.`);
+    }
+  }catch(e){
+    showAlert('factElec-alert','error', `⚠️ No se pudo conectar (${e.message}). Si tu navegador bloquea la solicitud por CORS, contacta a soporte@nubefact.com para confirmar que tu cuenta permite llamadas directas desde el navegador.`);
+  }
+}
+
+// Abre el modal para completar datos del cliente y emitir el comprobante SUNAT
+let _feContexto = null; // {origen:'kardex'|'tostado', idx, monto, descripcion, kg}
+function abrirModalFacturacion(origen, idx){
+  if(!DB.facturacionConfig || !DB.facturacionConfig.habilitado){
+    alert('⚠️ La Facturación Electrónica no está habilitada.\n\nVe a Configuración → Facturación Electrónica SUNAT para activarla y guardar tu Token de NubeFacT.');
+    return;
+  }
+  let monto, descripcion, cliente;
+  if(origen === 'kardex'){
+    const k = DB.kardex[idx];
+    monto = parseFloat(k.ingreso||0);
+    descripcion = `Café ${k.tipo==='conv'?'Convencional':'Coco'} — ${fmtKg(k.kg_venta)} kg`;
+    cliente = k.cliente||'';
+  } else {
+    const v = DB.tostadoVentas[idx];
+    monto = parseFloat(v.ingreso||0);
+    descripcion = `Café Tostado — ${fmtKg(v.kg)} kg`;
+    cliente = v.cliente||'';
+  }
+  _feContexto = { origen, idx, monto, descripcion };
+  document.getElementById('fe-modal-resumen').textContent = `${descripcion} — Total: S/. ${fmtMonto(monto)}`;
+  document.getElementById('fe-cliente-tipo').value = 'DNI';
+  document.getElementById('fe-cliente-doc').value = '';
+  document.getElementById('fe-cliente-nombre').value = cliente;
+  document.getElementById('fe-cliente-direccion').value = '';
+  document.getElementById('fe-modal-alert').innerHTML = '';
+  toggleFeTipoComprobante();
+  abrirModal('modal-emitir-sunat');
+}
+
+function toggleFeTipoComprobante(){
+  const tipoDoc = document.getElementById('fe-cliente-tipo').value;
+  document.getElementById('fe-comprobante-tipo').textContent = tipoDoc==='RUC' ? 'FACTURA' : 'BOLETA DE VENTA';
+}
+
+async function emitirComprobanteSunat(){
+  if(!_feContexto) return;
+  const cfg = DB.facturacionConfig;
+  const tipoDoc = document.getElementById('fe-cliente-tipo').value; // DNI o RUC
+  const numDoc  = document.getElementById('fe-cliente-doc').value.trim();
+  const nombre  = document.getElementById('fe-cliente-nombre').value.trim();
+  const direccion = document.getElementById('fe-cliente-direccion').value.trim();
+
+  if(!numDoc || !nombre){
+    showAlert('fe-modal-alert','error','Completa el número de documento y el nombre/razón social del cliente.');
+    return;
+  }
+  if(tipoDoc==='RUC' && numDoc.length!==11){ showAlert('fe-modal-alert','error','El RUC debe tener 11 dígitos.'); return; }
+  if(tipoDoc==='DNI' && numDoc.length!==8){ showAlert('fe-modal-alert','error','El DNI debe tener 8 dígitos.'); return; }
+
+  const esFactura = tipoDoc === 'RUC';
+  const monto = _feContexto.monto;
+  const totalGravada = Math.round((monto/1.18)*100)/100;
+  const igv = Math.round((monto-totalGravada)*100)/100;
+
+  const payload = {
+    operacion: 'generar_comprobante',
+    tipo_de_comprobante: esFactura ? 1 : 2, // 1=Factura, 2=Boleta (códigos estándar NubeFacT)
+    serie: esFactura ? (cfg.serieFactura||'F001') : (cfg.serieBoleta||'B001'),
+    numero: null, // NubeFacT autoincrementa si se envía null/no se especifica correctamente configurado
+    sunat_transaction: 1,
+    cliente_tipo_de_documento: tipoDoc==='RUC' ? 6 : 1, // 6=RUC, 1=DNI
+    cliente_numero_de_documento: numDoc,
+    cliente_denominacion: nombre,
+    cliente_direccion: direccion || '-',
+    fecha_de_emision: hoy(),
+    moneda: 1, // Soles
+    porcentaje_de_igv: 18.00,
+    total_gravada: totalGravada,
+    total_igv: igv,
+    total: monto,
+    items: [{
+      unidad_de_medida: 'KGM',
+      codigo: '01',
+      descripcion: _feContexto.descripcion,
+      cantidad: 1,
+      valor_unitario: totalGravada,
+      precio_unitario: monto,
+      subtotal: totalGravada,
+      tipo_de_igv: 1,
+      igv: igv,
+      total: monto
+    }]
+  };
+
+  showAlert('fe-modal-alert','success','⏳ Emitiendo comprobante ante SUNAT (vía NubeFacT)...');
+  try{
+    const resp = await fetch(`https://api.nubefact.com/api/v1/${cfg.ruc}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Token token="${cfg.token}"` },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+
+    if(data.errors){
+      showAlert('fe-modal-alert','error', `❌ SUNAT/NubeFacT rechazó el comprobante: ${data.errors}`);
+      return;
+    }
+
+    const resultado = {
+      tipo: esFactura?'Factura':'Boleta', serie: data.serie, numero: data.numero,
+      enlace_pdf: data.enlace_del_pdf, enlace_xml: data.enlace_del_xml,
+      aceptada: data.aceptada_por_sunat, fecha: hoy()
+    };
+
+    if(_feContexto.origen==='kardex') DB.kardex[_feContexto.idx].factura_electronica = resultado;
+    else DB.tostadoVentas[_feContexto.idx].factura_electronica = resultado;
+    guardarDB();
+
+    cerrarModal('modal-emitir-sunat');
+    if(data.enlace_del_pdf) window.open(data.enlace_del_pdf, '_blank');
+    alert(`✅ ${resultado.tipo} ${resultado.serie}-${resultado.numero} emitida correctamente.\n${resultado.aceptada?'Aceptada por SUNAT.':'Enviada, verificando aceptación...'}`);
+    if(_feContexto.origen==='kardex') renderKardex(); else renderTostado();
+  }catch(e){
+    showAlert('fe-modal-alert','error', `⚠️ No se pudo completar el envío (${e.message}). Verifica tu conexión y que el Token en Configuración sea correcto.`);
+  }
 }
 
 (function init(){
