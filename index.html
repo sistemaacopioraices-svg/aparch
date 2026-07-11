@@ -418,7 +418,7 @@ tr:hover td{background:#f4f8f4;}
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
         </label>
         <button class="btn btn-export" onclick="exportarExcel('guias')">📥 Exportar Excel</button>
-        <button class="btn btn-secondary" onclick="vincularTicketsHuerfanos(true)" title="Ya corre automáticamente al entrar aquí; este botón solo la vuelve a ejecutar al momento si acabas de crear un ticket antiguo">🔗 Revincular Ahora</button>
+        <button class="btn btn-secondary" onclick="vincularTicketsHuerfanos(true)" title="Solo úsalo para arreglar datos VIEJOS (guías huérfanas de antes). Revisa siempre el resultado antes de confiar en él — nunca se ejecuta solo.">🔗 Vincular Tickets Antiguos (revisar antes de usar)</button>
         <button class="btn btn-dorado" onclick="imprimirTodasGuias()">🖨️ Imprimir Todas</button>
         <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
       </div>
@@ -4500,18 +4500,21 @@ function vincularTicketsHuerfanos(incluirAdivinanza){
   });
 
   // ── FASE 1: vincular guías con detalle vacío ADIVINANDO por productor ──
-  // Para que sea segura corriendo AUTOMÁTICAMENTE, solo considera tickets que NO sean de
-  // HOY como candidatos (así nunca le "roba" a un ticket recién creado que el usuario
-  // está a punto de usar para su propia guía nueva) — solo resuelve casos ya viejos.
-  DB.guias.forEach(g=>{
+  // IMPORTANTE: esto SOLO corre si se llama explícitamente con incluirAdivinanza=true
+  // (botón manual "🔗 Revincular Ahora"). NUNCA se ejecuta sola al entrar a la sección.
+  // Motivo: cuando hay varios tickets y varias guías del mismo productor circulando al
+  // mismo tiempo, "adivinar por productor" puede encadenar errores (un ticket nuevo le
+  // "roba" el lugar a otro). Las guías creadas por el flujo normal (+ Nueva Guía →
+  // seleccionar ticket) NUNCA quedan huérfanas, así que esta fase solo debería hacer
+  // falta para arreglar datos viejos una sola vez — no como proceso automático continuo.
+  if(incluirAdivinanza) DB.guias.forEach(g=>{
     if((g.tickets_detalle||[]).length > 0) return; // ya tiene detalle (incluye lo reparado en fase 0)
     if(!g.productor) { sinResolver.push({guia:g.codigo, motivo:'La guía no tiene productor definido', candidatos:[]}); return; }
 
-    const hoyStr = hoy();
-    let candidatos = DB.tickets.filter(t => t.productor===g.productor && !t.guia_asignada && t.fecha!==hoyStr);
+    let candidatos = DB.tickets.filter(t => t.productor===g.productor && !t.guia_asignada);
 
     if(candidatos.length === 0){
-      sinResolver.push({guia:g.codigo, motivo:`Sin tickets libres de ${g.productor} para vincular (o son de hoy — se resuelven mañana)`, candidatos:[]});
+      sinResolver.push({guia:g.codigo, motivo:`Sin tickets libres de ${g.productor} para vincular`, candidatos:[]});
       return;
     }
 
