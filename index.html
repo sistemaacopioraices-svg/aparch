@@ -418,10 +418,12 @@ tr:hover td{background:#f4f8f4;}
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
         </label>
         <button class="btn btn-export" onclick="exportarExcel('guias')">📥 Exportar Excel</button>
+        <button class="btn btn-secondary" onclick="vincularTicketsHuerfanos(true)" title="Ya corre automáticamente al entrar aquí; este botón solo la vuelve a ejecutar al momento si acabas de crear un ticket antiguo">🔗 Revincular Ahora</button>
         <button class="btn btn-dorado" onclick="imprimirTodasGuias()">🖨️ Imprimir Todas</button>
         <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
       </div>
     </div>
+    <div id="vinculacion-resultado"></div>
     <!-- TABS CERTIFICACIÓN -->
     <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
       <button id="g-tab-todos" class="btn btn-primary btn-sm" onclick="switchGuiaTab('todos')">🏦 Todas</button>
@@ -4469,14 +4471,14 @@ function buscarDuplicados(){
 // Busca guías sin ningún ticket en su detalle (tickets_detalle vacío) y trata de
 // vincular el ticket correspondiente SOLO cuando no hay ambigüedad: mismo productor
 // y un único ticket de ese productor que todavía no tiene guía asignada.
-function vincularTicketsHuerfanos(){
+function vincularTicketsHuerfanos(incluirAdivinanza){
   const vinculados = [];
   const reparados = [];
   const sinResolver = [];
 
   const numDe = (cod) => { const m=(cod||'').match(/(\d+)$/); return m?m[1]:null; };
 
-  // ── FASE 0: reparar enlaces "de un solo sentido" ──
+  // ── FASE 0: reparar enlaces "de un solo sentido" (SIEMPRE segura, corre automático) ──
   // El ticket ya declara (t.guia_asignada) a qué guía pertenece, pero esa guía no lo
   // tiene en su propio detalle (tickets_detalle). Como el ticket ya indica la guía
   // exacta (no hay que adivinar), simplemente se agrega al detalle de esa guía.
@@ -4497,15 +4499,19 @@ function vincularTicketsHuerfanos(){
     reparados.push({guia:g.codigo, ticket:t.codigo, productor:g.productor});
   });
 
-  // ── FASE 1: vincular guías que quedaron con detalle vacío ──
+  // ── FASE 1: vincular guías con detalle vacío ADIVINANDO por productor ──
+  // Para que sea segura corriendo AUTOMÁTICAMENTE, solo considera tickets que NO sean de
+  // HOY como candidatos (así nunca le "roba" a un ticket recién creado que el usuario
+  // está a punto de usar para su propia guía nueva) — solo resuelve casos ya viejos.
   DB.guias.forEach(g=>{
     if((g.tickets_detalle||[]).length > 0) return; // ya tiene detalle (incluye lo reparado en fase 0)
     if(!g.productor) { sinResolver.push({guia:g.codigo, motivo:'La guía no tiene productor definido', candidatos:[]}); return; }
 
-    let candidatos = DB.tickets.filter(t => t.productor===g.productor && !t.guia_asignada);
+    const hoyStr = hoy();
+    let candidatos = DB.tickets.filter(t => t.productor===g.productor && !t.guia_asignada && t.fecha!==hoyStr);
 
     if(candidatos.length === 0){
-      sinResolver.push({guia:g.codigo, motivo:`Sin tickets libres de ${g.productor} para vincular`, candidatos:[]});
+      sinResolver.push({guia:g.codigo, motivo:`Sin tickets libres de ${g.productor} para vincular (o son de hoy — se resuelven mañana)`, candidatos:[]});
       return;
     }
 
