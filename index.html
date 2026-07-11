@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>APARCH — Sistema de Acopio v11</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a5c2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="APARCH">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -263,6 +268,9 @@ tr:hover td{background:#f4f8f4;}
   </a>
   <a class="nav-item" onclick="showSection('tostado')" href="#">
     <span class="ico">🔥</span> Café Tostado
+  </a>
+  <a class="nav-item" onclick="showSection('inspecciones')" href="#">
+    <span class="ico">🔍</span> Inspecciones <span id="insp-pendientes-badge" style="display:none;background:#c62828;color:#fff;border-radius:10px;padding:1px 6px;font-size:0.65rem;margin-left:4px;"></span>
   </a>
   <div class="nav-section">Configuración</div>
   <a class="nav-item admin-only" onclick="showSection('masivo')" href="#">
@@ -1531,6 +1539,58 @@ tr:hover td{background:#f4f8f4;}
 
 </div>
 
+<!-- ══════════ INSPECCIONES INTERNAS (funciona sin internet) ══════════ -->
+<div class="section" id="sec-inspecciones">
+
+  <div class="card" id="insp-offline-banner" style="display:none;background:#fff3e0;border:1.5px solid #ffb74d;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:1.6rem;">📴</div>
+      <div>
+        <div style="font-weight:800;color:#e65100;">Estás sin conexión — no hay problema</div>
+        <div style="font-size:0.82rem;color:#8a6300;">Todo lo que registres aquí se guarda en este celular/computadora. Cuando vuelvas a tener internet en la oficina, sincroniza con el botón de abajo.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🔍 Inspecciones Internas</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-export" onclick="exportarExcel('inspecciones')">📥 Exportar Excel</button>
+        <button class="btn btn-secondary" onclick="marcarInspeccionesSincronizadas()" title="Después de exportar/importar el respaldo o sincronizar con Drive, márcalas como ya sincronizadas">☁️ Marcar Sincronizado</button>
+        <button class="btn btn-primary" onclick="abrirModalInspeccion()">+ Nueva Inspección</button>
+      </div>
+    </div>
+    <div class="stats-grid" style="margin-bottom:16px;">
+      <div class="stat-card">
+        <div class="stat-label">📋 Total Inspecciones</div>
+        <div class="stat-val" id="insp-total">0</div>
+      </div>
+      <div class="stat-card" style="border-left-color:#2e7d32;">
+        <div class="stat-label">✅ Aprobadas</div>
+        <div class="stat-val" id="insp-aprobadas" style="color:#2e7d32;">0</div>
+      </div>
+      <div class="stat-card" style="border-left-color:#e65100;">
+        <div class="stat-label">⚠️ Observadas</div>
+        <div class="stat-val" id="insp-observadas" style="color:#e65100;">0</div>
+      </div>
+      <div class="stat-card" style="border-left-color:#c62828;">
+        <div class="stat-label">🔄 Pendientes de Sincronizar</div>
+        <div class="stat-val" id="insp-sin-sync" style="color:#c62828;">0</div>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-insp" placeholder="🔍 Buscar por productor, código, tipo..." oninput="filtrarInspecciones()">
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>N° Inspección</th><th>Fecha</th><th>Productor</th><th>Tipo</th><th>Resultado</th>
+        <th>Inspector</th><th>Sync</th><th>Acciones</th>
+      </tr></thead><tbody id="inspecciones-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -1729,6 +1789,66 @@ tr:hover td{background:#f4f8f4;}
   <div class="form-actions">
     <button class="btn btn-secondary" onclick="cerrarModal('modal-emitir-sunat')">Cancelar</button>
     <button class="btn btn-primary" onclick="emitirComprobanteSunat()">🧾 Emitir ante SUNAT</button>
+  </div>
+</div></div>
+
+<!-- ══════════ MODAL INSPECCIÓN INTERNA ══════════ -->
+<div class="modal-overlay" id="modal-inspeccion">
+<div class="modal" style="max-width:640px;">
+  <div class="modal-header">
+    <div class="modal-title">🔍 Nueva Inspección Interna</div>
+    <button class="modal-close" onclick="cerrarModal('modal-inspeccion')">✕</button>
+  </div>
+  <div id="insp-form-alert"></div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>N° Inspección</label><input type="text" id="insp-codigo" readonly style="background:#eee;"></div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="insp-fecha"></div>
+    <div class="form-group">
+      <label>Productor / Parcela <span style="font-weight:400;color:#888;font-size:0.7rem;">(busca entre tus socios)</span></label>
+      <input type="text" id="insp-productor" list="insp-productor-list" placeholder="Nombre del productor...">
+      <datalist id="insp-productor-list"></datalist>
+    </div>
+    <div class="form-group">
+      <label>Tipo de Inspección</label>
+      <select id="insp-tipo">
+        <option value="Orgánico">🌿 Orgánico</option>
+        <option value="Fairtrade">🤝 Fairtrade</option>
+        <option value="Convencional">☕ Convencional</option>
+        <option value="Calidad">🏆 Calidad</option>
+        <option value="Otra">📋 Otra</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Inspector</label><input type="text" id="insp-inspector" placeholder="Nombre de quien inspecciona..."></div>
+    <div class="form-group">
+      <label>Resultado</label>
+      <select id="insp-resultado">
+        <option value="Aprobado">✅ Aprobado</option>
+        <option value="Observado">⚠️ Observado</option>
+        <option value="Rechazado">❌ Rechazado</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="subsection-title">CHECKLIST DE CRITERIOS</div>
+  <div id="insp-checklist" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;">
+    <input type="text" id="insp-nuevo-criterio" placeholder="Agregar otro criterio a revisar..." style="flex:1;padding:7px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.84rem;">
+    <button class="btn btn-secondary btn-sm" onclick="agregarCriterioInspeccion()">+ Agregar</button>
+  </div>
+
+  <div class="form-group form-full"><label>Observaciones</label><textarea id="insp-obs" placeholder="Detalles, hallazgos, recomendaciones..."></textarea></div>
+
+  <div class="subsection-title">FIRMA DEL PRODUCTOR (dibuja con el dedo o el mouse)</div>
+  <div style="border:2px solid var(--borde);border-radius:8px;background:#fff;touch-action:none;">
+    <canvas id="insp-firma-canvas" width="580" height="160" style="width:100%;height:160px;display:block;cursor:crosshair;"></canvas>
+  </div>
+  <div style="text-align:right;margin-top:6px;">
+    <button class="btn btn-secondary btn-sm" onclick="limpiarFirmaInspeccion()">🧹 Borrar Firma</button>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-inspeccion')">Cancelar</button>
+    <button class="btn btn-primary" onclick="guardarInspeccion()">💾 Guardar Inspección</button>
   </div>
 </div></div>
 
@@ -2501,7 +2621,7 @@ tr:hover td{background:#f4f8f4;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'} };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'} };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -2662,6 +2782,7 @@ function cargarDB(){
   if(!DB.tostadoProduccion) DB.tostadoProduccion=[];
   if(!DB.tostadoVentas) DB.tostadoVentas=[];
   if(!DB.facturacionConfig) DB.facturacionConfig = {habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'};
+  if(!DB.inspecciones) DB.inspecciones=[];
 }
 
 // ── BACKUP JSON ──
@@ -2726,7 +2847,7 @@ function restaurarDesdeJSON(input){
       if(!confirm(msg)){ input.value = ''; return; }
 
       // Restaurar — copiar todos los campos de datos al DB
-      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig'].forEach(key => {
+      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones'].forEach(key => {
         if(data[key] !== undefined) DB[key] = data[key];
       });
 
@@ -3070,6 +3191,7 @@ const secTitles={dashboard:'📊 Dashboard',tickets:'🎫 Ticket de Entrada',gui
   kardex:'📦 Kárdex de Ventas', masivo:'⚡ Generación Masiva',
   ganancias:'💰 Registro de Ganancias',
   tostado:'🔥 Café Tostado — Producción y Ventas',
+  inspecciones:'🔍 Inspecciones Internas',
   config:'⚙️ Configuración',exportar:'📤 Exportar Datos'};
 
 function showSection(id){
@@ -3093,6 +3215,7 @@ function showSection(id){
   if(id==='kardex'){ renderKardex(); }
   if(id==='ganancias'){ renderGanancias(); }
   if(id==='tostado'){ renderTostado(); }
+  if(id==='inspecciones'){ renderInspecciones(); actualizarBannerConexion(); }
   if(id==='masivo'){ renderMasivo(); }
   if(id==='cafecoco') renderCafeCoco();
 }
@@ -6181,6 +6304,10 @@ function exportarExcel(tipo){
     h=['N° Venta','Fecha','Cliente','DNI','KG Vendidos','Precio/kg S/.','Costo/kg S/.','Ingreso S/.','Costo S/.','Utilidad S/.','Margen%','Obs.'];
     d=(DB.tostadoVentas||[]).map(v=>[v.nventa,v.fecha,v.cliente,v.cliente_dni,parseFloat(v.kg||0),parseFloat(v.precio||0),parseFloat(v.costo_kg||0),parseFloat(v.ingreso||0),parseFloat(v.costo||0),parseFloat(v.utilidad||0),parseFloat(v.margen||0),v.observaciones]);
     n='TostadoVentas_APARCH';
+  } else if(tipo==='inspecciones'){
+    h=['N° Inspección','Fecha','Productor','Tipo','Resultado','Inspector','Sincronizado','Criterios Cumplidos','Criterios Totales','Observaciones'];
+    d=(DB.inspecciones||[]).map(i=>[i.codigo,i.fecha,i.productor,i.tipo,i.resultado,i.inspector,i.sincronizado?'Sí':'No',(i.checklist||[]).filter(c=>c.cumple).length,(i.checklist||[]).length,i.observaciones]);
+    n='Inspecciones_APARCH';
   }
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([h,...d]),n.split('_')[0]);
@@ -7560,7 +7687,7 @@ async function gdriveCargar(){
     if(!confirm(`📥 CARGAR DATOS DESDE GOOGLE DRIVE\n\nFecha del backup: ${fecha}\nTickets: ${info.tickets||0}\nGuías: ${info.guias||0}\nComprobantes: ${info.comprobantes||0}\nSocios: ${info.socios||0}\n\n⚠️ ESTO REEMPLAZARÁ tus datos actuales.\n¿Continuar?`)) return;
 
     // Restaurar datos
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones'].forEach(key=>{
       if(data[key]!==undefined) DB[key]=data[key];
     });
     guardarDB(); marcarRespaldado();
@@ -7703,7 +7830,7 @@ async function sheetsCargarManual(){
     const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
     if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos actuales.\n¿Continuar?`)) return;
 
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones'].forEach(key=>{
       if(db[key]!==undefined) DB[key]=db[key];
     });
     guardarDB(); marcarRespaldado();
@@ -10938,6 +11065,252 @@ async function emitirComprobanteSunat(){
   }
 }
 
+// ══════════════════════════════════════════
+// INSPECCIONES INTERNAS — funciona sin internet (PWA), sincroniza al volver a conexión
+// ══════════════════════════════════════════
+const INSP_CRITERIOS_DEFECTO = [
+  'Uso de agroquímicos prohibidos',
+  'Documentación / cuaderno de campo en regla',
+  'Prácticas de conservación de suelo y agua',
+  'Almacenamiento adecuado del café',
+  'Zonas de amortiguamiento respetadas',
+  'Condiciones de trabajo / seguridad'
+];
+let insp_checklistTemp = [];
+let insp_firmaCtx = null;
+let insp_firmaDibujando = false;
+let insp_firmaTieneTrazo = false;
+
+function abrirModalInspeccion(){
+  document.getElementById('insp-codigo').value = nextCodigo(DB.inspecciones||[], 'INSP-');
+  document.getElementById('insp-fecha').value = hoy();
+  document.getElementById('insp-productor').value = '';
+  document.getElementById('insp-tipo').value = 'Orgánico';
+  document.getElementById('insp-inspector').value = SESSION.user||'';
+  document.getElementById('insp-resultado').value = 'Aprobado';
+  document.getElementById('insp-obs').value = '';
+  document.getElementById('insp-form-alert').innerHTML = '';
+
+  insp_checklistTemp = INSP_CRITERIOS_DEFECTO.map(c=>({criterio:c, cumple:true}));
+  renderChecklistInspeccion();
+
+  const dl = document.getElementById('insp-productor-list');
+  if(dl) dl.innerHTML = (DB.socios||[]).map(s=>`<option value="${s.nombre}">`).join('');
+
+  abrirModal('modal-inspeccion');
+  setTimeout(initFirmaCanvas, 100); // esperar a que el modal sea visible para medir el canvas
+}
+
+function renderChecklistInspeccion(){
+  const cont = document.getElementById('insp-checklist');
+  cont.innerHTML = insp_checklistTemp.map((c,i)=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${c.cumple?'#f0faf4':'#fff3e0'};border-radius:6px;font-size:0.84rem;">
+      <input type="checkbox" ${c.cumple?'checked':''} onchange="insp_checklistTemp[${i}].cumple=this.checked;renderChecklistInspeccion();">
+      <span style="flex:1;">${c.criterio}</span>
+      <span style="cursor:pointer;color:#c62828;font-weight:700;" onclick="insp_checklistTemp.splice(${i},1);renderChecklistInspeccion();">✕</span>
+    </label>`).join('');
+}
+
+function agregarCriterioInspeccion(){
+  const el = document.getElementById('insp-nuevo-criterio');
+  const texto = el.value.trim();
+  if(!texto) return;
+  insp_checklistTemp.push({criterio:texto, cumple:true});
+  el.value = '';
+  renderChecklistInspeccion();
+}
+
+// ── FIRMA TÁCTIL (canvas) — funciona con dedo (touch) o mouse ──
+function initFirmaCanvas(){
+  const canvas = document.getElementById('insp-firma-canvas');
+  if(!canvas) return;
+  // Ajustar resolución real del canvas al tamaño visual (para que no se vea borroso)
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width; canvas.height = 160;
+  insp_firmaCtx = canvas.getContext('2d');
+  insp_firmaCtx.strokeStyle = '#1a3a6e';
+  insp_firmaCtx.lineWidth = 2.2;
+  insp_firmaCtx.lineCap = 'round';
+  insp_firmaTieneTrazo = false;
+
+  const getPos = (e)=>{
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  };
+  const start = (e)=>{ e.preventDefault(); insp_firmaDibujando = true; const p=getPos(e); insp_firmaCtx.beginPath(); insp_firmaCtx.moveTo(p.x,p.y); };
+  const move  = (e)=>{ if(!insp_firmaDibujando) return; e.preventDefault(); const p=getPos(e); insp_firmaCtx.lineTo(p.x,p.y); insp_firmaCtx.stroke(); insp_firmaTieneTrazo = true; };
+  const end   = ()=>{ insp_firmaDibujando = false; };
+
+  canvas.onmousedown = start; canvas.onmousemove = move; canvas.onmouseup = end; canvas.onmouseleave = end;
+  canvas.ontouchstart = start; canvas.ontouchmove = move; canvas.ontouchend = end;
+}
+
+function limpiarFirmaInspeccion(){
+  const canvas = document.getElementById('insp-firma-canvas');
+  if(!canvas || !insp_firmaCtx) return;
+  insp_firmaCtx.clearRect(0,0,canvas.width,canvas.height);
+  insp_firmaTieneTrazo = false;
+}
+
+function guardarInspeccion(){
+  const fecha = document.getElementById('insp-fecha').value;
+  const productor = document.getElementById('insp-productor').value.trim();
+  const tipo = document.getElementById('insp-tipo').value;
+  const inspector = document.getElementById('insp-inspector').value.trim();
+  const resultado = document.getElementById('insp-resultado').value;
+  const obs = document.getElementById('insp-obs').value.trim();
+
+  const faltantes = [];
+  if(!fecha) faltantes.push('Fecha');
+  if(!productor) faltantes.push('Productor');
+  if(!inspector) faltantes.push('Inspector');
+  if(faltantes.length){
+    showAlert('insp-form-alert','error', `Completa los siguientes campos: ${faltantes.join(', ')}.`);
+    return;
+  }
+
+  const canvas = document.getElementById('insp-firma-canvas');
+  const firmaBase64 = insp_firmaTieneTrazo ? canvas.toDataURL('image/png') : '';
+
+  const registro = {
+    codigo: document.getElementById('insp-codigo').value,
+    fecha, productor, tipo, inspector, resultado,
+    checklist: [...insp_checklistTemp],
+    observaciones: obs,
+    firma: firmaBase64,
+    usuario: SESSION.user,
+    sincronizado: navigator.onLine === true,
+    creado_offline: navigator.onLine !== true
+  };
+
+  if(!DB.inspecciones) DB.inspecciones=[];
+  DB.inspecciones.push(registro);
+  guardarDB();
+  cerrarModal('modal-inspeccion');
+  renderInspecciones();
+}
+
+function eliminarInspeccion(idx){
+  if(!confirm('¿Eliminar esta inspección?')) return;
+  DB.inspecciones.splice(idx,1);
+  guardarDB();
+  renderInspecciones();
+}
+
+function marcarInspeccionesSincronizadas(){
+  (DB.inspecciones||[]).forEach(i=>{ i.sincronizado = true; });
+  guardarDB();
+  renderInspecciones();
+  alert('✅ Todas las inspecciones se marcaron como sincronizadas.');
+}
+
+function filtrarInspecciones(){
+  renderInspecciones(document.getElementById('search-insp').value.toLowerCase());
+}
+
+function renderInspecciones(filtro){
+  if(!DB.inspecciones) DB.inspecciones=[];
+  filtro = filtro || '';
+  const lista = DB.inspecciones.filter(i=>{
+    return !filtro || (i.codigo||'').toLowerCase().includes(filtro) || (i.productor||'').toLowerCase().includes(filtro) || (i.tipo||'').toLowerCase().includes(filtro);
+  }).slice().reverse();
+
+  document.getElementById('insp-total').textContent = DB.inspecciones.length;
+  document.getElementById('insp-aprobadas').textContent = DB.inspecciones.filter(i=>i.resultado==='Aprobado').length;
+  document.getElementById('insp-observadas').textContent = DB.inspecciones.filter(i=>i.resultado==='Observado'||i.resultado==='Rechazado').length;
+  const sinSync = DB.inspecciones.filter(i=>!i.sincronizado).length;
+  const elSync = document.getElementById('insp-sin-sync');
+  elSync.textContent = sinSync;
+  elSync.parentElement.style.display = sinSync>0 ? '' : 'none';
+
+  const badge = document.getElementById('insp-pendientes-badge');
+  if(badge){
+    if(sinSync>0){ badge.textContent = sinSync; badge.style.display='inline-block'; }
+    else badge.style.display='none';
+  }
+
+  const tb = document.getElementById('inspecciones-body');
+  if(!lista.length){
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="ico">🔍</span>Aún no hay inspecciones registradas.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = lista.map(i=>{
+    const ri = DB.inspecciones.indexOf(i);
+    const badgeRes = i.resultado==='Aprobado'?'badge-verde':i.resultado==='Observado'?'badge-dorado':'badge-rojo';
+    return `<tr>
+      <td class="td-codigo">${i.codigo}</td>
+      <td>${fechaDisplay(i.fecha)}</td>
+      <td><strong>${i.productor}</strong></td>
+      <td>${i.tipo}</td>
+      <td><span class="badge ${badgeRes}">${i.resultado}</span></td>
+      <td>${i.inspector}</td>
+      <td>${i.sincronizado ? '☁️ Sí' : '<span style="color:#c62828;font-weight:700;">📴 No</span>'}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-dorado btn-sm" onclick="verPrintInspeccion(${ri})">🖨️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarInspeccion(${ri})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function verPrintInspeccion(idx){
+  const i = DB.inspecciones[idx];
+  if(!i) return;
+  const badgeColor = i.resultado==='Aprobado'?'#2e7d32':i.resultado==='Observado'?'#e65100':'#c62828';
+  const checklistHtml = (i.checklist||[]).map(c=>`
+    <tr>
+      <td style="border:1px solid #ccc;padding:4px 6px;">${c.cumple?'✅':'❌'}</td>
+      <td style="border:1px solid #ccc;padding:4px 6px;">${c.criterio}</td>
+    </tr>`).join('');
+  const html = `
+  <div style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:540px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:8.5px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">ACTA DE INSPECCIÓN INTERNA — ${i.tipo.toUpperCase()}</div>
+        <div style="font-size:18px;font-weight:900;color:#1a5c2e;">${i.codigo}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Productor: </span><strong style="font-size:13px;">${i.productor}</strong></div>
+      <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(i.fecha)}</strong></div>
+      <div><span style="color:#666;">Inspector: </span><strong>${i.inspector}</strong></div>
+      <div style="grid-column:1/-1;"><span style="color:#666;">Resultado: </span><strong style="color:${badgeColor};font-size:13px;">${i.resultado}</strong></div>
+    </div>
+    <div style="font-weight:800;font-size:9.5px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Checklist de Criterios</div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;">
+      <thead><tr style="background:#1a5c2e;color:#fff;">
+        <th style="border:1px solid #14431f;padding:4px 6px;width:16%;">Cumple</th>
+        <th style="border:1px solid #14431f;padding:4px 6px;">Criterio</th>
+      </tr></thead>
+      <tbody>${checklistHtml||'<tr><td colspan="2" style="text-align:center;padding:8px;color:#999;">Sin criterios</td></tr>'}</tbody>
+    </table>
+    ${i.observaciones?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${i.observaciones}</div>`:''}
+    <div style="margin-top:20px;">
+      <div style="font-size:8.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Productor</div>
+      ${i.firma ? `<img src="${i.firma}" style="max-width:260px;border-bottom:1.5px solid #333;">` : `<div style="border-bottom:1.5px solid #333;height:50px;"></div>`}
+      <div style="font-size:9px;color:#999;margin-top:2px;">${i.productor}</div>
+    </div>
+  </div>`;
+  const w = window.open('', '_blank');
+  if(!w){ alert('El navegador bloqueó la ventana de impresión.'); return; }
+  const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Inspección APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},80);};<\/script></body></html>`;
+  const blob = new Blob([doc], {type:'text/html'});
+  w.location = URL.createObjectURL(blob);
+}
+
+// ── Detección de conexión (online/offline) ──
+function actualizarBannerConexion(){
+  const banner = document.getElementById('insp-offline-banner');
+  if(!banner) return;
+  banner.style.display = navigator.onLine ? 'none' : '';
+}
+window.addEventListener('online', actualizarBannerConexion);
+window.addEventListener('offline', actualizarBannerConexion);
+
 (function init(){
   cargarDB();
   const hoyStr=new Date().toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -10971,6 +11344,18 @@ async function emitirComprobanteSunat(){
       }
     }catch(e){}
   });
+
+  // Registrar Service Worker para que la app funcione sin internet en el celular
+  // (una vez que se abrió con conexión, queda disponible offline desde ese dispositivo).
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').then(function(reg){
+        console.log('Service Worker registrado — APARCH puede funcionar sin internet.');
+      }).catch(function(err){
+        console.warn('No se pudo registrar el Service Worker (offline no disponible):', err);
+      });
+    });
+  }
 })();
 </script>
 </body>
