@@ -3825,8 +3825,8 @@ function renderTickets(filtro){
       <td><span class="tag">${t.lote||'—'}</span></td>
       <td style="font-size:0.74rem;">${t.observaciones||'—'}</td>
       <td>
-        ${t.guia_asignada ? `<span class="badge badge-azul" style="font-size:0.68rem;display:block;margin-bottom:3px;">📋 ${t.guia_asignada}</span>` : ''}
-        <div style="display:flex;gap:3px;">
+        ${t.guia_asignada ? `<span class="badge badge-azul" style="font-size:0.68rem;cursor:pointer;" onclick="liberarTicketDeGuia(${ri})" title="Clic para liberar este ticket de la guía (si el vínculo está mal)">📋 ${t.guia_asignada} ✕</span>` : ''}
+        <div style="display:flex;gap:3px;margin-top:3px;">
           <button class="btn btn-secondary btn-sm" onclick="abrirModalTicket(${ri})">✏️</button>
           <button class="btn btn-dorado btn-sm" onclick="verPrintTicket(${ri})">🖨️</button>
           <button class="btn btn-danger btn-sm" onclick="eliminarTicket(${ri})">🗑️</button>
@@ -3847,6 +3847,26 @@ function abrirModalAlertaBloqueo(titulo, mensaje, detalle){
   const tit = document.getElementById('sa-titulo');
   if(tit){ tit.textContent = titulo; tit.style.color='#c62828'; }
   abrirModal('modal-saldo-alerta');
+}
+
+// Libera un ticket de la guía a la que está vinculado (por si el vínculo quedó mal),
+// quitándolo también del detalle de esa guía para que los datos queden consistentes.
+function liberarTicketDeGuia(idx){
+  const t = DB.tickets[idx];
+  if(!t || !t.guia_asignada) return;
+  const guia = DB.guias.find(g=>g.codigo===t.guia_asignada);
+  const nombreGuia = t.guia_asignada;
+  let msg = `¿Liberar el ticket ${t.codigo} de la guía ${nombreGuia}?`;
+  if(guia) msg += `\n\nEsa guía es de ${guia.productor||'—'} por S/.${fmt(guia.valorrecibido)}. Si el ticket ya tiene su costo/valor sumado ahí, revisa la guía después de liberar, por si hay que ajustar su valor.`;
+  if(!confirm(msg)) return;
+
+  t.guia_asignada = '';
+  if(guia && guia.tickets_detalle){
+    guia.tickets_detalle = guia.tickets_detalle.filter(td=>td.nticket !== t.codigo);
+  }
+  guardarDB();
+  renderTickets(document.getElementById('search-ticket')?.value?.toLowerCase()||'');
+  alert(`✅ Ticket ${t.codigo} liberado. Ya puedes usarlo para crear una guía nueva.`);
 }
 
 function eliminarTicket(i){
