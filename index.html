@@ -75,9 +75,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
   margin:6px 12px;padding:6px 10px;border-radius:7px;font-size:0.72rem;font-weight:700;
   text-align:center;background:rgba(240,180,41,.15);color:var(--dorado-c);border:1px solid rgba(240,180,41,.3);
 }
+/* Modo "app instalada en el celular": el menú lateral solo deja ver Inspecciones + Cerrar Sesión.
+   Se activa detectando que la PWA corre en modo standalone (instalada), ver ES_APP_MOVIL_INSTALADA. */
+body.modo-app-movil .nav-solo-completo{ display:none !important; }
 
 /* ── MAIN ── */
-.main{margin-left:235px;min-height:100vh;display:flex;flex-direction:column;}
+.main{margin-left:235px;min-height:100vh;display:flex;flex-direction:column;min-width:0;}
 .topbar{
   background:var(--bgc);border-bottom:1px solid var(--borde);
   padding:12px 26px;display:flex;align-items:center;justify-content:space-between;
@@ -86,7 +89,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 .topbar-title{font-size:1.05rem;font-weight:700;color:var(--verde);}
 .topbar-right{display:flex;gap:8px;align-items:center;}
 .badge-fecha{background:var(--bg);border:1px solid var(--borde);border-radius:6px;padding:4px 10px;font-size:0.76rem;color:var(--txts);}
-.content{padding:22px 26px;flex:1;}
+.content{padding:22px 26px;flex:1;min-width:0;}
 
 /* ── STATS ── */
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
@@ -101,7 +104,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 
 /* ── CARDS ── */
 .card{background:var(--bgc);border-radius:var(--radio);box-shadow:var(--sombra);padding:20px 22px;margin-bottom:18px;}
-.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--borde);}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--borde);flex-wrap:wrap;gap:8px;}
 .card-title{font-size:.96rem;font-weight:700;color:var(--verde);display:flex;align-items:center;gap:8px;}
 
 /* ── BUTTONS ── */
@@ -134,7 +137,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 }
 .form-group input[readonly]{background:#eee;color:#666;}
 .form-group textarea{resize:vertical;min-height:55px;}
-.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-bottom:1px solid var(--borde);}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-bottom:1px solid var(--borde);flex-wrap:wrap;}
+
+/* Los gráficos (Chart.js-style, dibujados a mano en <canvas>) fijan canvas.width/height en píxeles
+   reales al momento de renderizar — si ese cálculo cae en 0 (p.ej. el contenedor aún no tenía
+   layout) usan un ancho de repuesto fijo (300-400px) que puede desbordar en pantallas angostas.
+   Esta regla los reescala siempre a como máximo el ancho de su contenedor, sin tocar la lógica de
+   dibujo de cada gráfico. */
+canvas{max-width:100%;}
 
 /* ── TABLE ── */
 .table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--borde);}
@@ -158,14 +168,14 @@ tr:hover td{background:#f4f8f4;}
 /* ── SECTION ── */
 .section{display:none;}.section.active{display:block;}
 .subsection-title{font-size:0.74rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--cafe-c);margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--borde);}
-.search-bar{display:flex;gap:8px;margin-bottom:14px;align-items:center;}
-.search-bar input{flex:1;padding:7px 11px;border:1px solid var(--borde);border-radius:7px;font-size:0.84rem;}
+.search-bar{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap;}
+.search-bar input{flex:1;min-width:140px;padding:7px 11px;border:1px solid var(--borde);border-radius:7px;font-size:0.84rem;}
 
 /* ── MODAL ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
 .modal{background:#fff;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.22);padding:26px 26px 18px;max-width:960px;width:96vw;max-height:90vh;overflow-y:auto;}
-.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
 .modal-title{font-size:1rem;font-weight:700;color:var(--verde);}
 .modal-close{font-size:1.3rem;cursor:pointer;color:#888;background:none;border:none;line-height:1;}
 .modal-close:hover{color:#c0392b;}
@@ -195,6 +205,38 @@ tr:hover td{background:#f4f8f4;}
   .content{padding:0;}
   body{background:#fff;font-size:11px;}
   .card{box-shadow:none;border:1px solid #ccc;}
+}
+
+/* ── RESPONSIVE (celular/tablet) ──
+   La app se diseñó originalmente para escritorio (sidebar fija de 235px). Estas reglas convierten
+   la sidebar en una barra superior horizontal y ajustan grillas/formularios en pantallas angostas,
+   para que tanto el sistema completo como el modo "solo Inspecciones" (celular instalado, ver
+   ES_APP_MOVIL_INSTALADA) se puedan usar cómodamente desde un celular. Va al final de la hoja de
+   estilos a propósito, para ganar el empate de especificidad contra las reglas base de arriba. */
+@media (max-width:820px){
+  .sidebar{
+    position:relative;left:auto;top:auto;bottom:auto;width:100%;height:auto;
+    flex-direction:row;flex-wrap:wrap;align-items:center;box-shadow:0 2px 10px rgba(0,0,0,.15);
+  }
+  .sidebar-logo{padding:10px 12px;border-bottom:none;flex:1 1 auto;}
+  .sidebar-logo .sub{display:none;}
+  .nav-section{display:none;}
+  .nav-user{margin:6px 8px;flex:0 0 auto;}
+  .campaña-badge{flex:1 1 100%;margin:2px 10px 8px;}
+  .nav-item{padding:8px 12px;border-left:none;border-bottom:3px solid transparent;font-size:0.8rem;}
+  .nav-item.active{border-left:none;border-bottom-color:var(--dorado-c);}
+  .sidebar-bottom{display:none;}
+  .main{margin-left:0;}
+  .content{padding:14px;}
+  .topbar{padding:10px 14px;flex-wrap:wrap;row-gap:6px;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .form-grid-2{grid-template-columns:1fr;}
+  .modal{padding:18px 16px 14px;}
+  .search-bar input{min-width:0;}
+}
+@media (max-width:480px){
+  .stats-grid{grid-template-columns:1fr;}
+  .btn{padding:8px 11px;font-size:0.78rem;}
 }
 </style>
 </head>
@@ -237,52 +279,52 @@ tr:hover td{background:#f4f8f4;}
     <div class="uname" id="nav-username">—</div>
     <div class="urole" id="nav-userrole">—</div>
   </div>
-  <div class="nav-section">Principal</div>
-  <a class="nav-item active" onclick="showSection('dashboard')" href="#">
+  <div class="nav-section nav-solo-completo">Principal</div>
+  <a class="nav-item nav-solo-completo active" onclick="showSection('dashboard')" href="#">
     <span class="ico">📊</span> Dashboard
   </a>
-  <div class="nav-section">Módulos</div>
-  <a class="nav-item" onclick="showSection('tickets')" href="#">
+  <div class="nav-section nav-solo-completo">Módulos</div>
+  <a class="nav-item nav-solo-completo" onclick="showSection('tickets')" href="#">
     <span class="ico">🎫</span> Ticket de Entrada
   </a>
-  <a class="nav-item" onclick="showSection('guias')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('guias')" href="#">
     <span class="ico">📋</span> Guía de Entrada
   </a>
-  <a class="nav-item" onclick="showSection('comprobantes')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('comprobantes')" href="#">
     <span class="ico">🧾</span> Comprobante de Pagos
   </a>
-  <a class="nav-item" onclick="showSection('prestamos')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('prestamos')" href="#">
     <span class="ico">💰</span> Préstamos
   </a>
-  <a class="nav-item" onclick="showSection('caja')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('caja')" href="#">
     <span class="ico">🏦</span> Caja
   </a>
-  <a class="nav-item" onclick="showSection('cafecoco')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('cafecoco')" href="#">
     <span class="ico">🌰</span> Compra Café Coco
   </a>
-  <a class="nav-item" onclick="showSection('kardex')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('kardex')" href="#">
     <span class="ico">📦</span> Kárdex de Ventas
   </a>
-  <a class="nav-item" onclick="showSection('ganancias')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('ganancias')" href="#">
     <span class="ico">💰</span> Registro de Ganancias
   </a>
-  <a class="nav-item" onclick="showSection('tostado')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('tostado')" href="#">
     <span class="ico">🔥</span> Café Tostado
   </a>
   <a class="nav-item" onclick="showSection('inspecciones')" href="#">
     <span class="ico">🔍</span> Inspecciones <span id="insp-pendientes-badge" style="display:none;background:#c62828;color:#fff;border-radius:10px;padding:1px 6px;font-size:0.65rem;margin-left:4px;"></span>
   </a>
-  <div class="nav-section">Configuración</div>
-  <a class="nav-item admin-only" onclick="showSection('masivo')" href="#">
+  <div class="nav-section nav-solo-completo">Configuración</div>
+  <a class="nav-item admin-only nav-solo-completo" onclick="showSection('masivo')" href="#">
     <span class="ico">⚡</span> Generación Masiva
   </a>
-  <a class="nav-item" onclick="showSection('socios')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('socios')" href="#">
     <span class="ico">👥</span> Socios / Productores
   </a>
-  <a class="nav-item admin-only" onclick="showSection('config')" href="#">
+  <a class="nav-item admin-only nav-solo-completo" onclick="showSection('config')" href="#">
     <span class="ico">⚙️</span> Configuración
   </a>
-  <a class="nav-item" onclick="showSection('exportar')" href="#">
+  <a class="nav-item nav-solo-completo" onclick="showSection('exportar')" href="#">
     <span class="ico">📤</span> Exportar Datos
   </a>
   <a class="nav-item" onclick="doLogout()" href="#" style="margin-top:auto;color:rgba(255,100,100,.8);">
@@ -2790,6 +2832,21 @@ let SESSION = { user:null, role:null };
 let editandoTicketIdx=-1, editandoGuiaIdx=-1, editandoCompIdx=-1;
 let guiaTicketsTemp=[];
 
+// ── Detección "app instalada en el celular" (modo PWA standalone) ──
+// Cuando APARCH se abre como app instalada (ícono en la pantalla de inicio, sin la barra del
+// navegador) en vez de como una pestaña normal del navegador, el menú se reduce a solo
+// "Inspecciones" + "Cerrar Sesión" — pensado para inspectores de campo que solo necesitan la
+// Ficha de Inspección desde su celular. Si se abre desde el navegador normal (aunque sea en un
+// celular), se sigue viendo el sistema completo como siempre.
+const ES_APP_MOVIL_INSTALADA = (function(){
+  try{
+    const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+    const iosStandalone = window.navigator && window.navigator.standalone === true; // Safari/iOS
+    return !!(standalone || iosStandalone);
+  }catch(e){ return false; }
+})();
+if(ES_APP_MOVIL_INSTALADA) document.body.classList.add('modo-app-movil');
+
 // ── Clave única del archivo para distinguir versiones del sistema ──
 const STORAGE_KEY = 'aparch_db';
 const BACKUP_META_KEY = 'aparch_backup_meta';
@@ -3343,7 +3400,12 @@ function loginSubmit(){
   const tf=document.getElementById('t-usuario');
   if(tf) tf.value=found.user;
   actualizarCampaña();
-  renderDashboard();
+  if(ES_APP_MOVIL_INSTALADA){
+    // App instalada en el celular: entra directo a Inspecciones, el resto del menú queda oculto.
+    showSection('inspecciones');
+  } else {
+    renderDashboard();
+  }
 }
 function doLogout(){
   // Verificar si hay datos sin respaldar antes de cerrar sesión
@@ -11562,10 +11624,14 @@ function initFirmaCanvas(which){
   const canvas = document.getElementById('insped-firma-'+which+'-canvas');
   if(!canvas) return;
   const st = insp_firmas[which];
-  // Si ya había una firma dibujada, la preservamos (por si se re-mide el canvas al reingresar a la pestaña)
+  // Si ya había una firma dibujada, la preservamos (por si se re-mide el canvas al reingresar a la pestaña).
+  // Si en cambio venimos de abrir el editor en modo "editar" sobre una inspección guardada, cargamos
+  // la firma que ya estaba guardada (`cargarDesde`, cargado por `abrirEditorInspeccion`).
   let imgPrevia = null;
   if(st.ctx && st.tieneTrazo){
     try{ imgPrevia = canvas.toDataURL('image/png'); }catch(e){}
+  } else if(st.cargarDesde){
+    imgPrevia = st.cargarDesde;
   }
   // Ajustar resolución real del canvas al tamaño visual (para que no se vea borroso)
   const rect = canvas.getBoundingClientRect();
@@ -11579,6 +11645,8 @@ function initFirmaCanvas(which){
     const img = new Image();
     img.onload = ()=>{ st.ctx.drawImage(img, 0, 0, canvas.width, canvas.height); };
     img.src = imgPrevia;
+    st.tieneTrazo = true;
+    st.cargarDesde = null;
   } else {
     st.tieneTrazo = false;
   }
@@ -11630,48 +11698,126 @@ function switchInspTab(tab){
 }
 
 function abrirEditorInspeccion(idx){
-  insp_editandoIdx = (typeof idx === 'number') ? idx : -1;
+  // Solo se puede editar una inspección ya guardada si es del formato nuevo (ficha completa);
+  // los registros del formato anterior (checklist libre) no tienen forma razonable de mapearse
+  // a los campos fijos de esta ficha — para esos, idx llega undefined y se trata como "nueva".
+  const editando = (typeof idx === 'number') && DB.inspecciones[idx] && _inspEsFormatoNuevo(DB.inspecciones[idx]);
+  insp_editandoIdx = editando ? idx : -1;
   document.getElementById('insped-form-alert').innerHTML = '';
   insp_socioActual = null;
   insp_hijosTemp = [];
   insp_parcelasTemp = [];
   insp_respuestas = {};
   insp_fotosTemp = [];
-  insp_firmas.productor = { ctx:null, dibujando:false, tieneTrazo:false };
-  insp_firmas.inspector = { ctx:null, dibujando:false, tieneTrazo:false };
-
-  document.getElementById('insped-titulo').textContent = 'Nueva Ficha de Inspección';
-  document.getElementById('insped-codigo').value = nextCodigo(DB.inspecciones||[], 'INSP-');
-  document.getElementById('insped-inspector').value = SESSION.user||'';
-  document.getElementById('insped-fecha-inicio').value = hoy();
-  document.getElementById('insped-hora-inicio').value = ahora();
-  document.getElementById('insped-fecha-fin').value = '';
-  document.getElementById('insped-hora-fin').value = '';
-  document.getElementById('insped-tipo-cultivo').value = 'Café';
-
-  // Limpiar todos los campos de texto/select del panel general (excepto los ya fijados arriba)
-  ['insped-dni','insped-genero','insped-base','insped-sector','insped-distrito','insped-provincia',
-   'insped-fecha-nacimiento','insped-fecha-ingreso-programa','insped-ultimo-estatus-aprobado','insped-ultimo-estatus-propuesto',
-   'insped-grado-instruccion','insped-estado-civil','insped-conyuge-nombre','insped-conyuge-dni','insped-conyuge-fecha-nac',
-   'insped-conyuge-grado-instruccion','insped-celular','insped-celular2','insped-tiene-ruc','insped-radio-favorita',
-   'insped-acceso-internet','insped-redes-cuales','insped-programa-social-cuales','insped-num-personas-familia',
-   'insped-num-hijos-menores','insped-satisfaccion-servicios','insped-ingresos-adicionales','insped-pct-dependencia-cafe',
-   'insped-costos-produccion','insped-cert-otros-organismos','insped-credito-organizacion','insped-credito-otras-entidades',
-   'insped-credito-cuales'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  ['insped-cert-nop-usda','insped-cert-cee','insped-cert-cor','insped-cert-ds044','insped-cert-comerciojusto',
-   'insped-cert-fairtradeusa','insped-cert-fairforlife'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+  insp_firmas.productor = { ctx:null, dibujando:false, tieneTrazo:false, cargarDesde:null };
+  insp_firmas.inspector = { ctx:null, dibujando:false, tieneTrazo:false, cargarDesde:null };
 
   const sel = document.getElementById('insped-socio');
   sel.innerHTML = '<option value="">— Selecciona un socio —</option>' +
     (DB.socios||[]).map(s=>`<option value="${s.nombre}">${s.nombre}${s.dni?' ['+s.dni+']':''}</option>`).join('');
-  sel.value = '';
+
+  if(editando){
+    const i = DB.inspecciones[idx];
+    const dg = i.datosGenerales || {};
+    const cert = i.certificaciones || {};
+    const conyuge = dg.conyuge || {};
+    const setVal = (id,val)=>{ const el=document.getElementById(id); if(el) el.value = (val!==undefined && val!==null) ? val : ''; };
+    const setChk = (id,val)=>{ const el=document.getElementById(id); if(el) el.checked = !!val; };
+
+    document.getElementById('insped-titulo').textContent = `Editar Ficha de Inspección — ${i.codigo||''}`;
+    setVal('insped-codigo', i.codigo);
+    setVal('insped-inspector', i.inspector_interno);
+    setVal('insped-fecha-inicio', i.fecha_inicio);
+    setVal('insped-hora-inicio', i.hora_inicio);
+    setVal('insped-fecha-fin', i.fecha_fin);
+    setVal('insped-hora-fin', i.hora_fin);
+    setVal('insped-tipo-cultivo', i.tipo_cultivo || 'Café');
+
+    sel.value = i.socio_nombre || '';
+    insp_socioActual = (DB.socios||[]).find(s=>s.nombre===i.socio_nombre) || null;
+
+    setVal('insped-dni', i.socio_dni);
+    setVal('insped-genero', i.genero);
+    setVal('insped-base', i.base);
+    setVal('insped-sector', i.sector);
+    setVal('insped-distrito', i.distrito);
+    setVal('insped-provincia', i.provincia);
+    setVal('insped-fecha-nacimiento', i.fecha_nacimiento);
+    setVal('insped-fecha-ingreso-programa', i.fecha_ingreso_programa);
+    setVal('insped-ultimo-estatus-aprobado', i.ultimo_estatus_aprobado);
+    setVal('insped-ultimo-estatus-propuesto', i.ultimo_estatus_propuesto);
+    setVal('insped-grado-instruccion', dg.grado_instruccion);
+    setVal('insped-estado-civil', dg.estado_civil);
+    setVal('insped-conyuge-nombre', conyuge.nombre);
+    setVal('insped-conyuge-dni', conyuge.dni);
+    setVal('insped-conyuge-fecha-nac', conyuge.fecha_nac);
+    setVal('insped-conyuge-grado-instruccion', conyuge.grado_instruccion);
+    setVal('insped-celular', dg.celular);
+    setVal('insped-celular2', dg.celular2);
+    setVal('insped-tiene-ruc', dg.tiene_ruc);
+    setVal('insped-radio-favorita', dg.radio_favorita);
+    setVal('insped-acceso-internet', dg.acceso_internet);
+    setVal('insped-redes-cuales', dg.redes_cuales);
+    setVal('insped-programa-social-cuales', dg.programa_social_cuales);
+    setVal('insped-num-personas-familia', dg.num_personas_familia);
+    setVal('insped-num-hijos-menores', dg.num_hijos_menores);
+    setVal('insped-satisfaccion-servicios', dg.satisfaccion_servicios);
+    setVal('insped-ingresos-adicionales', dg.ingresos_adicionales);
+    setVal('insped-pct-dependencia-cafe', dg.pct_dependencia_cafe);
+    setVal('insped-costos-produccion', dg.costos_produccion);
+    setVal('insped-cert-otros-organismos', cert.otros_organismos_texto);
+    setVal('insped-credito-organizacion', cert.recibe_creditos_organizacion);
+    setVal('insped-credito-otras-entidades', cert.tiene_credito_otras_entidades);
+    setVal('insped-credito-cuales', cert.credito_cuales);
+
+    setChk('insped-cert-nop-usda', cert.nop_usda);
+    setChk('insped-cert-cee', cert.cee_834_07);
+    setChk('insped-cert-cor', cert.cor);
+    setChk('insped-cert-ds044', cert.peru_ds044);
+    setChk('insped-cert-comerciojusto', cert.comercio_justo_generico);
+    setChk('insped-cert-fairtradeusa', cert.fairtrade_usa);
+    setChk('insped-cert-fairforlife', cert.fair_for_life);
+
+    insp_hijosTemp = JSON.parse(JSON.stringify(i.hijos||[]));
+    insp_parcelasTemp = (i.parcela_ids||[]).map(pid=>{
+      const p = (DB.parcelas||[]).find(x=>x.id===pid);
+      return p ? JSON.parse(JSON.stringify(p)) : null;
+    }).filter(Boolean);
+    insp_respuestas = JSON.parse(JSON.stringify(i.respuestas||{}));
+    insp_fotosTemp = JSON.parse(JSON.stringify(i.fotos||[]));
+    insp_firmas.productor.cargarDesde = i.firma_productor || null;
+    insp_firmas.inspector.cargarDesde = i.firma_inspector || null;
+
+  } else {
+    document.getElementById('insped-titulo').textContent = 'Nueva Ficha de Inspección';
+    document.getElementById('insped-codigo').value = nextCodigo(DB.inspecciones||[], 'INSP-');
+    document.getElementById('insped-inspector').value = SESSION.user||'';
+    document.getElementById('insped-fecha-inicio').value = hoy();
+    document.getElementById('insped-hora-inicio').value = ahora();
+    document.getElementById('insped-fecha-fin').value = '';
+    document.getElementById('insped-hora-fin').value = '';
+    document.getElementById('insped-tipo-cultivo').value = 'Café';
+
+    // Limpiar todos los campos de texto/select del panel general (excepto los ya fijados arriba)
+    ['insped-dni','insped-genero','insped-base','insped-sector','insped-distrito','insped-provincia',
+     'insped-fecha-nacimiento','insped-fecha-ingreso-programa','insped-ultimo-estatus-aprobado','insped-ultimo-estatus-propuesto',
+     'insped-grado-instruccion','insped-estado-civil','insped-conyuge-nombre','insped-conyuge-dni','insped-conyuge-fecha-nac',
+     'insped-conyuge-grado-instruccion','insped-celular','insped-celular2','insped-tiene-ruc','insped-radio-favorita',
+     'insped-acceso-internet','insped-redes-cuales','insped-programa-social-cuales','insped-num-personas-familia',
+     'insped-num-hijos-menores','insped-satisfaccion-servicios','insped-ingresos-adicionales','insped-pct-dependencia-cafe',
+     'insped-costos-produccion','insped-cert-otros-organismos','insped-credito-organizacion','insped-credito-otras-entidades',
+     'insped-credito-cuales'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    ['insped-cert-nop-usda','insped-cert-cee','insped-cert-cor','insped-cert-ds044','insped-cert-comerciojusto',
+     'insped-cert-fairtradeusa','insped-cert-fairforlife'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+
+    sel.value = '';
+  }
 
   renderHijosInspeccion();
   renderParcelasExistentes();
   renderParcelasCards();
   renderResumenAgregado();
-  document.getElementById('insped-fotos-grid').innerHTML = '';
-  document.getElementById('insped-fotos-tamano').textContent = '';
+  renderFotosInspeccion();
 
   switchInspTab('general');
   showSection('inspeccion-editor');
@@ -12242,8 +12388,15 @@ function guardarInspeccion(){
 
   const canvasP = document.getElementById('insped-firma-productor-canvas');
   const canvasI = document.getElementById('insped-firma-inspector-canvas');
-  const firmaProductor = insp_firmas.productor.tieneTrazo ? canvasP.toDataURL('image/png') : '';
-  const firmaInspector = insp_firmas.inspector.tieneTrazo ? canvasI.toDataURL('image/png') : '';
+  // Si el usuario nunca entró a la pestaña "Firmas" (p.ej. editando otra parte de una inspección
+  // ya firmada), el canvas nunca se inicializó (st.ctx sigue null) — en ese caso se conserva la
+  // firma que ya estaba guardada (`cargarDesde`) en vez de leer un canvas vacío/sin medir.
+  const firmaProductor = insp_firmas.productor.ctx
+    ? (insp_firmas.productor.tieneTrazo ? canvasP.toDataURL('image/png') : '')
+    : (insp_firmas.productor.cargarDesde || '');
+  const firmaInspector = insp_firmas.inspector.ctx
+    ? (insp_firmas.inspector.tieneTrazo ? canvasI.toDataURL('image/png') : '')
+    : (insp_firmas.inspector.cargarDesde || '');
 
   const resumen = calcularResumenInspeccion(insp_respuestas);
 
@@ -12406,6 +12559,7 @@ function renderInspecciones(filtro){
       <td>${esNuevo ? (i.inspector_interno||'') : (i.inspector||'')}</td>
       <td>${i.sincronizado ? '☁️ Sí' : '<span style="color:#c62828;font-weight:700;">📴 No</span>'}</td>
       <td><div style="display:flex;gap:3px;">
+        ${esNuevo ? `<button class="btn btn-secondary btn-sm" onclick="abrirEditorInspeccion(${ri})" title="Editar esta ficha">✏️</button>` : ''}
         <button class="btn btn-dorado btn-sm" onclick="verPrintInspeccion(${ri})">🖨️</button>
         <button class="btn btn-danger btn-sm" onclick="eliminarInspeccion(${ri})">🗑️</button>
       </div></td>
@@ -12485,23 +12639,32 @@ function generarFichaInspeccionHTML(idx){
   const cert = i.certificaciones || {};
   const parcelas = (i.parcela_ids||[]).map(id=>(DB.parcelas||[]).find(p=>p.id===id)).filter(Boolean);
 
+  // Se listan SIEMPRE todos los ítems activos de las 6 categorías configuradas en
+  // `DB.criteriosInspeccion` (no solo los que tienen respuesta) — así la ficha impresa sirve como
+  // checklist completo de auditoría, mostrando explícitamente cuáles quedaron sin evaluar.
+  const pesoTxt = {obligatorio:'Obligatorio', mayor:'Mayor', menor:'Menor'};
   const criteriosHtml = (DB.criteriosInspeccion||[]).map(cat=>{
+    const itemsActivos = (cat.items||[]).filter(it=>it.activo!==false);
     const pr = calcularPuntajeCategoria(cat, (i.respuestas||{})[cat.id]);
     const logrado = pr.obligatorio.logrado+pr.mayor.logrado+pr.menor.logrado;
     const max = pr.obligatorio.max+pr.mayor.max+pr.menor.max;
-    const filas = (cat.items||[]).filter(it=>it.activo!==false).map(item=>{
+    const filas = itemsActivos.map(item=>{
       const resp = ((i.respuestas||{})[cat.id]||{})[item.id] || {};
-      const respTxt = resp.respuesta==='SI'?'✅ Sí cumple':resp.respuesta==='NO'?'❌ No cumple':resp.respuesta==='NA'?'No aplica':'—';
+      const respTxt = resp.respuesta==='SI'?'✅ Sí cumple':resp.respuesta==='NO'?'❌ No cumple':resp.respuesta==='NA'?'No aplica':'⬜ Sin evaluar';
       const detalle = (item.followUps||[]).map(fu=>resp[fu.key]?`${fu.label}: ${resp[fu.key]}`:null).filter(Boolean).join(' · ');
       return `<tr>
         <td style="border:1px solid #ccc;padding:3px 5px;width:24px;text-align:center;">${item.id}</td>
         <td style="border:1px solid #ccc;padding:3px 5px;">${item.texto}${detalle?`<div style="color:#666;font-size:8px;margin-top:1px;">${detalle}</div>`:''}</td>
-        <td style="border:1px solid #ccc;padding:3px 5px;width:70px;text-align:center;">${respTxt}</td>
+        <td style="border:1px solid #ccc;padding:3px 5px;width:60px;text-align:center;">${pesoTxt[item.peso]||item.peso||''}</td>
+        <td style="border:1px solid #ccc;padding:3px 5px;width:78px;text-align:center;">${respTxt}</td>
       </tr>`;
     }).join('');
     return `<div style="page-break-inside:avoid;margin-bottom:10px;">
-      <div style="background:#1a5c2e;color:#fff;font-weight:800;font-size:10px;padding:4px 8px;">${cat.nombre} — ${logrado}/${max}</div>
-      <table style="width:100%;border-collapse:collapse;font-size:9px;"><tbody>${filas}</tbody></table>
+      <div style="background:#1a5c2e;color:#fff;font-weight:800;font-size:10px;padding:4px 8px;">${cat.nombre} — ${logrado}/${max} evaluados · ${itemsActivos.length} criterio(s) en total</div>
+      <table style="width:100%;border-collapse:collapse;font-size:9px;">
+        <thead><tr style="background:#eef6ef;"><th style="border:1px solid #ccc;padding:3px 5px;">#</th><th style="border:1px solid #ccc;padding:3px 5px;text-align:left;">Criterio</th><th style="border:1px solid #ccc;padding:3px 5px;">Peso</th><th style="border:1px solid #ccc;padding:3px 5px;">Resultado</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
     </div>`;
   }).join('');
 
