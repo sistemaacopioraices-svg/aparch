@@ -1558,7 +1558,8 @@ tr:hover td{background:#f4f8f4;}
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-export" onclick="exportarExcel('inspecciones')">📥 Exportar Excel</button>
         <button class="btn btn-secondary" onclick="marcarInspeccionesSincronizadas()" title="Después de exportar/importar el respaldo o sincronizar con Drive, márcalas como ya sincronizadas">☁️ Marcar Sincronizado</button>
-        <button class="btn btn-primary" onclick="abrirModalInspeccion()">+ Nueva Inspección</button>
+        <button class="btn btn-secondary" onclick="showSection('inspeccion-criterios')" title="Editar el texto y el peso (Obligatorio/Mayor/Menor) de los criterios de inspección">🛠️ Configurar Criterios</button>
+        <button class="btn btn-primary" onclick="abrirEditorInspeccion()">+ Nueva Ficha de Inspección</button>
       </div>
     </div>
     <div class="stats-grid" style="margin-bottom:16px;">
@@ -1587,7 +1588,211 @@ tr:hover td{background:#f4f8f4;}
         <th>N° Inspección</th><th>Fecha</th><th>Productor</th><th>Tipo</th><th>Resultado</th>
         <th>Inspector</th><th>Sync</th><th>Acciones</th>
       </tr></thead><tbody id="inspecciones-body"></tbody></table>
+      <div id="insp-pager"></div>
     </div>
+  </div>
+</div>
+
+<!-- ══════════ FICHA DE INSPECCIÓN — EDITOR DE PÁGINA COMPLETA ══════════ -->
+<div class="section" id="sec-inspeccion-editor">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🔍 <span id="insped-titulo">Nueva Ficha de Inspección</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="cancelarEditorInspeccion()">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarInspeccion()">💾 Guardar Inspección</button>
+      </div>
+    </div>
+    <div id="insped-form-alert"></div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 18px;">
+      <button id="insped-tab-general" class="btn btn-primary" onclick="switchInspTab('general')">👤 Datos Generales</button>
+      <button id="insped-tab-parcelas" class="btn btn-secondary" onclick="switchInspTab('parcelas')">🌱 Parcelas</button>
+      <button id="insped-tab-criterios" class="btn btn-secondary" onclick="switchInspTab('criterios')">✅ Criterios <span id="insped-tab-criterios-badge" style="font-weight:800;"></span></button>
+      <button id="insped-tab-fotos" class="btn btn-secondary" onclick="switchInspTab('fotos')">📷 Fotos</button>
+      <button id="insped-tab-firmas" class="btn btn-secondary" onclick="switchInspTab('firmas')">✍️ Firmas</button>
+    </div>
+
+    <!-- ── PANEL: DATOS GENERALES ── -->
+    <div id="insped-panel-general">
+
+      <div class="subsection-title">DATOS DE LA INSPECCIÓN</div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>N° Inspección</label><input type="text" id="insped-codigo" readonly></div>
+        <div class="form-group"><label>Inspector Interno</label><input type="text" id="insped-inspector" placeholder="Nombre de quien inspecciona..."></div>
+        <div class="form-group"><label>Fecha Inicio</label><input type="date" id="insped-fecha-inicio"></div>
+        <div class="form-group"><label>Hora Inicio</label><input type="time" id="insped-hora-inicio"></div>
+        <div class="form-group"><label>Fecha Fin</label><input type="date" id="insped-fecha-fin"></div>
+        <div class="form-group"><label>Hora Fin</label><input type="time" id="insped-hora-fin"></div>
+        <div class="form-group"><label>Tipo de Cultivo a Inspeccionar</label><input type="text" id="insped-tipo-cultivo" value="Café"></div>
+      </div>
+
+      <div class="subsection-title">SOCIO A INSPECCIONAR</div>
+      <div class="form-grid-2">
+        <div class="form-group form-full">
+          <label>Socio / Productor</label>
+          <select id="insped-socio" onchange="seleccionarSocioInspeccion()">
+            <option value="">— Selecciona un socio —</option>
+          </select>
+        </div>
+        <div class="form-group"><label>DNI</label><input type="text" id="insped-dni" readonly></div>
+        <div class="form-group"><label>Género</label><input type="text" id="insped-genero" readonly></div>
+        <div class="form-group"><label>Base</label><input type="text" id="insped-base"></div>
+        <div class="form-group"><label>Sector / Caserío</label><input type="text" id="insped-sector"></div>
+        <div class="form-group"><label>Distrito</label><input type="text" id="insped-distrito"></div>
+        <div class="form-group"><label>Provincia</label><input type="text" id="insped-provincia"></div>
+        <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="insped-fecha-nacimiento"></div>
+        <div class="form-group"><label>Fecha de Ingreso al Programa Orgánico</label><input type="date" id="insped-fecha-ingreso-programa"></div>
+        <div class="form-group">
+          <label>Último Estatus Aprobado</label>
+          <select id="insped-ultimo-estatus-aprobado">
+            <option value="">—</option><option>Orgánico</option><option>Transición</option><option>Convencional</option><option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Último Estatus Propuesto</label>
+          <select id="insped-ultimo-estatus-propuesto">
+            <option value="">—</option><option>Orgánico</option><option>Transición</option><option>Convencional</option><option>Otro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="subsection-title">I. DATOS GENERALES DEL PRODUCTOR</div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Grado de Instrucción</label>
+          <select id="insped-grado-instruccion">
+            <option value="">—</option><option>Sin instrucción</option><option>Primaria incompleta</option>
+            <option>Primaria completa</option><option>Secundaria incompleta</option><option>Secundaria completa</option>
+            <option>Superior técnica</option><option>Superior universitaria</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Estado Civil</label>
+          <select id="insped-estado-civil">
+            <option value="">—</option><option>Soltero(a)</option><option>Casado(a)</option><option>Conviviente</option>
+            <option>Viudo(a)</option><option>Divorciado(a)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Nombre del Cónyuge</label><input type="text" id="insped-conyuge-nombre"></div>
+        <div class="form-group"><label>DNI del Cónyuge</label><input type="text" id="insped-conyuge-dni"></div>
+        <div class="form-group"><label>Fecha de Nacimiento del Cónyuge</label><input type="date" id="insped-conyuge-fecha-nac"></div>
+        <div class="form-group"><label>Grado de Instrucción del Cónyuge</label><input type="text" id="insped-conyuge-grado-instruccion"></div>
+        <div class="form-group"><label>Número de Celular del Productor</label><input type="text" id="insped-celular"></div>
+        <div class="form-group"><label>Celular 2 / Familiar</label><input type="text" id="insped-celular2"></div>
+        <div class="form-group"><label>¿El Socio Cuenta con RUC?</label>
+          <select id="insped-tiene-ruc"><option value="">—</option><option>Sí</option><option>No</option></select>
+        </div>
+        <div class="form-group"><label>Emisora de Radio que Escucha con Mayor Frecuencia</label><input type="text" id="insped-radio-favorita"></div>
+        <div class="form-group"><label>¿Tiene Acceso a Internet?</label>
+          <select id="insped-acceso-internet"><option value="">—</option><option>Sí</option><option>No</option></select>
+        </div>
+        <div class="form-group"><label>¿Usa Redes Sociales? ¿Cuáles?</label><input type="text" id="insped-redes-cuales" placeholder="Facebook, WhatsApp..."></div>
+        <div class="form-group"><label>¿Programa Social? ¿Cuáles?</label><input type="text" id="insped-programa-social-cuales" placeholder="Kaliwarma, Juntos..."></div>
+        <div class="form-group"><label>N° de Personas en la Unidad Familiar</label><input type="number" id="insped-num-personas-familia"></div>
+        <div class="form-group"><label>N° de Hijos/as Menores de 18 Años</label><input type="number" id="insped-num-hijos-menores" onchange="renderHijosInspeccion()"></div>
+        <div class="form-group">
+          <label>Satisfacción con Servicios de la Organización</label>
+          <select id="insped-satisfaccion-servicios">
+            <option value="">—</option><option>Muy satisfecho</option><option>Satisfecho</option>
+            <option>Poco satisfecho</option><option>Insatisfecho</option>
+          </select>
+        </div>
+        <div class="form-group"><label>¿Ingresos Adicionales?</label><input type="text" id="insped-ingresos-adicionales"></div>
+        <div class="form-group"><label>% Dependencia Económica del Café</label><input type="number" id="insped-pct-dependencia-cafe" min="0" max="100"></div>
+        <div class="form-group form-full"><label>Costos de Producción del Cultivo Café</label><input type="text" id="insped-costos-produccion" placeholder="S/. rango..."></div>
+      </div>
+
+      <div class="subsection-title">II. ESTÁNDARES, NORMAS, REGLAMENTOS A CUMPLIR</div>
+      <div style="font-size:0.72rem;font-weight:700;color:var(--txts);margin-bottom:6px;">CERTIFICACIONES ORGÁNICAS</div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;"><input type="checkbox" id="insped-cert-nop-usda"> NOP-USDA</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;"><input type="checkbox" id="insped-cert-cee"> CEE #834/07 889/08</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;"><input type="checkbox" id="insped-cert-cor"> Canadian Organic Regime – COR</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;"><input type="checkbox" id="insped-cert-ds044"> Perú DS #044/2006 AG</label>
+      </div>
+      <div style="font-size:0.72rem;font-weight:700;color:var(--txts);margin-bottom:6px;">CERTIFICACIONES SOCIALES</div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:8px;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;"><input type="checkbox" id="insped-cert-comerciojusto"> Criterios Genéricos de Comercio Justo</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;"><input type="checkbox" id="insped-cert-fairtradeusa"> Estándares de Fair Trade USA</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;"><input type="checkbox" id="insped-cert-fairforlife"> Certificación Fair for Life</label>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group form-full"><label>Organismos de Certificación</label><input type="text" id="insped-cert-otros-organismos" placeholder="FLO Cert, CAAE América..."></div>
+        <div class="form-group"><label>¿El Productor Recibe Créditos de la Organización?</label>
+          <select id="insped-credito-organizacion"><option value="">—</option><option>Sí</option><option>No</option></select>
+        </div>
+        <div class="form-group"><label>¿Tiene Crédito en Otras Entidades Financieras?</label>
+          <select id="insped-credito-otras-entidades"><option value="">—</option><option>Sí</option><option>No</option></select>
+        </div>
+        <div class="form-group form-full"><label>¿Cuáles?</label><input type="text" id="insped-credito-cuales" placeholder="Cooperativas de ahorro y crédito..."></div>
+      </div>
+
+      <div class="subsection-title">DETALLES DE LOS HIJOS/HIJAS MENORES DE 18 AÑOS</div>
+      <div class="table-wrap">
+        <table><thead><tr>
+          <th>N°</th><th>Año de Nacimiento</th><th>Género</th><th>¿Estudiando?</th><th>Grado de Instrucción</th><th></th>
+        </tr></thead><tbody id="insped-hijos-body"></tbody></table>
+      </div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="agregarHijoInspeccion()">+ Agregar Hijo/a</button>
+    </div>
+
+    <!-- ── PANEL: PARCELAS ── -->
+    <div id="insped-panel-parcelas" style="display:none;">
+      <div class="card" id="insped-resumen-agregado" style="background:#f5f5f5;border:1px solid #e0e0e0;margin-bottom:16px;"></div>
+      <div class="subsection-title">PARCELAS DEL SOCIO</div>
+      <div id="insped-parcelas-existentes" style="margin-bottom:10px;"></div>
+      <button class="btn btn-secondary btn-sm" onclick="agregarParcelaNueva()">+ Parcela Nueva</button>
+      <div id="insped-parcelas-cards" style="margin-top:14px;display:flex;flex-direction:column;gap:14px;"></div>
+    </div>
+
+    <!-- ── PANEL: CRITERIOS ── -->
+    <div id="insped-panel-criterios" style="display:none;">
+      <div id="insped-criterios-resumen" style="margin-bottom:12px;"></div>
+      <div id="insped-criterios-subtabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+      <div id="insped-criterios-panel"></div>
+    </div>
+
+    <!-- ── PANEL: FOTOS ── -->
+    <div id="insped-panel-fotos" style="display:none;">
+      <div class="subsection-title">FOTOS DE LA INSPECCIÓN</div>
+      <input type="file" id="insped-foto-input" accept="image/*" capture="environment" multiple onchange="agregarFotosInspeccion(this.files)" style="margin-bottom:10px;">
+      <div id="insped-fotos-tamano" style="font-size:0.78rem;color:var(--txts);margin-bottom:10px;"></div>
+      <div id="insped-fotos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"></div>
+    </div>
+
+    <!-- ── PANEL: FIRMAS ── -->
+    <div id="insped-panel-firmas" style="display:none;">
+      <div class="form-grid-2">
+        <div class="form-group form-full">
+          <label>Firma del Productor</label>
+          <canvas id="insped-firma-productor-canvas" width="580" height="160" style="width:100%;height:160px;display:block;cursor:crosshair;border:1.5px dashed var(--borde);border-radius:8px;background:#fff;"></canvas>
+          <button class="btn btn-secondary btn-sm" style="margin-top:6px;width:fit-content;" onclick="limpiarFirmaInspeccion('productor')">🧹 Borrar Firma</button>
+        </div>
+        <div class="form-group form-full">
+          <label>Firma del Inspector Interno</label>
+          <canvas id="insped-firma-inspector-canvas" width="580" height="160" style="width:100%;height:160px;display:block;cursor:crosshair;border:1.5px dashed var(--borde);border-radius:8px;background:#fff;"></canvas>
+          <button class="btn btn-secondary btn-sm" style="margin-top:6px;width:fit-content;" onclick="limpiarFirmaInspeccion('inspector')">🧹 Borrar Firma</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ CONFIGURACIÓN DE CRITERIOS DE INSPECCIÓN ══════════ -->
+<div class="section" id="sec-inspeccion-criterios">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🛠️ Configurar Criterios de Inspección</div>
+      <button class="btn btn-secondary" onclick="showSection('inspecciones')">← Volver a Inspecciones</button>
+    </div>
+    <div style="font-size:0.82rem;color:var(--txts);margin-bottom:14px;">
+      Aquí puedes ajustar el texto y el peso (Obligatorio / Mayor / Menor) de cada criterio, o
+      desactivar los que no apliquen a tu organización. Los cambios afectan el cálculo de puntaje
+      de las próximas inspecciones que guardes (las ya guardadas conservan su puntaje original).
+    </div>
+    <div id="config-criterios-body"></div>
   </div>
 </div>
 
@@ -1789,66 +1994,6 @@ tr:hover td{background:#f4f8f4;}
   <div class="form-actions">
     <button class="btn btn-secondary" onclick="cerrarModal('modal-emitir-sunat')">Cancelar</button>
     <button class="btn btn-primary" onclick="emitirComprobanteSunat()">🧾 Emitir ante SUNAT</button>
-  </div>
-</div></div>
-
-<!-- ══════════ MODAL INSPECCIÓN INTERNA ══════════ -->
-<div class="modal-overlay" id="modal-inspeccion">
-<div class="modal" style="max-width:640px;">
-  <div class="modal-header">
-    <div class="modal-title">🔍 Nueva Inspección Interna</div>
-    <button class="modal-close" onclick="cerrarModal('modal-inspeccion')">✕</button>
-  </div>
-  <div id="insp-form-alert"></div>
-  <div class="form-grid-2">
-    <div class="form-group"><label>N° Inspección</label><input type="text" id="insp-codigo" readonly style="background:#eee;"></div>
-    <div class="form-group"><label>Fecha</label><input type="date" id="insp-fecha"></div>
-    <div class="form-group">
-      <label>Productor / Parcela <span style="font-weight:400;color:#888;font-size:0.7rem;">(busca entre tus socios)</span></label>
-      <input type="text" id="insp-productor" list="insp-productor-list" placeholder="Nombre del productor...">
-      <datalist id="insp-productor-list"></datalist>
-    </div>
-    <div class="form-group">
-      <label>Tipo de Inspección</label>
-      <select id="insp-tipo">
-        <option value="Orgánico">🌿 Orgánico</option>
-        <option value="Fairtrade">🤝 Fairtrade</option>
-        <option value="Convencional">☕ Convencional</option>
-        <option value="Calidad">🏆 Calidad</option>
-        <option value="Otra">📋 Otra</option>
-      </select>
-    </div>
-    <div class="form-group"><label>Inspector</label><input type="text" id="insp-inspector" placeholder="Nombre de quien inspecciona..."></div>
-    <div class="form-group">
-      <label>Resultado</label>
-      <select id="insp-resultado">
-        <option value="Aprobado">✅ Aprobado</option>
-        <option value="Observado">⚠️ Observado</option>
-        <option value="Rechazado">❌ Rechazado</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="subsection-title">CHECKLIST DE CRITERIOS</div>
-  <div id="insp-checklist" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
-  <div style="display:flex;gap:8px;margin-bottom:14px;">
-    <input type="text" id="insp-nuevo-criterio" placeholder="Agregar otro criterio a revisar..." style="flex:1;padding:7px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.84rem;">
-    <button class="btn btn-secondary btn-sm" onclick="agregarCriterioInspeccion()">+ Agregar</button>
-  </div>
-
-  <div class="form-group form-full"><label>Observaciones</label><textarea id="insp-obs" placeholder="Detalles, hallazgos, recomendaciones..."></textarea></div>
-
-  <div class="subsection-title">FIRMA DEL PRODUCTOR (dibuja con el dedo o el mouse)</div>
-  <div style="border:2px solid var(--borde);border-radius:8px;background:#fff;touch-action:none;">
-    <canvas id="insp-firma-canvas" width="580" height="160" style="width:100%;height:160px;display:block;cursor:crosshair;"></canvas>
-  </div>
-  <div style="text-align:right;margin-top:6px;">
-    <button class="btn btn-secondary btn-sm" onclick="limpiarFirmaInspeccion()">🧹 Borrar Firma</button>
-  </div>
-
-  <div class="form-actions">
-    <button class="btn btn-secondary" onclick="cerrarModal('modal-inspeccion')">Cancelar</button>
-    <button class="btn btn-primary" onclick="guardarInspeccion()">💾 Guardar Inspección</button>
   </div>
 </div></div>
 
@@ -2571,6 +2716,18 @@ tr:hover td{background:#f4f8f4;}
 </div></div>
 
 <!-- ══════════ MODALES DE IMPRESIÓN ══════════ -->
+<div class="modal-overlay" id="modal-print-inspeccion">
+<div class="modal" style="max-width:780px;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Vista Previa — Ficha de Inspección</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="imprimirFichaInspeccion()">🖨️ Imprimir</button>
+      <button class="modal-close" onclick="cerrarModal('modal-print-inspeccion')">✕</button>
+    </div>
+  </div>
+  <div id="print-inspeccion-content"></div>
+</div></div>
+
 <div class="modal-overlay" id="modal-print-ticket">
 <div class="modal" style="max-width:680px;">
   <div class="modal-header">
@@ -2621,7 +2778,7 @@ tr:hover td{background:#f4f8f4;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'} };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'} };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -2660,7 +2817,32 @@ function guardarDB(){
       const el = document.getElementById('sheets-sync-status');
       if(el){ el.textContent='⏳ Guardando...'; el.style.color='#e65100'; }
     }
-  }catch(e){ console.warn('Error al guardar:', e); }
+  }catch(e){
+    console.warn('Error al guardar:', e);
+    // Antes esto fallaba en silencio (el usuario nunca se enteraba de que sus datos NO se
+    // guardaron). Con fotos de inspecciones el localStorage se puede llenar de verdad, así que
+    // ahora avisamos de forma visible en vez de solo dejar un warning en la consola.
+    if(e && (e.name==='QuotaExceededError' || e.code===22 || e.code===1014)){
+      alert('⚠️ No se pudo guardar: el almacenamiento del navegador está lleno.\n\nLo que acabas de hacer NO se guardó. Borra fotos de inspecciones antiguas que ya no necesites, exporta un respaldo y luego intenta de nuevo.');
+    }
+  }
+}
+
+// Copia superficial del DB para el sync a Google Sheets SIN las fotos de inspecciones (quitamos
+// solo el dataUrl base64, que es lo pesado — el resto de cada foto, como el pie de foto, se
+// conserva). Sin esto, cada guardado de CUALQUIER cosa en la app (un ticket nuevo, una guía...)
+// volvería a subir TODAS las fotos de TODAS las inspecciones cada vez, porque guardarDB()
+// sincroniza el DB completo. Las fotos completas siguen intactas en localStorage y en el
+// respaldo JSON local — esto solo afecta lo que se envía a Sheets.
+function _dbParaSyncSheets(){
+  if(!DB.inspecciones || !DB.inspecciones.length) return DB;
+  return {
+    ...DB,
+    inspecciones: DB.inspecciones.map(i=>{
+      if(!i.fotos || !i.fotos.length) return i;
+      return { ...i, fotos: i.fotos.map(f=>({ n:f.n, caption:f.caption })) };
+    })
+  };
 }
 
 // Guardar en Sheets con reintentos automáticos
@@ -2672,7 +2854,7 @@ async function sheetsGuardarAuto(){
     if(el){ el.textContent='⏳ Sincronizando...'; el.style.color='#e65100'; }
     await fetch(SHEETS_URL, {
       method:'POST', mode:'no-cors',
-      body: JSON.stringify({ accion:'guardar', db: DB }),
+      body: JSON.stringify({ accion:'guardar', db: _dbParaSyncSheets() }),
       headers:{'Content-Type':'application/json'}
     });
     const ts = new Date().toLocaleTimeString('es-PE');
@@ -2748,6 +2930,242 @@ function actualizarEstadoRespaldo(){
   }catch(e){}
 }
 
+// ══════════════════════════════════════════
+// CRITERIOS DE INSPECCIÓN — reconstruidos de la Ficha de Inspección Interna 2023 (PDF fuente).
+// Se siembran UNA SOLA VEZ en DB.criteriosInspeccion si está vacío; a partir de ahí son editables
+// desde la pantalla "Configurar Criterios de Inspección" y el puntaje SIEMPRE se calcula contra
+// lo que haya en DB.criteriosInspeccion (nunca contra esta constante), para poder corregir texto o
+// peso de cualquier criterio sin tocar código.
+// NOTA: en "Bienestar Social y Laboral" el PDF fuente reporta un total de Mayores "5 sobre 5" pero
+// solo 4 preguntas aparecen marcadas (MAYOR) de forma legible — se sembró con 4 y queda marcado
+// para revisión/ajuste manual desde la pantalla de configuración.
+function INSP_CRITERIOS_DEFAULT(){
+  return [
+    { id:'sgd', nombre:'Sistema de Gestión Documentado', items:[
+      { id:1, texto:'¿El productor conoce las normas de certificación y reglamentos internos?', peso:'menor', activo:true,
+        followUps:[{key:'observaciones', label:'Observaciones', type:'text'}] },
+      { id:2, texto:'¿El productor tiene copia de su contrato de compromisos de cumplimiento de las normas y reglamentos internos?', peso:'mayor', activo:true },
+      { id:3, texto:'¿El productor mantiene los documentos de compra de abonos e insumos autorizados?', peso:'mayor', activo:true,
+        followUps:[{key:'tipo_comprobante', label:'Tipo de Comprobante', type:'text'}] },
+      { id:4, texto:'¿El productor mantiene los documentos de acopio del producto certificado de las dos últimas campañas?', peso:'menor', activo:true,
+        followUps:[{key:'documentos_venta', label:'Documentos de Venta', type:'text'}] },
+      { id:5, texto:'¿El productor cumplió con la ejecución del cronograma anual de actividades que ayuden a cumplir las metas del SIC?', peso:'menor', activo:true },
+      { id:6, texto:'¿El productor cuenta con croquis general que identifica la ubicación de todas las parcelas?', peso:'menor', activo:true },
+      { id:7, texto:'¿El productor tiene croquis que identifique áreas de cultivo, viveros, áreas de protección, barreras de amortiguamiento, áreas con erosión, cuerpos de agua, vivienda, infraestructura de beneficio?', peso:'menor', activo:true },
+      { id:8, texto:'¿El productor asistió a eventos de capacitación sobre temas técnicos o normas de certificación, fortalecimiento institucional, otros?', peso:'mayor', activo:true,
+        followUps:[{key:'cuales_temas', label:'¿Cuáles o de qué tipo? ¿Temas, quién organizó?', type:'text'}] },
+      { id:9, texto:'¿El productor recibió asesoramiento o visita de soporte técnico a su finca en la última campaña?', peso:'menor', activo:true,
+        followUps:[{key:'actividad_realizada', label:'Actividad realizada', type:'text'}] },
+      { id:10, texto:'¿El productor conoce y valora del USO del premio "PRIMA" de comercio justo?', peso:'menor', activo:true,
+        followUps:[{key:'describir', label:'Describir', type:'text'}] },
+      { id:11, texto:'¿Cuenta con registros actualizados de las actividades que realiza?', peso:'menor', activo:true },
+      { id:12, texto:'¿El productor realiza balance de la campaña cafetalera?', peso:'menor', activo:true },
+    ]},
+    { id:'riesgos', nombre:'Evaluación de Riesgos', items:[
+      { id:1, texto:'¿El productor implementa barreras de amortiguamiento ante los riesgos de contaminación de áreas colindantes de la finca certificada?', peso:'mayor', activo:true,
+        followUps:[{key:'cuales', label:'¿Cuáles?', type:'text'}] },
+      { id:2, texto:'En la UP, ¿son inexistentes las evidencias de uso y/o almacenamiento de insumos y productos prohibidos?', peso:'obligatorio', activo:true },
+      { id:3, texto:'¿El productor separa el producto certificado e impide la mezcla o contaminación con producto no certificado?', peso:'mayor', activo:true },
+      { id:4, texto:'¿Los equipos y herramientas de aplicación se utilizan solo en la producción orgánica?', peso:'menor', activo:true },
+      { id:5, texto:'¿Utiliza transporte en condiciones adecuadas para el traslado de su café?', peso:'menor', activo:true,
+        followUps:[{key:'tipo_transporte', label:'¿Cuál tipo de transporte?', type:'text'}] },
+      { id:6, texto:'¿Comercializa solo el café certificado de su finca?', peso:'mayor', activo:true,
+        followUps:[
+          {key:'insumos_programas', label:'¿Qué insumos recibe de programas estatales o proyectos?', type:'text', scored:false},
+          {key:'tipo_produccion', label:'¿Qué tipo de producción tiene?', type:'text', scored:false}
+        ] },
+      // El ítem 7 no existe en el formulario fuente (la numeración salta de 6 a 8) — se conserva el
+      // salto para poder cruzar cada ítem contra el PDF original.
+      { id:8, texto:'¿Cumple con la aplicación de estiércoles frescos 90 días antes de la cosecha?', peso:'obligatorio', activo:true },
+      { id:9, texto:'¿El productor conoce que está prohibido el uso de material o sustancias OGM?', peso:'mayor', activo:true },
+      { id:10, texto:'¿El productor conoce que están prohibidas prácticas de discriminación, trabajo forzado, acoso sexual, abuso verbal o físico a los trabajadores de su finca? ¿Se reconoce horas extras?', peso:'obligatorio', activo:true },
+    ]},
+    { id:'agronomico', nombre:'Manejo Agronómico del Cultivo de Café', items:[
+      { id:1, texto:'¿El productor utiliza semillas/plantones de café proveniente de fincas orgánicas o certificadas?', peso:'mayor', activo:true,
+        followUps:[
+          {key:'tiene_vivero', label:'¿Tiene germinador o vivero de café?', type:'select', options:['Sí','No'], scored:false},
+          {key:'germinador_vivero', label:'¿Germinador y/o vivero de café?', type:'text', scored:false},
+          {key:'plantones_instalar', label:'¿Cuántos plantones va a instalar este año?', type:'number', scored:false}
+        ] },
+      { id:2, texto:'¿El productor utiliza insumos permitidos para el abonamiento del cultivo certificado?', peso:'obligatorio', activo:true,
+        followUps:[
+          {key:'cuales_insumos', label:'¿Cuáles?', type:'text'},
+          {key:'dosis_gr_planta', label:'Dosis (gramos/plantas)', type:'number'},
+          {key:'origen', label:'Origen', type:'text'}
+        ] },
+      { id:3, texto:'¿El productor implementa prácticas de conservación de suelos que ayudan a reducir la erosión del suelo en la finca certificada?', peso:'mayor', activo:true,
+        followUps:[{key:'cuales', label:'¿Cuáles?', type:'text'}] },
+      { id:4, texto:'¿El productor demuestra que ha implementado prácticas culturales para reducir la erosión del suelo en la finca certificada durante el control de "malezas"?', peso:'menor', activo:true,
+        followUps:[{key:'que_practicas', label:'¿Qué prácticas realizan?', type:'text'}] },
+      { id:5, texto:'¿El productor realiza el abonamiento basado en análisis de suelos o recomendación técnica?', peso:'menor', activo:true,
+        followUps:[{key:'observaciones', label:'Observaciones', type:'text'}] },
+      { id:6, texto:'¿El productor realiza poda a las plantaciones del café?', peso:'mayor', activo:true,
+        followUps:[{key:'tipo_poda', label:'¿Qué tipo de poda realiza?', type:'text'}] },
+      { id:7, texto:'¿El productor maneja sombra para el cultivo del café según condiciones climáticas?', peso:'menor', activo:true },
+      { id:8, texto:'¿El productor realiza la renovación de cafetales?', peso:'menor', activo:true,
+        followUps:[{key:'ha_renovara', label:'¿Cuántas hectáreas renovará?', type:'number', scored:false}] },
+      // El ítem 9 del PDF es solo el follow-up "¿Cuántas hectáreas renovará?" de arriba, no una
+      // pregunta puntuada aparte — se omite como id propio para no inflar el conteo de menores.
+      { id:10, texto:'¿El productor realiza la prevención y control de plagas predominantes considerando el MIP en el cultivo?', peso:'menor', activo:true,
+        followUps:[
+          {key:'plagas_tipo', label:'¿Qué tipo de plagas y enfermedades existen?', type:'text', scored:false},
+          {key:'previene_controla', label:'¿Previene y controla los problemas de plagas y enfermedades en los cultivos?', type:'select', options:['Sí','No'], scored:false},
+          {key:'cosecha_selectiva', label:'¿Realiza cosecha selectiva?', type:'select', options:['Sí','No'], scored:false}
+        ] },
+      { id:11, texto:'¿El productor mantiene limpia y en buenas condiciones las instalaciones, equipos, recipientes de beneficio húmedo del café en el proceso de cosecha y post cosecha?', peso:'menor', activo:true,
+        followUps:[
+          {key:'tipos_instalaciones', label:'Tipos de instalaciones', type:'text'},
+          {key:'despulpa_mismo_dia', label:'¿Realiza el despulpado el mismo día de la cosecha?', type:'select', options:['Sí','No']},
+          {key:'observaciones', label:'Observaciones', type:'text'}
+        ] },
+      { id:12, texto:'¿Utiliza agua limpia en el despulpado y lavado del café?', peso:'menor', activo:true },
+      { id:13, texto:'¿El productor tiene áreas libres de contaminación para el secado del café?', peso:'menor', activo:true,
+        followUps:[
+          {key:'cuales', label:'¿Cuáles?', type:'text'},
+          {key:'modulo_suficiente', label:'¿Es suficiente el módulo de secado que tiene?', type:'select', options:['Sí','No']},
+          {key:'modulo_kg', label:'¿Para cuántos kg alcanza su módulo de secado?', type:'number'},
+          {key:'estado_modulo_secado', label:'Estado de su módulo de secado', type:'select', options:['Óptimo','Regular','Deficiente']},
+          {key:'estado_despulpadora', label:'Estado de su despulpadora', type:'select', options:['Óptimo','Regular','Deficiente']},
+          {key:'estado_tanque_tina', label:'Estado de su Tanque Tina', type:'select', options:['Óptimo','Regular','Deficiente']},
+          {key:'tanque_suficiente', label:'¿Es suficiente la capacidad de su tanque Tina?', type:'select', options:['Sí','No']}
+        ] },
+      { id:14, texto:'¿Cuenta con un almacén adecuado para café libre de agentes contaminantes?', peso:'menor', activo:true,
+        followUps:[{key:'condiciones', label:'¿Condiciones?', type:'text'}] },
+      { id:15, texto:'¿El productor realiza la crianza de animales mayores y menores en condiciones saludables?', peso:'menor', activo:true,
+        followUps:[{key:'crianzas', label:'Crianzas', type:'text'}] },
+      { id:16, texto:'¿El productor cuenta con biohuerto para su seguridad alimentaria?', peso:'menor', activo:true,
+        followUps:[{key:'cuales', label:'¿Cuáles?', type:'text'}] },
+      { id:17, texto:'¿El productor implementa la diversificación productiva de cultivos en su finca?', peso:'menor', activo:true,
+        followUps:[{key:'cultivos', label:'Cultivos', type:'text'}] },
+      { id:18, texto:'¿El productor tiene un lugar separado ventilado y seco para almacenamiento de abonos e insumos utilizados en la finca?', peso:'mayor', activo:true },
+    ]},
+    { id:'residuos', nombre:'Manejo de Residuos', items:[
+      { id:1, texto:'¿El productor realiza un manejo seguro de las aguas residuales: aguas mieles y aguas domésticas?', peso:'mayor', activo:true,
+        followUps:[
+          {key:'tipo_instal_mieles', label:'Tipo de Instalación - Aguas Mieles', type:'text'},
+          {key:'tipo_manejo_mieles', label:'Tipo de Manejo - Aguas Mieles', type:'text'},
+          {key:'cual_otro', label:'¿Cuál Otro?', type:'text'},
+          {key:'tipo_instal_grises', label:'Tipo de Instalación - Aguas Grises', type:'text'},
+          {key:'tipo_manejo_grises', label:'Tipo de Manejo - Aguas Grises', type:'text'}
+        ] },
+      { id:2, texto:'¿El productor realiza un manejo seguro de los residuos orgánicos?', peso:'mayor', activo:true,
+        followUps:[{key:'tipo_instalacion', label:'Tipo de Instalación', type:'text'}, {key:'tipo_manejo', label:'Tipo de Manejo', type:'text'}] },
+      { id:3, texto:'¿El productor realiza un manejo seguro de los desechos inorgánicos (latas, plástico, botellas)?', peso:'mayor', activo:true,
+        followUps:[{key:'tipo_instalacion', label:'Tipo de Instalación', type:'text'}, {key:'tipo_manejo', label:'Tipo de Manejo', type:'text'}, {key:'observaciones', label:'Observaciones', type:'text'}] },
+    ]},
+    { id:'ecosistema', nombre:'Conservación del Ecosistema y Medio Ambiente', items:[
+      { id:1, texto:'¿Se encuentran las áreas de conservación identificadas en su croquis?', peso:'menor', activo:true },
+      { id:2, texto:'¿El productor siembra árboles maderables nativos o adaptados a la zona?', peso:'menor', activo:true,
+        followUps:[{key:'num_arboles', label:'Número de árboles en la parcela', type:'number'}, {key:'edad_prom_arboles', label:'Promedio de edad de los árboles (años)', type:'number'}, {key:'especies', label:'Especies', type:'text'}] },
+      { id:3, texto:'¿El productor conoce y/o tiene lista de especies (flora y fauna) en peligro de extinción de su Unidad Productiva?', peso:'menor', activo:true,
+        followUps:[{key:'describa', label:'Describa', type:'text'}] },
+      { id:4, texto:'¿Es inexistente la evidencia de caza y recolección de especies silvestres en la finca?', peso:'mayor', activo:true },
+      { id:5, texto:'¿Maneja un registro de flora y fauna existente en la finca? ¿Existen medidas de protección?', peso:'menor', activo:true },
+      { id:6, texto:'¿Existe evidencia de no haber convertido bosque natural a producción agrícola y no haber talado y/o quemado bosques o cabeceras de microcuenca en los últimos tres años?', peso:'obligatorio', activo:true },
+      { id:7, texto:'¿Implementa prácticas de recuperación de recursos naturales?', peso:'menor', activo:true,
+        followUps:[{key:'cuales', label:'¿Cuáles?', type:'text'}] },
+      { id:8, texto:'¿Las nuevas áreas de producción se ubican donde se presentan condiciones adecuadas de clima, suelos y pendiente?', peso:'menor', activo:true },
+      { id:9, texto:'¿El productor protege los ecosistemas naturales: cauces o nacientes de agua, caminos y zonas de cultivo; estableciendo áreas de amortiguamiento para proteger la flora o fauna?', peso:'mayor', activo:true,
+        followUps:[{key:'como', label:'¿Cómo?', type:'text'}] },
+      { id:10, texto:'¿Evita la contaminación de las fuentes de agua con residuos sólidos o líquidos?', peso:'obligatorio', activo:true },
+      { id:11, texto:'¿El productor implementa prácticas para el uso racional y eficiente del agua?', peso:'mayor', activo:true,
+        followUps:[{key:'como', label:'¿Cómo?', type:'text'}, {key:'producto_aplicado', label:'¿Cuál producto se aplicó?', type:'text'}] },
+      { id:12, texto:'¿El productor garantiza que las áreas de producción de café están fuera de las áreas naturales protegidas por ley?', peso:'mayor', activo:true },
+    ]},
+    { id:'social', nombre:'Bienestar Social y Laboral', items:[
+      { id:1, texto:'¿El productor provee a la familia, trabajadores y/o colaboradores de agua segura para el consumo humano?', peso:'menor', activo:true,
+        followUps:[
+          {key:'cuales', label:'¿Cuáles?', type:'text'},
+          {key:'tipo_vivienda', label:'¿Tipo de construcción de vivienda?', type:'text', scored:false},
+          {key:'estado_vivienda', label:'Estado de la vivienda', type:'text', scored:false},
+          {key:'espacios_separados', label:'¿La vivienda cuenta con espacios separados?', type:'select', options:['Sí','No'], scored:false},
+          {key:'cuales_espacios', label:'¿Cuáles espacios están separados?', type:'text', scored:false}
+        ] },
+      { id:2, texto:'¿Se aprecia orden e higiene en las fincas, almacenes, dormitorios y vivienda en general?', peso:'menor', activo:true,
+        followUps:[{key:'como', label:'¿Cómo?', type:'text'}, {key:'tipo_cocina', label:'¿Tipo de cocinas que usas?', type:'text', scored:false}] },
+      { id:3, texto:'¿Tiene construido cocina mejorada con chimenea?', peso:'menor', activo:true },
+      { id:4, texto:'¿Cuenta con equipo de protección en buen estado para la aplicación de abonos e insumos fitosanitarios?', peso:'menor', activo:true,
+        followUps:[{key:'cuales', label:'¿Cuáles?', type:'text'}] },
+      { id:5, texto:'¿El productor tiene letrina y/o SS.HH. en la finca y vivienda y en buen estado?', peso:'mayor', activo:true },
+      { id:6, texto:'¿El productor paga al personal de trabajo un monto igual o superior al promedio local o a lo estipulado por ley?', peso:'mayor', activo:true,
+        followUps:[{key:'pago_jornal', label:'Pago: Jornal S/.', type:'number'}, {key:'pago_destajo', label:'Pago: Destajo S/.', type:'number'}] },
+      { id:7, texto:'¿Solo contrata mayores de edad para trabajos en su finca?', peso:'mayor', activo:true },
+      { id:8, texto:'¿El productor tiene un botiquín de primeros auxilios implementado que responda a los riesgos identificados?', peso:'mayor', activo:true,
+        followUps:[
+          {key:'especificar', label:'Especificar', type:'text'},
+          {key:'sector_centro_salud', label:'¿El sector cuenta con centro de salud?', type:'select', options:['Sí','No'], scored:false},
+          {key:'base_institucion_educativa', label:'¿La base cuenta con Institución Educativa?', type:'select', options:['Sí','No'], scored:false}
+        ] },
+      { id:9, texto:'¿El productor conoce a los Consejos Directivos de la organización?', peso:'menor', activo:true,
+        followUps:[{key:'a_quien_conoce', label:'¿A quién conoce?', type:'text'}] },
+    ], extraUnscored:[
+      {key:'conoce_politicas_rs', label:'¿Conoce políticas de responsabilidad social el productor?', type:'select', options:['Sí','No']},
+      {key:'cuales_politicas_rs', label:'¿Qué políticas de responsabilidad social conoce el productor?', type:'text'},
+      {key:'maneja_energia', label:'¿El productor hace un buen manejo de energía para contribuir a la mitigación del cambio climático en su unidad productiva?', type:'select', options:['Sí','No']},
+      {key:'cuales_energia', label:'¿Cuáles?', type:'text'},
+      {key:'conoce_comercio_justo', label:'¿El productor conoce las políticas de Comercio Justo?', type:'select', options:['Sí','No']},
+      {key:'cuales_comercio_justo', label:'¿Cuáles?', type:'text'},
+    ]},
+  ];
+}
+
+// Lista fija de las 13 variedades de café que aparecen en la ficha de inspección (usadas en el
+// detalle de parcelas). No se agregan/quitan variedades dinámicamente — coinciden 1:1 con las
+// columnas de la ficha original.
+const INSP_VARIEDADES = ['Catimor','Caturra','Pache','Bourboun','San Antonio','Maragoipe','Typica',
+  'Catuai','Geisha','Mundo Novo','Castilla','Villasarchi','Otra Variedad 1'];
+
+// Siembra DB.criteriosInspeccion con los valores por defecto SOLO si está vacío (primera vez que
+// se usa el sistema con esta función, o base de datos restaurada desde un respaldo anterior a esta
+// mejora). Si el usuario ya editó sus criterios, esta función no los toca.
+function sembrarCriteriosInspeccionPorDefecto(){
+  if(!DB.criteriosInspeccion || !DB.criteriosInspeccion.length){
+    DB.criteriosInspeccion = INSP_CRITERIOS_DEFAULT();
+  }
+}
+
+// Calcula el puntaje de una categoría de criterios dado un mapa de respuestas {itemId:{respuesta,...}}.
+// Regla "No Aplica": un ítem con respuesta 'NA' se excluye TANTO del numerador COMO del denominador.
+function calcularPuntajeCategoria(categoria, respuestasCategoria){
+  const resultado = { obligatorio:{logrado:0,max:0}, mayor:{logrado:0,max:0}, menor:{logrado:0,max:0} };
+  respuestasCategoria = respuestasCategoria || {};
+  (categoria.items||[]).forEach(item=>{
+    if(item.activo===false) return;
+    const r = respuestasCategoria[item.id];
+    const respuesta = r && r.respuesta;
+    if(!respuesta || respuesta==='NA') return; // sin responder o No Aplica: fuera del cálculo
+    const peso = resultado[item.peso];
+    if(!peso) return;
+    peso.max++;
+    if(respuesta==='SI') peso.logrado++;
+  });
+  return resultado;
+}
+
+// Calcula el resumen total de una inspección dado su objeto `respuestas` = {categoriaId:{itemId:{respuesta,...}}}.
+function calcularResumenInspeccion(respuestas){
+  const resumen = { obligatorios:{logrado:0,max:0}, mayores:{logrado:0,max:0}, menores:{logrado:0,max:0},
+    puntaje_total:0, puntaje_max:0, num_incumplimientos:0, resumen_incumplimientos_texto:'' };
+  respuestas = respuestas || {};
+  const categoriasConIncumplimiento = [];
+  (DB.criteriosInspeccion||[]).forEach(cat=>{
+    const p = calcularPuntajeCategoria(cat, respuestas[cat.id]);
+    let incumpleCat = false;
+    ['obligatorio','mayor','menor'].forEach(peso=>{
+      const destino = peso==='obligatorio' ? resumen.obligatorios : peso==='mayor' ? resumen.mayores : resumen.menores;
+      destino.logrado += p[peso].logrado;
+      destino.max += p[peso].max;
+      if(p[peso].max - p[peso].logrado > 0) incumpleCat = true;
+    });
+    if(incumpleCat) categoriasConIncumplimiento.push(cat.nombre);
+  });
+  resumen.puntaje_total = resumen.obligatorios.logrado + resumen.mayores.logrado + resumen.menores.logrado;
+  resumen.puntaje_max = resumen.obligatorios.max + resumen.mayores.max + resumen.menores.max;
+  resumen.num_incumplimientos = (resumen.obligatorios.max-resumen.obligatorios.logrado) + (resumen.mayores.max-resumen.mayores.logrado) + (resumen.menores.max-resumen.menores.logrado);
+  resumen.resumen_incumplimientos_texto = categoriasConIncumplimiento.join('===');
+  return resumen;
+}
+
 function cargarDB(){
   try{
     const d = localStorage.getItem(STORAGE_KEY);
@@ -2783,6 +3201,9 @@ function cargarDB(){
   if(!DB.tostadoVentas) DB.tostadoVentas=[];
   if(!DB.facturacionConfig) DB.facturacionConfig = {habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'};
   if(!DB.inspecciones) DB.inspecciones=[];
+  if(!DB.parcelas) DB.parcelas=[];
+  if(!DB.criteriosInspeccion) DB.criteriosInspeccion=[];
+  sembrarCriteriosInspeccionPorDefecto();
 }
 
 // ── BACKUP JSON ──
@@ -2847,7 +3268,7 @@ function restaurarDesdeJSON(input){
       if(!confirm(msg)){ input.value = ''; return; }
 
       // Restaurar — copiar todos los campos de datos al DB
-      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones'].forEach(key => {
+      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion'].forEach(key => {
         if(data[key] !== undefined) DB[key] = data[key];
       });
 
@@ -3192,6 +3613,8 @@ const secTitles={dashboard:'📊 Dashboard',tickets:'🎫 Ticket de Entrada',gui
   ganancias:'💰 Registro de Ganancias',
   tostado:'🔥 Café Tostado — Producción y Ventas',
   inspecciones:'🔍 Inspecciones Internas',
+  'inspeccion-editor':'🔍 Ficha de Inspección Interna',
+  'inspeccion-criterios':'🛠️ Configurar Criterios de Inspección',
   config:'⚙️ Configuración',exportar:'📤 Exportar Datos'};
 
 function showSection(id){
@@ -3216,6 +3639,7 @@ function showSection(id){
   if(id==='ganancias'){ renderGanancias(); }
   if(id==='tostado'){ renderTostado(); }
   if(id==='inspecciones'){ renderInspecciones(); actualizarBannerConexion(); }
+  if(id==='inspeccion-criterios'){ renderConfigCriterios(); }
   if(id==='masivo'){ renderMasivo(); }
   if(id==='cafecoco') renderCafeCoco();
 }
@@ -3874,8 +4298,8 @@ function switchCompTab(tab){
 // PAGINACIÓN VIRTUAL — máx 50 filas por página
 // ══════════════════════════════════════════
 const PAGE_SIZE = 50;
-const _paginas = { tickets:0, guias:0, comprobantes:0, recibos:0 };
-let   _listasFiltradas = { tickets:[], guias:[], comprobantes:[], recibos:[] };
+const _paginas = { tickets:0, guias:0, comprobantes:0, recibos:0, inspecciones:0 };
+let   _listasFiltradas = { tickets:[], guias:[], comprobantes:[], recibos:[], inspecciones:[] };
 
 function renderPager(modulo, total, containerId){
   const pag = _paginas[modulo];
@@ -3903,6 +4327,7 @@ function _irPag(modulo, pag){
   if(modulo==='guias')        filtrarGuias();
   if(modulo==='comprobantes') filtrarComprobantes();
   if(modulo==='recibos')      filtrarRecibos();
+  if(modulo==='inspecciones') filtrarInspecciones();
 }
 
 function _paginaSlice(modulo, lista){
@@ -6305,14 +6730,70 @@ function exportarExcel(tipo){
     d=(DB.tostadoVentas||[]).map(v=>[v.nventa,v.fecha,v.cliente,v.cliente_dni,parseFloat(v.kg||0),parseFloat(v.precio||0),parseFloat(v.costo_kg||0),parseFloat(v.ingreso||0),parseFloat(v.costo||0),parseFloat(v.utilidad||0),parseFloat(v.margen||0),v.observaciones]);
     n='TostadoVentas_APARCH';
   } else if(tipo==='inspecciones'){
-    h=['N° Inspección','Fecha','Productor','Tipo','Resultado','Inspector','Sincronizado','Criterios Cumplidos','Criterios Totales','Observaciones'];
-    d=(DB.inspecciones||[]).map(i=>[i.codigo,i.fecha,i.productor,i.tipo,i.resultado,i.inspector,i.sincronizado?'Sí':'No',(i.checklist||[]).filter(c=>c.cumple).length,(i.checklist||[]).length,i.observaciones]);
-    n='Inspecciones_APARCH';
+    exportarExcelInspecciones();
+    return;
   }
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([h,...d]),n.split('_')[0]);
   XLSX.writeFile(wb,`${n}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
+
+// Export de Inspecciones en 3 hojas: resumen (una fila por inspección, sirve para ambos formatos,
+// viejo y nuevo), detalle de criterios (una fila por criterio — el registro auditable) y detalle de
+// parcelas. Las fotos NO se incluyen (no tiene sentido meter base64 en celdas de Excel); se avisa
+// en la UI que se revisen en la app o en el respaldo JSON.
+function exportarExcelInspecciones(){
+  const wb = XLSX.utils.book_new();
+
+  const hResumen = ['N° Inspección','Formato','Fecha','Socio/Productor','DNI','Base','Sector','Inspector',
+    'Obligatorios Logrado','Obligatorios Máx','Mayores Logrado','Mayores Máx','Menores Logrado','Menores Máx',
+    'Puntaje Total','Puntaje Máx','N° Incumplimientos','Categorías con Incumplimiento','Sincronizado'];
+  const dResumen = (DB.inspecciones||[]).map(i=>{
+    if(_inspEsFormatoNuevo(i)){
+      const r = i.resumen;
+      return [i.codigo,'Ficha completa',i.fecha_inicio,i.socio_nombre,i.socio_dni,i.base,i.sector,i.inspector_interno,
+        r.obligatorios.logrado,r.obligatorios.max, r.mayores.logrado,r.mayores.max, r.menores.logrado,r.menores.max,
+        r.puntaje_total,r.puntaje_max, r.num_incumplimientos, (r.resumen_incumplimientos_texto||'').split('===').join('; '),
+        i.sincronizado?'Sí':'No'];
+    }
+    return [i.codigo,'Formato anterior',i.fecha,i.productor,'—','—','—',i.inspector,
+      '—','—','—','—','—','—','—','—','—', i.resultado||'—', i.sincronizado?'Sí':'No'];
+  });
+
+  const hCriterios = ['N° Inspección','Socio/Productor','Categoría','Ítem','Peso','Texto del Criterio','Respuesta','Detalle'];
+  const dCriterios = [];
+  (DB.inspecciones||[]).filter(_inspEsFormatoNuevo).forEach(i=>{
+    (DB.criteriosInspeccion||[]).forEach(cat=>{
+      (cat.items||[]).filter(it=>it.activo!==false).forEach(item=>{
+        const resp = ((i.respuestas||{})[cat.id]||{})[item.id] || {};
+        const detalle = (item.followUps||[]).map(fu=>resp[fu.key]?`${fu.label}: ${resp[fu.key]}`:null).filter(Boolean).join(' | ');
+        dCriterios.push([i.codigo, i.socio_nombre, cat.nombre, item.id, item.peso, item.texto, resp.respuesta||'', detalle]);
+      });
+    });
+  });
+
+  const hParcelas = ['N° Inspección','Socio/Productor','Parcela','Base','Sector','Ha Producción','Ha Crecimiento','Ha Total','Plantas Totales','Sacos Campaña','Kg','Qq','Toneladas'];
+  const dParcelas = [];
+  (DB.inspecciones||[]).filter(_inspEsFormatoNuevo).forEach(i=>{
+    (i.parcela_ids||[]).forEach(id=>{
+      const p = (DB.parcelas||[]).find(x=>x.id===id);
+      if(!p) return;
+      const areaTotal = _sumaHectareasParcela(p.hectareas);
+      const plantas = (p.variedades||[]).reduce((a,v)=>a+(parseFloat(v.plantas_produccion)||0)+(parseFloat(v.plantas_crecimiento)||0),0);
+      const sacos = parseFloat(p.resultados.sacos_campana)||0;
+      const kg = sacos*60;
+      dParcelas.push([i.codigo, i.socio_nombre, p.nombre, p.base, p.sector,
+        parseFloat(p.hectareas.produccion)||0, parseFloat(p.hectareas.crecimiento)||0, areaTotal, plantas,
+        sacos, kg, kg/55.2, kg/1000]);
+    });
+  });
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([hResumen,...dResumen]), 'Inspecciones');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([hCriterios,...dCriterios]), 'Criterios_Detalle');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([hParcelas,...dParcelas]), 'Parcelas_Detalle');
+  XLSX.writeFile(wb, `Inspecciones_APARCH_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
 function exportarTodo(){
   const wb=XLSX.utils.book_new();
   const hT=['N° Ticket','Fecha','Hora','Productor','DNI','Base','Certif.','Sacos','P.Bruto','Tara','Hum%','D.Hum','P.Neto','Exp g','Exp%','Seg g','Seg%','Cas g','Cas%','Defectos','Lote','Obs'];
@@ -7687,7 +8168,7 @@ async function gdriveCargar(){
     if(!confirm(`📥 CARGAR DATOS DESDE GOOGLE DRIVE\n\nFecha del backup: ${fecha}\nTickets: ${info.tickets||0}\nGuías: ${info.guias||0}\nComprobantes: ${info.comprobantes||0}\nSocios: ${info.socios||0}\n\n⚠️ ESTO REEMPLAZARÁ tus datos actuales.\n¿Continuar?`)) return;
 
     // Restaurar datos
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion'].forEach(key=>{
       if(data[key]!==undefined) DB[key]=data[key];
     });
     guardarDB(); marcarRespaldado();
@@ -7800,7 +8281,7 @@ async function sheetsGuardarManual(){
   try{
     await fetch(url, {
       method:'POST', mode:'no-cors',
-      body: JSON.stringify({ accion:'guardar', db: DB }),
+      body: JSON.stringify({ accion:'guardar', db: _dbParaSyncSheets() }),
       headers:{'Content-Type':'application/json'}
     });
     const ts = new Date().toLocaleString('es-PE');
@@ -7830,7 +8311,7 @@ async function sheetsCargarManual(){
     const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
     if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos actuales.\n¿Continuar?`)) return;
 
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion'].forEach(key=>{
       if(db[key]!==undefined) DB[key]=db[key];
     });
     guardarDB(); marcarRespaldado();
@@ -11068,127 +11549,782 @@ async function emitirComprobanteSunat(){
 // ══════════════════════════════════════════
 // INSPECCIONES INTERNAS — funciona sin internet (PWA), sincroniza al volver a conexión
 // ══════════════════════════════════════════
-const INSP_CRITERIOS_DEFECTO = [
-  'Uso de agroquímicos prohibidos',
-  'Documentación / cuaderno de campo en regla',
-  'Prácticas de conservación de suelo y agua',
-  'Almacenamiento adecuado del café',
-  'Zonas de amortiguamiento respetadas',
-  'Condiciones de trabajo / seguridad'
-];
-let insp_checklistTemp = [];
-let insp_firmaCtx = null;
-let insp_firmaDibujando = false;
-let insp_firmaTieneTrazo = false;
-
-function abrirModalInspeccion(){
-  document.getElementById('insp-codigo').value = nextCodigo(DB.inspecciones||[], 'INSP-');
-  document.getElementById('insp-fecha').value = hoy();
-  document.getElementById('insp-productor').value = '';
-  document.getElementById('insp-tipo').value = 'Orgánico';
-  document.getElementById('insp-inspector').value = SESSION.user||'';
-  document.getElementById('insp-resultado').value = 'Aprobado';
-  document.getElementById('insp-obs').value = '';
-  document.getElementById('insp-form-alert').innerHTML = '';
-
-  insp_checklistTemp = INSP_CRITERIOS_DEFECTO.map(c=>({criterio:c, cumple:true}));
-  renderChecklistInspeccion();
-
-  const dl = document.getElementById('insp-productor-list');
-  if(dl) dl.innerHTML = (DB.socios||[]).map(s=>`<option value="${s.nombre}">`).join('');
-
-  abrirModal('modal-inspeccion');
-  setTimeout(initFirmaCanvas, 100); // esperar a que el modal sea visible para medir el canvas
-}
-
-function renderChecklistInspeccion(){
-  const cont = document.getElementById('insp-checklist');
-  cont.innerHTML = insp_checklistTemp.map((c,i)=>`
-    <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${c.cumple?'#f0faf4':'#fff3e0'};border-radius:6px;font-size:0.84rem;">
-      <input type="checkbox" ${c.cumple?'checked':''} onchange="insp_checklistTemp[${i}].cumple=this.checked;renderChecklistInspeccion();">
-      <span style="flex:1;">${c.criterio}</span>
-      <span style="cursor:pointer;color:#c62828;font-weight:700;" onclick="insp_checklistTemp.splice(${i},1);renderChecklistInspeccion();">✕</span>
-    </label>`).join('');
-}
-
-function agregarCriterioInspeccion(){
-  const el = document.getElementById('insp-nuevo-criterio');
-  const texto = el.value.trim();
-  if(!texto) return;
-  insp_checklistTemp.push({criterio:texto, cumple:true});
-  el.value = '';
-  renderChecklistInspeccion();
-}
 
 // ── FIRMA TÁCTIL (canvas) — funciona con dedo (touch) o mouse ──
-function initFirmaCanvas(){
-  const canvas = document.getElementById('insp-firma-canvas');
+// Dos firmas independientes (productor / inspector) para la Ficha de Inspección.
+let insp_firmas = {
+  productor: { ctx:null, dibujando:false, tieneTrazo:false },
+  inspector: { ctx:null, dibujando:false, tieneTrazo:false }
+};
+
+function initFirmaCanvas(which){
+  which = which || 'productor';
+  const canvas = document.getElementById('insped-firma-'+which+'-canvas');
   if(!canvas) return;
+  const st = insp_firmas[which];
+  // Si ya había una firma dibujada, la preservamos (por si se re-mide el canvas al reingresar a la pestaña)
+  let imgPrevia = null;
+  if(st.ctx && st.tieneTrazo){
+    try{ imgPrevia = canvas.toDataURL('image/png'); }catch(e){}
+  }
   // Ajustar resolución real del canvas al tamaño visual (para que no se vea borroso)
   const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width; canvas.height = 160;
-  insp_firmaCtx = canvas.getContext('2d');
-  insp_firmaCtx.strokeStyle = '#1a3a6e';
-  insp_firmaCtx.lineWidth = 2.2;
-  insp_firmaCtx.lineCap = 'round';
-  insp_firmaTieneTrazo = false;
+  if(rect.width > 0){ canvas.width = rect.width; canvas.height = 160; }
+  st.ctx = canvas.getContext('2d');
+  st.ctx.strokeStyle = '#1a3a6e';
+  st.ctx.lineWidth = 2.2;
+  st.ctx.lineCap = 'round';
+
+  if(imgPrevia){
+    const img = new Image();
+    img.onload = ()=>{ st.ctx.drawImage(img, 0, 0, canvas.width, canvas.height); };
+    img.src = imgPrevia;
+  } else {
+    st.tieneTrazo = false;
+  }
 
   const getPos = (e)=>{
     const r = canvas.getBoundingClientRect();
     const t = e.touches ? e.touches[0] : e;
     return { x: t.clientX - r.left, y: t.clientY - r.top };
   };
-  const start = (e)=>{ e.preventDefault(); insp_firmaDibujando = true; const p=getPos(e); insp_firmaCtx.beginPath(); insp_firmaCtx.moveTo(p.x,p.y); };
-  const move  = (e)=>{ if(!insp_firmaDibujando) return; e.preventDefault(); const p=getPos(e); insp_firmaCtx.lineTo(p.x,p.y); insp_firmaCtx.stroke(); insp_firmaTieneTrazo = true; };
-  const end   = ()=>{ insp_firmaDibujando = false; };
+  const start = (e)=>{ e.preventDefault(); st.dibujando = true; const p=getPos(e); st.ctx.beginPath(); st.ctx.moveTo(p.x,p.y); };
+  const move  = (e)=>{ if(!st.dibujando) return; e.preventDefault(); const p=getPos(e); st.ctx.lineTo(p.x,p.y); st.ctx.stroke(); st.tieneTrazo = true; };
+  const end   = ()=>{ st.dibujando = false; };
 
   canvas.onmousedown = start; canvas.onmousemove = move; canvas.onmouseup = end; canvas.onmouseleave = end;
   canvas.ontouchstart = start; canvas.ontouchmove = move; canvas.ontouchend = end;
 }
 
-function limpiarFirmaInspeccion(){
-  const canvas = document.getElementById('insp-firma-canvas');
-  if(!canvas || !insp_firmaCtx) return;
-  insp_firmaCtx.clearRect(0,0,canvas.width,canvas.height);
-  insp_firmaTieneTrazo = false;
+function limpiarFirmaInspeccion(which){
+  which = which || 'productor';
+  const canvas = document.getElementById('insped-firma-'+which+'-canvas');
+  const st = insp_firmas[which];
+  if(!canvas || !st || !st.ctx) return;
+  st.ctx.clearRect(0,0,canvas.width,canvas.height);
+  st.tieneTrazo = false;
+}
+
+// ══════════════════════════════════════════
+// FICHA DE INSPECCIÓN — editor de página completa (reemplaza el modal simple anterior)
+// ══════════════════════════════════════════
+let insp_editandoIdx = -1;          // -1 = nueva inspección
+let insp_socioActual = null;        // objeto de DB.socios seleccionado
+let insp_hijosTemp = [];
+let insp_parcelasTemp = [];         // parcelas incluidas en ESTA inspección (copias editables de DB.parcelas o nuevas)
+let insp_respuestas = {};           // {categoriaId:{itemId:{respuesta, ...followUps}}}
+let insp_fotosTemp = [];
+let insp_criteriosSubTab = null;
+
+function switchInspTab(tab){
+  ['general','parcelas','criterios','fotos','firmas'].forEach(t=>{
+    const btn = document.getElementById('insped-tab-'+t);
+    if(btn) btn.className = t===tab ? 'btn btn-primary' : 'btn btn-secondary';
+    const panel = document.getElementById('insped-panel-'+t);
+    if(panel) panel.style.display = t===tab ? '' : 'none';
+  });
+  if(tab==='parcelas') renderResumenAgregado();
+  if(tab==='criterios') renderCriteriosInspeccion();
+  if(tab==='fotos') renderFotosInspeccion();
+  if(tab==='firmas'){ initFirmaCanvas('productor'); initFirmaCanvas('inspector'); }
+}
+
+function abrirEditorInspeccion(idx){
+  insp_editandoIdx = (typeof idx === 'number') ? idx : -1;
+  document.getElementById('insped-form-alert').innerHTML = '';
+  insp_socioActual = null;
+  insp_hijosTemp = [];
+  insp_parcelasTemp = [];
+  insp_respuestas = {};
+  insp_fotosTemp = [];
+  insp_firmas.productor = { ctx:null, dibujando:false, tieneTrazo:false };
+  insp_firmas.inspector = { ctx:null, dibujando:false, tieneTrazo:false };
+
+  document.getElementById('insped-titulo').textContent = 'Nueva Ficha de Inspección';
+  document.getElementById('insped-codigo').value = nextCodigo(DB.inspecciones||[], 'INSP-');
+  document.getElementById('insped-inspector').value = SESSION.user||'';
+  document.getElementById('insped-fecha-inicio').value = hoy();
+  document.getElementById('insped-hora-inicio').value = ahora();
+  document.getElementById('insped-fecha-fin').value = '';
+  document.getElementById('insped-hora-fin').value = '';
+  document.getElementById('insped-tipo-cultivo').value = 'Café';
+
+  // Limpiar todos los campos de texto/select del panel general (excepto los ya fijados arriba)
+  ['insped-dni','insped-genero','insped-base','insped-sector','insped-distrito','insped-provincia',
+   'insped-fecha-nacimiento','insped-fecha-ingreso-programa','insped-ultimo-estatus-aprobado','insped-ultimo-estatus-propuesto',
+   'insped-grado-instruccion','insped-estado-civil','insped-conyuge-nombre','insped-conyuge-dni','insped-conyuge-fecha-nac',
+   'insped-conyuge-grado-instruccion','insped-celular','insped-celular2','insped-tiene-ruc','insped-radio-favorita',
+   'insped-acceso-internet','insped-redes-cuales','insped-programa-social-cuales','insped-num-personas-familia',
+   'insped-num-hijos-menores','insped-satisfaccion-servicios','insped-ingresos-adicionales','insped-pct-dependencia-cafe',
+   'insped-costos-produccion','insped-cert-otros-organismos','insped-credito-organizacion','insped-credito-otras-entidades',
+   'insped-credito-cuales'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['insped-cert-nop-usda','insped-cert-cee','insped-cert-cor','insped-cert-ds044','insped-cert-comerciojusto',
+   'insped-cert-fairtradeusa','insped-cert-fairforlife'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+
+  const sel = document.getElementById('insped-socio');
+  sel.innerHTML = '<option value="">— Selecciona un socio —</option>' +
+    (DB.socios||[]).map(s=>`<option value="${s.nombre}">${s.nombre}${s.dni?' ['+s.dni+']':''}</option>`).join('');
+  sel.value = '';
+
+  renderHijosInspeccion();
+  renderParcelasExistentes();
+  renderParcelasCards();
+  renderResumenAgregado();
+  document.getElementById('insped-fotos-grid').innerHTML = '';
+  document.getElementById('insped-fotos-tamano').textContent = '';
+
+  switchInspTab('general');
+  showSection('inspeccion-editor');
+}
+
+function cancelarEditorInspeccion(){
+  if(!confirm('¿Cancelar esta ficha? Se perderá lo que no hayas guardado.')) return;
+  showSection('inspecciones');
+}
+
+// ── Selección de socio: autocompleta datos y trae sus parcelas guardadas ──
+function seleccionarSocioInspeccion(){
+  const nombre = document.getElementById('insped-socio').value;
+  insp_socioActual = (DB.socios||[]).find(s=>s.nombre===nombre) || null;
+  if(insp_socioActual){
+    document.getElementById('insped-dni').value = insp_socioActual.dni||'';
+    document.getElementById('insped-genero').value = insp_socioActual.genero||'';
+    document.getElementById('insped-base').value = insp_socioActual.base||'';
+    document.getElementById('insped-sector').value = insp_socioActual.caserio||'';
+    document.getElementById('insped-distrito').value = insp_socioActual.distrito||'';
+    document.getElementById('insped-provincia').value = insp_socioActual.provincia||'';
+    // Campos de perfil que hoy no existen en DB.socios pero pudieron guardarse en una inspección anterior
+    if(insp_socioActual.fecha_nacimiento) document.getElementById('insped-fecha-nacimiento').value = insp_socioActual.fecha_nacimiento;
+    if(insp_socioActual.estado_civil) document.getElementById('insped-estado-civil').value = insp_socioActual.estado_civil;
+    if(insp_socioActual.grado_instruccion) document.getElementById('insped-grado-instruccion').value = insp_socioActual.grado_instruccion;
+    if(insp_socioActual.celular) document.getElementById('insped-celular').value = insp_socioActual.celular;
+  } else {
+    ['insped-dni','insped-genero','insped-base','insped-sector','insped-distrito','insped-provincia'].forEach(id=>{
+      document.getElementById(id).value = '';
+    });
+  }
+  renderParcelasExistentes();
+  renderResumenAgregado();
+}
+
+// ── Hijos/hijas menores de 18 años (repetible) ──
+function agregarHijoInspeccion(){
+  insp_hijosTemp.push({ n: insp_hijosTemp.length+1, anio_nacimiento:'', genero:'', estudiando:'', grado_instruccion:'' });
+  renderHijosInspeccion();
+}
+function quitarHijoInspeccion(i){
+  insp_hijosTemp.splice(i,1);
+  insp_hijosTemp.forEach((h,idx)=>h.n=idx+1);
+  renderHijosInspeccion();
+}
+function renderHijosInspeccion(){
+  const tb = document.getElementById('insped-hijos-body');
+  if(!tb) return;
+  if(!insp_hijosTemp.length){
+    tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:10px;">Sin hijos/as registrados</td></tr>';
+    return;
+  }
+  tb.innerHTML = insp_hijosTemp.map((h,i)=>`<tr>
+    <td>${h.n}</td>
+    <td><input type="number" value="${h.anio_nacimiento||''}" style="width:80px;padding:3px;border:1px solid #ccc;border-radius:4px;" onchange="insp_hijosTemp[${i}].anio_nacimiento=this.value"></td>
+    <td><select style="padding:3px;border:1px solid #ccc;border-radius:4px;" onchange="insp_hijosTemp[${i}].genero=this.value">
+      <option value="">—</option>
+      <option ${h.genero==='Masculino'?'selected':''}>Masculino</option>
+      <option ${h.genero==='Femenino'?'selected':''}>Femenino</option>
+    </select></td>
+    <td><select style="padding:3px;border:1px solid #ccc;border-radius:4px;" onchange="insp_hijosTemp[${i}].estudiando=this.value">
+      <option value="">—</option>
+      <option ${h.estudiando==='Sí'?'selected':''}>Sí</option>
+      <option ${h.estudiando==='No'?'selected':''}>No</option>
+    </select></td>
+    <td><input type="text" value="${h.grado_instruccion||''}" style="width:120px;padding:3px;border:1px solid #ccc;border-radius:4px;" onchange="insp_hijosTemp[${i}].grado_instruccion=this.value"></td>
+    <td><button class="btn btn-danger btn-sm" onclick="quitarHijoInspeccion(${i})">✕</button></td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════
+// PARCELAS — catálogo persistente por socio (DB.parcelas) + repetible de la inspección actual
+// ══════════════════════════════════════════
+function _parcelaVacia(){
+  return {
+    id: null, socio_nombre: insp_socioActual ? insp_socioActual.nombre : '', socio_dni: insp_socioActual ? (insp_socioActual.dni||'') : '',
+    codigo:'', nombre:'', base:'', sector:'',
+    gps:{lat:'',lon:'',altitud:'',accuracy:''},
+    pendiente_promedio_pct:'',
+    colindancias:{este:'',este_otro:'',oeste:'',oeste_otro:'',norte:'',norte_otro:'',sur:'',sur_otro:''},
+    necesita_zona_amortiguamiento:'',
+    sombra:{especies:'',otras_cuales:'',num_arboles:'',distribucion:''},
+    hectareas:{produccion:0,crecimiento:0,pan_llevar:0,pastos_naturales:0,pastos_cultivados:0,rastrojo_purma:0,bosque_primario:0,bosque_secundario:0,otras_areas:0},
+    variedades: INSP_VARIEDADES.map(v=>({variedad:v, plantas_produccion:0, plantas_crecimiento:0, anio_plantacion:'', ha:0})),
+    pendiente_puntos:[],
+    cafe_produccion:{sistema_siembra:'',dist_plantas_mt:'',dist_calles_mt:''},
+    resultados:{sacos_campana:0},
+    activa:true
+  };
+}
+
+function renderParcelasExistentes(){
+  const cont = document.getElementById('insped-parcelas-existentes');
+  if(!cont) return;
+  if(!insp_socioActual){
+    cont.innerHTML = '<div style="color:#aaa;font-size:0.82rem;">Selecciona un socio en la pestaña "Datos Generales" para ver sus parcelas guardadas.</div>';
+    return;
+  }
+  const existentes = (DB.parcelas||[]).filter(p=>p.socio_nombre===insp_socioActual.nombre && p.activa!==false);
+  if(!existentes.length){
+    cont.innerHTML = '<div style="color:#aaa;font-size:0.82rem;">Este socio todavía no tiene parcelas guardadas. Usa "+ Parcela Nueva" para agregar la primera.</div>';
+    return;
+  }
+  cont.innerHTML = existentes.map(p=>{
+    const incluida = insp_parcelasTemp.some(t=>t.id===p.id);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${incluida?'#f0faf4':'#f7f7f7'};border-radius:6px;margin-bottom:4px;font-size:0.84rem;">
+      <input type="checkbox" ${incluida?'checked':''} onchange="toggleParcelaExistente(${p.id},this.checked)">
+      <span style="flex:1;"><strong>${p.nombre||'(sin nombre)'}</strong> — ${p.base||''} ${p.sector||''}</span>
+    </label>`;
+  }).join('');
+}
+
+function toggleParcelaExistente(id, checked){
+  if(checked){
+    const original = (DB.parcelas||[]).find(p=>p.id===id);
+    if(original && !insp_parcelasTemp.some(t=>t.id===id)){
+      insp_parcelasTemp.push(JSON.parse(JSON.stringify(original)));
+    }
+  } else {
+    insp_parcelasTemp = insp_parcelasTemp.filter(t=>t.id!==id);
+  }
+  renderParcelasCards();
+  renderResumenAgregado();
+}
+
+function agregarParcelaNueva(){
+  if(!insp_socioActual){ alert('Primero selecciona un socio en la pestaña "Datos Generales".'); return; }
+  insp_parcelasTemp.push(_parcelaVacia());
+  renderParcelasCards();
+  renderResumenAgregado();
+}
+
+function quitarParcelaTemp(i){
+  const p = insp_parcelasTemp[i];
+  if(!confirm('¿Quitar esta parcela de la inspección?')) return;
+  insp_parcelasTemp.splice(i,1);
+  renderParcelasExistentes();
+  renderParcelasCards();
+  renderResumenAgregado();
+}
+
+// Recalcula los totales derivados de UNA parcela (no toca lo que el usuario tecleó) y re-renderiza
+// solo esa tarjeta — se llama en cada onchange, no en cada tecla, así que no hay pérdida de foco.
+function recalcParcelaTemp(i){
+  renderParcelasCards();
+  renderResumenAgregado();
+}
+
+function _sumaHectareasParcela(h){
+  return (parseFloat(h.produccion)||0)+(parseFloat(h.crecimiento)||0)+(parseFloat(h.pan_llevar)||0)+
+    (parseFloat(h.pastos_naturales)||0)+(parseFloat(h.pastos_cultivados)||0)+(parseFloat(h.rastrojo_purma)||0)+
+    (parseFloat(h.bosque_primario)||0)+(parseFloat(h.bosque_secundario)||0)+(parseFloat(h.otras_areas)||0);
+}
+
+function renderParcelasCards(){
+  const cont = document.getElementById('insped-parcelas-cards');
+  if(!cont) return;
+  if(!insp_parcelasTemp.length){
+    cont.innerHTML = '<div class="empty-state"><span class="ico">🌱</span>Aún no hay parcelas en esta inspección. Marca una parcela existente o agrega una nueva.</div>';
+    return;
+  }
+  cont.innerHTML = insp_parcelasTemp.map((p,i)=>{
+    const areaCultivo = (parseFloat(p.hectareas.produccion)||0)+(parseFloat(p.hectareas.crecimiento)||0);
+    const areaTotal = _sumaHectareasParcela(p.hectareas);
+    const plantasTotales = p.variedades.reduce((a,v)=>a+(parseFloat(v.plantas_produccion)||0)+(parseFloat(v.plantas_crecimiento)||0),0);
+    const haVariedades = p.variedades.reduce((a,v)=>a+(parseFloat(v.ha)||0),0);
+    const anioActual = new Date().getFullYear();
+    const kg = (parseFloat(p.resultados.sacos_campana)||0)*60;
+    const qq = kg/55.2;
+    const ton = kg/1000;
+    return `<div class="card" style="border:1.5px solid var(--borde);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-weight:800;color:var(--cafe-c);">🌱 Parcela ${i+1}: ${p.nombre||'(nueva, sin nombre aún)'}${p.id?'':' <span style=\"color:#e65100;font-size:0.72rem;font-weight:700;\">NUEVA</span>'}</div>
+        <button class="btn btn-danger btn-sm" onclick="quitarParcelaTemp(${i})">✕ Quitar</button>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group"><label>Nombre de la Parcela</label><input type="text" value="${p.nombre||''}" onchange="insp_parcelasTemp[${i}].nombre=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Código de Parcela</label><input type="text" value="${p.codigo||''}" onchange="insp_parcelasTemp[${i}].codigo=this.value"></div>
+        <div class="form-group"><label>Base</label><input type="text" value="${p.base||''}" onchange="insp_parcelasTemp[${i}].base=this.value"></div>
+        <div class="form-group"><label>Sector</label><input type="text" value="${p.sector||''}" onchange="insp_parcelasTemp[${i}].sector=this.value"></div>
+        <div class="form-group"><label>Latitud</label><input type="text" value="${p.gps.lat||''}" onchange="insp_parcelasTemp[${i}].gps.lat=this.value"></div>
+        <div class="form-group"><label>Longitud</label><input type="text" value="${p.gps.lon||''}" onchange="insp_parcelasTemp[${i}].gps.lon=this.value"></div>
+        <div class="form-group"><label>Altitud</label><input type="text" value="${p.gps.altitud||''}" onchange="insp_parcelasTemp[${i}].gps.altitud=this.value"></div>
+        <div class="form-group"><label>Promedio de Pendiente (%)</label><input type="number" value="${p.pendiente_promedio_pct||''}" onchange="insp_parcelasTemp[${i}].pendiente_promedio_pct=this.value"></div>
+        <div class="form-group"><label>Este (colindancia)</label><input type="text" value="${p.colindancias.este||''}" onchange="insp_parcelasTemp[${i}].colindancias.este=this.value"></div>
+        <div class="form-group"><label>Oeste (colindancia)</label><input type="text" value="${p.colindancias.oeste||''}" onchange="insp_parcelasTemp[${i}].colindancias.oeste=this.value"></div>
+        <div class="form-group"><label>Norte (colindancia)</label><input type="text" value="${p.colindancias.norte||''}" onchange="insp_parcelasTemp[${i}].colindancias.norte=this.value"></div>
+        <div class="form-group"><label>Sur (colindancia)</label><input type="text" value="${p.colindancias.sur||''}" onchange="insp_parcelasTemp[${i}].colindancias.sur=this.value"></div>
+        <div class="form-group"><label>¿Necesita Zona de Amortiguamiento?</label>
+          <select onchange="insp_parcelasTemp[${i}].necesita_zona_amortiguamiento=this.value">
+            <option value="">—</option><option ${p.necesita_zona_amortiguamiento==='Sí'?'selected':''}>Sí</option><option ${p.necesita_zona_amortiguamiento==='No'?'selected':''}>No</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Especies de Sombra</label><input type="text" value="${p.sombra.especies||''}" onchange="insp_parcelasTemp[${i}].sombra.especies=this.value"></div>
+        <div class="form-group"><label>N° de Árboles de Sombra</label><input type="number" value="${p.sombra.num_arboles||''}" onchange="insp_parcelasTemp[${i}].sombra.num_arboles=this.value"></div>
+        <div class="form-group"><label>Distribución de Árboles</label>
+          <select onchange="insp_parcelasTemp[${i}].sombra.distribucion=this.value">
+            <option value="">—</option><option ${p.sombra.distribucion==='Regular'?'selected':''}>Regular</option><option ${p.sombra.distribucion==='Irregular'?'selected':''}>Irregular</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="subsection-title">1. NÚMERO DE HECTÁREAS</div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Cultivo en Producción</label><input type="number" step="0.01" value="${p.hectareas.produccion||0}" onchange="insp_parcelasTemp[${i}].hectareas.produccion=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Cultivo en Crecimiento</label><input type="number" step="0.01" value="${p.hectareas.crecimiento||0}" onchange="insp_parcelasTemp[${i}].hectareas.crecimiento=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Pan Llevar</label><input type="number" step="0.01" value="${p.hectareas.pan_llevar||0}" onchange="insp_parcelasTemp[${i}].hectareas.pan_llevar=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Pastos Naturales</label><input type="number" step="0.01" value="${p.hectareas.pastos_naturales||0}" onchange="insp_parcelasTemp[${i}].hectareas.pastos_naturales=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Pastos Cultivados</label><input type="number" step="0.01" value="${p.hectareas.pastos_cultivados||0}" onchange="insp_parcelasTemp[${i}].hectareas.pastos_cultivados=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Rastrojo Purma</label><input type="number" step="0.01" value="${p.hectareas.rastrojo_purma||0}" onchange="insp_parcelasTemp[${i}].hectareas.rastrojo_purma=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Bosque Primario</label><input type="number" step="0.01" value="${p.hectareas.bosque_primario||0}" onchange="insp_parcelasTemp[${i}].hectareas.bosque_primario=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Bosque Secundario</label><input type="number" step="0.01" value="${p.hectareas.bosque_secundario||0}" onchange="insp_parcelasTemp[${i}].hectareas.bosque_secundario=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Otras Áreas</label><input type="number" step="0.01" value="${p.hectareas.otras_areas||0}" onchange="insp_parcelasTemp[${i}].hectareas.otras_areas=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Área de Cultivo Total (calculada)</label><input type="text" readonly value="${areaCultivo.toFixed(2)} ha"></div>
+        <div class="form-group"><label>Total Hectáreas de la Parcela (calculada)</label><input type="text" readonly value="${areaTotal.toFixed(2)} ha"></div>
+      </div>
+
+      <div class="subsection-title">2. ÁREA POR VARIEDAD</div>
+      <div class="table-wrap">
+        <table><thead><tr>
+          <th>Variedad</th><th>Plantas Producción</th><th>Plantas Crecimiento</th><th>Total Plantas</th>
+          <th>Año Plantación</th><th>Edad (calc.)</th><th>Ha</th><th>%</th>
+        </tr></thead><tbody>
+        ${p.variedades.map((v,vi)=>{
+          const totalV = (parseFloat(v.plantas_produccion)||0)+(parseFloat(v.plantas_crecimiento)||0);
+          const edad = v.anio_plantacion ? (anioActual - parseInt(v.anio_plantacion)) : '';
+          const pct = haVariedades>0 ? ((parseFloat(v.ha)||0)/haVariedades*100) : 0;
+          return `<tr>
+            <td>${v.variedad}</td>
+            <td><input type="number" value="${v.plantas_produccion||0}" style="width:75px;padding:3px;border:1px solid #ccc;border-radius:4px;" onchange="insp_parcelasTemp[${i}].variedades[${vi}].plantas_produccion=this.value;recalcParcelaTemp(${i})"></td>
+            <td><input type="number" value="${v.plantas_crecimiento||0}" style="width:75px;padding:3px;border:1px solid #ccc;border-radius:4px;" onchange="insp_parcelasTemp[${i}].variedades[${vi}].plantas_crecimiento=this.value;recalcParcelaTemp(${i})"></td>
+            <td style="text-align:right;font-weight:700;">${totalV}</td>
+            <td><input type="number" value="${v.anio_plantacion||''}" style="width:75px;padding:3px;border:1px solid #ccc;border-radius:4px;" onchange="insp_parcelasTemp[${i}].variedades[${vi}].anio_plantacion=this.value;recalcParcelaTemp(${i})"></td>
+            <td style="text-align:right;">${edad}</td>
+            <td><input type="number" step="0.01" value="${v.ha||0}" style="width:70px;padding:3px;border:1px solid #ccc;border-radius:4px;" onchange="insp_parcelasTemp[${i}].variedades[${vi}].ha=this.value;recalcParcelaTemp(${i})"></td>
+            <td style="text-align:right;">${pct.toFixed(1)}%</td>
+          </tr>`;
+        }).join('')}
+        <tr style="font-weight:800;background:#f7f7f7;">
+          <td>TOTAL</td><td></td><td></td><td>${plantasTotales}</td><td></td><td></td><td>${haVariedades.toFixed(2)}</td><td>100%</td>
+        </tr>
+        </tbody></table>
+      </div>
+
+      <div class="subsection-title">DETALLES DEL CAFÉ EN PRODUCCIÓN</div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Sistema de Siembra</label><input type="text" value="${p.cafe_produccion.sistema_siembra||''}" onchange="insp_parcelasTemp[${i}].cafe_produccion.sistema_siembra=this.value"></div>
+        <div class="form-group"><label>Distancia entre Plantas (mt)</label><input type="number" step="0.1" value="${p.cafe_produccion.dist_plantas_mt||''}" onchange="insp_parcelasTemp[${i}].cafe_produccion.dist_plantas_mt=this.value"></div>
+        <div class="form-group"><label>Distancia entre Calles (mt)</label><input type="number" step="0.1" value="${p.cafe_produccion.dist_calles_mt||''}" onchange="insp_parcelasTemp[${i}].cafe_produccion.dist_calles_mt=this.value"></div>
+      </div>
+
+      <div class="subsection-title">3. RESULTADOS Y ESTIMACIONES DE LA CAMPAÑA</div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Sacos Producidos en la Campaña (60 kg c/u)</label><input type="number" step="0.01" value="${p.resultados.sacos_campana||0}" onchange="insp_parcelasTemp[${i}].resultados.sacos_campana=this.value;recalcParcelaTemp(${i})"></div>
+        <div class="form-group"><label>Kilogramos (calculado)</label><input type="text" readonly value="${kg.toFixed(2)} kg"></div>
+        <div class="form-group"><label>Quintales — qq (calculado)</label><input type="text" readonly value="${qq.toFixed(2)} qq"></div>
+        <div class="form-group"><label>Toneladas (calculado)</label><input type="text" readonly value="${ton.toFixed(2)} ton"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Resumen agregado del productor: suma de TODAS las parcelas de esta inspección (nunca se pide de nuevo)
+function renderResumenAgregado(){
+  const cont = document.getElementById('insped-resumen-agregado');
+  if(!cont) return;
+  if(!insp_parcelasTemp.length){
+    cont.innerHTML = '<div style="padding:10px;color:#aaa;font-size:0.82rem;">Agrega parcelas para ver el resumen agregado del productor.</div>';
+    return;
+  }
+  const hectareasTotales = { produccion:0, crecimiento:0, pan_llevar:0, pastos_naturales:0, pastos_cultivados:0, rastrojo_purma:0, bosque_primario:0, bosque_secundario:0, otras_areas:0 };
+  const plantasPorVariedad = {};
+  INSP_VARIEDADES.forEach(v=>plantasPorVariedad[v]=0);
+  let sacosTotales = 0;
+  insp_parcelasTemp.forEach(p=>{
+    Object.keys(hectareasTotales).forEach(k=>{ hectareasTotales[k] += parseFloat(p.hectareas[k])||0; });
+    p.variedades.forEach(v=>{ plantasPorVariedad[v.variedad] += (parseFloat(v.plantas_produccion)||0)+(parseFloat(v.plantas_crecimiento)||0); });
+    sacosTotales += parseFloat(p.resultados.sacos_campana)||0;
+  });
+  const areaTotal = Object.values(hectareasTotales).reduce((a,b)=>a+b,0);
+  const kgTotales = sacosTotales*60, qqTotales = kgTotales/55.2, tonTotales = kgTotales/1000;
+  const plantasTotalGeneral = Object.values(plantasPorVariedad).reduce((a,b)=>a+b,0);
+
+  cont.innerHTML = `<div style="padding:14px;">
+    <div style="font-weight:800;color:var(--cafe-c);margin-bottom:8px;">📊 Resumen Agregado del Productor (${insp_parcelasTemp.length} parcela${insp_parcelasTemp.length===1?'':'s'})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;font-size:0.8rem;margin-bottom:10px;">
+      <div><strong>Ha totales:</strong> ${areaTotal.toFixed(2)}</div>
+      <div><strong>Producción:</strong> ${hectareasTotales.produccion.toFixed(2)} ha</div>
+      <div><strong>Crecimiento:</strong> ${hectareasTotales.crecimiento.toFixed(2)} ha</div>
+      <div><strong>Bosque prim.+sec.:</strong> ${(hectareasTotales.bosque_primario+hectareasTotales.bosque_secundario).toFixed(2)} ha</div>
+      <div><strong>Plantas totales:</strong> ${plantasTotalGeneral}</div>
+      <div><strong>Sacos campaña:</strong> ${sacosTotales.toFixed(2)}</div>
+      <div><strong>Kg:</strong> ${kgTotales.toFixed(2)}</div>
+      <div><strong>Qq:</strong> ${qqTotales.toFixed(2)}</div>
+      <div><strong>Toneladas:</strong> ${tonTotales.toFixed(2)}</div>
+    </div>
+    <div style="font-size:0.76rem;color:var(--txts);">${INSP_VARIEDADES.filter(v=>plantasPorVariedad[v]>0).map(v=>`${v}: ${plantasPorVariedad[v]}`).join(' · ') || 'Sin plantas registradas todavía.'}</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+// CRITERIOS — checklist estructurado de 6 categorías, con puntaje automático en vivo
+// ══════════════════════════════════════════
+function renderCriteriosInspeccion(){
+  const subtabsCont = document.getElementById('insped-criterios-subtabs');
+  if(!subtabsCont) return;
+  const categorias = DB.criteriosInspeccion||[];
+  if(!insp_criteriosSubTab && categorias.length) insp_criteriosSubTab = categorias[0].id;
+  subtabsCont.innerHTML = categorias.map(cat=>{
+    const r = calcularPuntajeCategoria(cat, insp_respuestas[cat.id]);
+    const logrado = r.obligatorio.logrado+r.mayor.logrado+r.menor.logrado;
+    const max = r.obligatorio.max+r.mayor.max+r.menor.max;
+    const activo = cat.id===insp_criteriosSubTab;
+    return `<button class="btn ${activo?'btn-primary':'btn-secondary'} btn-sm" onclick="switchCriteriosSubTab('${cat.id}')">${cat.nombre} (${logrado}/${max})</button>`;
+  }).join('');
+  renderCategoriaCriterios(insp_criteriosSubTab);
+  renderCriteriosResumen();
+}
+
+function switchCriteriosSubTab(catId){
+  insp_criteriosSubTab = catId;
+  renderCriteriosInspeccion();
+}
+
+function renderCategoriaCriterios(catId){
+  const cont = document.getElementById('insped-criterios-panel');
+  if(!cont) return;
+  const cat = (DB.criteriosInspeccion||[]).find(c=>c.id===catId);
+  if(!cat){ cont.innerHTML=''; return; }
+  if(!insp_respuestas[catId]) insp_respuestas[catId] = {};
+  const itemsHtml = (cat.items||[]).filter(it=>it.activo!==false).map(item=>{
+    const r = insp_respuestas[catId][item.id] || {};
+    const pesoColor = item.peso==='obligatorio' ? '#c62828' : item.peso==='mayor' ? '#e65100' : '#757575';
+    const pesoLabel = item.peso==='obligatorio' ? 'OBLIGATORIO' : item.peso==='mayor' ? 'MAYOR' : 'menor';
+    const followUpsHtml = (item.followUps||[]).map(fu=>{
+      const val = r[fu.key]!=null ? r[fu.key] : '';
+      if(fu.type==='select'){
+        return `<div class="form-group"><label>${fu.label}</label><select onchange="setFollowUpCriterio('${catId}',${item.id},'${fu.key}',this.value)">
+          <option value="">—</option>${(fu.options||[]).map(o=>`<option ${val===o?'selected':''}>${o}</option>`).join('')}
+        </select></div>`;
+      }
+      return `<div class="form-group"><label>${fu.label}</label><input type="${fu.type==='number'?'number':'text'}" value="${val}" onchange="setFollowUpCriterio('${catId}',${item.id},'${fu.key}',this.value)"></div>`;
+    }).join('');
+    return `<div class="card" style="border-left:4px solid ${pesoColor};margin-bottom:10px;padding:12px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;font-size:0.86rem;"><strong>${item.id}.</strong> ${item.texto} <span style="font-size:0.65rem;font-weight:800;color:${pesoColor};">(${pesoLabel})</span></div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;"><input type="radio" name="crit-${catId}-${item.id}" value="SI" ${r.respuesta==='SI'?'checked':''} onchange="setRespuestaCriterio('${catId}',${item.id},'SI')"> Sí cumple</label>
+          <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;"><input type="radio" name="crit-${catId}-${item.id}" value="NO" ${r.respuesta==='NO'?'checked':''} onchange="setRespuestaCriterio('${catId}',${item.id},'NO')"> No cumple</label>
+          <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;"><input type="radio" name="crit-${catId}-${item.id}" value="NA" ${r.respuesta==='NA'?'checked':''} onchange="setRespuestaCriterio('${catId}',${item.id},'NA')"> No aplica</label>
+        </div>
+      </div>
+      ${followUpsHtml ? `<div class="form-grid-2" style="margin-top:8px;">${followUpsHtml}</div>` : ''}
+    </div>`;
+  }).join('');
+  const extraHtml = cat.extraUnscored ? `<div class="subsection-title">PREGUNTAS INFORMATIVAS (no puntúan)</div>
+    <div class="form-grid-2">${cat.extraUnscored.map(fu=>{
+      const val = (insp_respuestas[catId]._extra && insp_respuestas[catId]._extra[fu.key]) || '';
+      if(fu.type==='select'){
+        return `<div class="form-group"><label>${fu.label}</label><select onchange="setExtraCriterio('${catId}','${fu.key}',this.value)">
+          <option value="">—</option>${(fu.options||[]).map(o=>`<option ${val===o?'selected':''}>${o}</option>`).join('')}
+        </select></div>`;
+      }
+      return `<div class="form-group"><label>${fu.label}</label><input type="text" value="${val}" onchange="setExtraCriterio('${catId}','${fu.key}',this.value)"></div>`;
+    }).join('')}</div>` : '';
+  cont.innerHTML = itemsHtml + extraHtml;
+}
+
+function setRespuestaCriterio(catId,itemId,valor){
+  if(!insp_respuestas[catId]) insp_respuestas[catId]={};
+  if(!insp_respuestas[catId][itemId]) insp_respuestas[catId][itemId]={};
+  insp_respuestas[catId][itemId].respuesta = valor;
+  renderCriteriosInspeccion();
+}
+
+function setFollowUpCriterio(catId,itemId,key,value){
+  if(!insp_respuestas[catId]) insp_respuestas[catId]={};
+  if(!insp_respuestas[catId][itemId]) insp_respuestas[catId][itemId]={};
+  insp_respuestas[catId][itemId][key] = value;
+}
+
+function setExtraCriterio(catId,key,value){
+  if(!insp_respuestas[catId]) insp_respuestas[catId]={};
+  if(!insp_respuestas[catId]._extra) insp_respuestas[catId]._extra={};
+  insp_respuestas[catId]._extra[key] = value;
+}
+
+function renderCriteriosResumen(){
+  const resumen = calcularResumenInspeccion(insp_respuestas);
+  const badge = document.getElementById('insped-tab-criterios-badge');
+  if(badge) badge.textContent = `${resumen.puntaje_total}/${resumen.puntaje_max}`;
+  const cont = document.getElementById('insped-criterios-resumen');
+  if(cont){
+    cont.innerHTML = `<div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Obligatorios</div><div class="stat-val">${resumen.obligatorios.logrado}/${resumen.obligatorios.max}</div></div>
+      <div class="stat-card" style="border-left-color:#e65100;"><div class="stat-label">Mayores</div><div class="stat-val" style="color:#e65100;">${resumen.mayores.logrado}/${resumen.mayores.max}</div></div>
+      <div class="stat-card" style="border-left-color:#757575;"><div class="stat-label">Menores</div><div class="stat-val" style="color:#757575;">${resumen.menores.logrado}/${resumen.menores.max}</div></div>
+      <div class="stat-card" style="border-left-color:#1a5c2e;"><div class="stat-label">Puntaje Total</div><div class="stat-val" style="color:#1a5c2e;">${resumen.puntaje_total}/${resumen.puntaje_max}</div></div>
+    </div>
+    ${resumen.num_incumplimientos>0 ? `<div style="margin-top:8px;font-size:0.8rem;color:#c62828;">⚠️ ${resumen.num_incumplimientos} incumplimiento(s) en: ${resumen.resumen_incumplimientos_texto.split('===').join(', ')}</div>` : ''}`;
+  }
+}
+
+// ── Pantalla "Configurar Criterios de Inspección" (edición sin tocar código) ──
+function renderConfigCriterios(){
+  const cont = document.getElementById('config-criterios-body');
+  if(!cont) return;
+  if(!DB.criteriosInspeccion || !DB.criteriosInspeccion.length) sembrarCriteriosInspeccionPorDefecto();
+  cont.innerHTML = (DB.criteriosInspeccion||[]).map((cat,ci)=>`
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:800;color:var(--cafe-c);margin-bottom:8px;">${cat.nombre}</div>
+      <div class="table-wrap"><table><thead><tr><th style="width:40px;">#</th><th>Texto del criterio</th><th style="width:140px;">Peso</th><th style="width:70px;">Activo</th></tr></thead><tbody>
+        ${(cat.items||[]).map((item,ii)=>`<tr>
+          <td>${item.id}</td>
+          <td><input type="text" value="${(item.texto||'').replace(/"/g,'&quot;')}" style="width:100%;min-width:280px;padding:4px;border:1px solid #ccc;border-radius:4px;" onchange="DB.criteriosInspeccion[${ci}].items[${ii}].texto=this.value"></td>
+          <td><select style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;" onchange="DB.criteriosInspeccion[${ci}].items[${ii}].peso=this.value">
+            <option value="obligatorio" ${item.peso==='obligatorio'?'selected':''}>Obligatorio</option>
+            <option value="mayor" ${item.peso==='mayor'?'selected':''}>Mayor</option>
+            <option value="menor" ${item.peso==='menor'?'selected':''}>Menor</option>
+          </select></td>
+          <td style="text-align:center;"><input type="checkbox" ${item.activo!==false?'checked':''} onchange="DB.criteriosInspeccion[${ci}].items[${ii}].activo=this.checked"></td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>
+  `).join('') + `<button class="btn btn-primary" onclick="guardarDB();alert('✅ Cambios guardados. Se aplicarán a las próximas inspecciones que guardes.');">💾 Guardar Cambios</button>`;
+}
+
+// ══════════════════════════════════════════
+// FOTOS — comprimidas en el navegador antes de guardarse (evita llenar el localStorage)
+// ══════════════════════════════════════════
+const INSP_FOTO_MAX_LADO = 800;     // px del lado más largo
+const INSP_FOTO_CALIDAD = 0.7;      // calidad JPEG
+const INSP_FOTOS_AVISO_KB = 3000;   // aviso si el total acumulado de fotos supera esto
+
+// Comprime un archivo de imagen: lo redimensiona (máx. INSP_FOTO_MAX_LADO de lado mayor) y lo
+// reexporta como JPEG. callback(dataUrl) se llama cuando termina; nunca lanza si el archivo no es
+// una imagen válida (llama al callback con null en ese caso).
+function comprimirFoto(file, callback){
+  if(!file || !file.type || !file.type.startsWith('image/')){ callback(null); return; }
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      let w = img.width, h = img.height;
+      if(w > h && w > INSP_FOTO_MAX_LADO){ h = Math.round(h * INSP_FOTO_MAX_LADO / w); w = INSP_FOTO_MAX_LADO; }
+      else if(h > INSP_FOTO_MAX_LADO){ w = Math.round(w * INSP_FOTO_MAX_LADO / h); h = INSP_FOTO_MAX_LADO; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', INSP_FOTO_CALIDAD));
+    };
+    img.onerror = ()=>callback(null);
+    img.src = e.target.result;
+  };
+  reader.onerror = ()=>callback(null);
+  reader.readAsDataURL(file);
+}
+
+function agregarFotosInspeccion(fileList){
+  const archivos = Array.from(fileList||[]);
+  if(!archivos.length) return;
+  let pendientes = archivos.length;
+  archivos.forEach(file=>{
+    comprimirFoto(file, (dataUrl)=>{
+      pendientes--;
+      if(dataUrl){
+        insp_fotosTemp.push({ n: insp_fotosTemp.length+1, dataUrl, caption:'' });
+      }
+      if(pendientes===0){
+        document.getElementById('insped-foto-input').value = '';
+        renderFotosInspeccion();
+      }
+    });
+  });
+}
+
+function quitarFotoInspeccion(i){
+  insp_fotosTemp.splice(i,1);
+  insp_fotosTemp.forEach((f,idx)=>f.n=idx+1);
+  renderFotosInspeccion();
+}
+
+function _estimarKBFotos(){
+  // dataURL base64 ≈ 4/3 del tamaño real en bytes
+  const totalChars = insp_fotosTemp.reduce((a,f)=>a+(f.dataUrl?f.dataUrl.length:0),0);
+  return Math.round(totalChars*0.75/1024);
+}
+
+function renderFotosInspeccion(){
+  const grid = document.getElementById('insped-fotos-grid');
+  const tam = document.getElementById('insped-fotos-tamano');
+  if(!grid) return;
+  grid.innerHTML = insp_fotosTemp.map((f,i)=>`
+    <div style="position:relative;border:1px solid var(--borde);border-radius:8px;overflow:hidden;background:#fafafa;">
+      <img src="${f.dataUrl}" style="width:100%;height:110px;object-fit:cover;display:block;">
+      <input type="text" value="${f.caption||''}" placeholder="Descripción..." style="width:100%;box-sizing:border-box;padding:4px 6px;border:none;border-top:1px solid var(--borde);font-size:0.72rem;" onchange="insp_fotosTemp[${i}].caption=this.value">
+      <button onclick="quitarFotoInspeccion(${i})" style="position:absolute;top:4px;right:4px;background:#c62828;color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-weight:700;">✕</button>
+    </div>`).join('');
+  if(tam){
+    const kb = _estimarKBFotos();
+    const aviso = kb > INSP_FOTOS_AVISO_KB ? ` ⚠️ Son bastantes fotos — si el guardado empieza a fallar, quita algunas.` : '';
+    tam.textContent = insp_fotosTemp.length ? `📷 ${insp_fotosTemp.length} foto(s) · ~${kb} KB en total.${aviso}` : 'Aún no hay fotos agregadas.';
+  }
+}
+
+// NOTA: `guardarInspeccion()` fue reescrita por completo para la nueva Ficha de Inspección de
+// página completa (ver `abrirEditorInspeccion`).
+function _proximoIdParcela(){
+  const ids = (DB.parcelas||[]).map(p=>p.id||0);
+  return ids.length ? Math.max(...ids)+1 : 1;
+}
+
+// Guarda/actualiza en DB.parcelas cada parcela editada en esta inspección (catálogo persistente
+// por socio, reutilizable en la próxima inspección) y devuelve la lista de ids resultante.
+function _upsertParcelasInspeccion(){
+  if(!DB.parcelas) DB.parcelas=[];
+  const ids = [];
+  insp_parcelasTemp.forEach(p=>{
+    if(p.id){
+      const idxExistente = DB.parcelas.findIndex(x=>x.id===p.id);
+      if(idxExistente>=0) DB.parcelas[idxExistente] = JSON.parse(JSON.stringify(p));
+      else DB.parcelas.push(JSON.parse(JSON.stringify(p)));
+    } else {
+      p.id = _proximoIdParcela();
+      DB.parcelas.push(JSON.parse(JSON.stringify(p)));
+    }
+    ids.push(p.id);
+  });
+  return ids;
+}
+
+// Si el socio seleccionado todavía no tiene estos datos de perfil guardados, se los completamos
+// con lo capturado en esta inspección (nunca se sobreescribe un dato que el socio ya tenía).
+function _escribirPerfilSocioDesdeInspeccion(){
+  if(!insp_socioActual) return;
+  const s = (DB.socios||[]).find(x=>x.nombre===insp_socioActual.nombre);
+  if(!s) return;
+  const mapa = {
+    fecha_nacimiento:'insped-fecha-nacimiento', estado_civil:'insped-estado-civil',
+    grado_instruccion:'insped-grado-instruccion', celular:'insped-celular'
+  };
+  let cambio = false;
+  Object.keys(mapa).forEach(campo=>{
+    const val = document.getElementById(mapa[campo]).value;
+    if(val && !s[campo]){ s[campo] = val; cambio = true; }
+  });
+  if(cambio) guardarDB();
 }
 
 function guardarInspeccion(){
-  const fecha = document.getElementById('insp-fecha').value;
-  const productor = document.getElementById('insp-productor').value.trim();
-  const tipo = document.getElementById('insp-tipo').value;
-  const inspector = document.getElementById('insp-inspector').value.trim();
-  const resultado = document.getElementById('insp-resultado').value;
-  const obs = document.getElementById('insp-obs').value.trim();
+  const inspector = document.getElementById('insped-inspector').value.trim();
+  const fechaInicio = document.getElementById('insped-fecha-inicio').value;
+  const socioNombre = document.getElementById('insped-socio').value;
 
   const faltantes = [];
-  if(!fecha) faltantes.push('Fecha');
-  if(!productor) faltantes.push('Productor');
-  if(!inspector) faltantes.push('Inspector');
+  if(!fechaInicio) faltantes.push('Fecha de inicio');
+  if(!socioNombre) faltantes.push('Socio');
+  if(!inspector) faltantes.push('Inspector Interno');
   if(faltantes.length){
-    showAlert('insp-form-alert','error', `Completa los siguientes campos: ${faltantes.join(', ')}.`);
+    showAlert('insped-form-alert','error', `Completa los siguientes campos: ${faltantes.join(', ')}.`);
+    switchInspTab('general');
     return;
   }
 
-  const canvas = document.getElementById('insp-firma-canvas');
-  const firmaBase64 = insp_firmaTieneTrazo ? canvas.toDataURL('image/png') : '';
+  const parcelaIds = _upsertParcelasInspeccion();
+  _escribirPerfilSocioDesdeInspeccion();
+
+  const canvasP = document.getElementById('insped-firma-productor-canvas');
+  const canvasI = document.getElementById('insped-firma-inspector-canvas');
+  const firmaProductor = insp_firmas.productor.tieneTrazo ? canvasP.toDataURL('image/png') : '';
+  const firmaInspector = insp_firmas.inspector.tieneTrazo ? canvasI.toDataURL('image/png') : '';
+
+  const resumen = calcularResumenInspeccion(insp_respuestas);
 
   const registro = {
-    codigo: document.getElementById('insp-codigo').value,
-    fecha, productor, tipo, inspector, resultado,
-    checklist: [...insp_checklistTemp],
-    observaciones: obs,
-    firma: firmaBase64,
+    codigo: document.getElementById('insped-codigo').value,
+    fecha_inicio: fechaInicio,
+    hora_inicio: document.getElementById('insped-hora-inicio').value,
+    fecha_fin: document.getElementById('insped-fecha-fin').value,
+    hora_fin: document.getElementById('insped-hora-fin').value,
+    inspector_interno: inspector,
+    socio_nombre: socioNombre,
+    socio_dni: document.getElementById('insped-dni').value,
+    genero: document.getElementById('insped-genero').value,
+    fecha_nacimiento: document.getElementById('insped-fecha-nacimiento').value,
+    provincia: document.getElementById('insped-provincia').value,
+    distrito: document.getElementById('insped-distrito').value,
+    base: document.getElementById('insped-base').value,
+    sector: document.getElementById('insped-sector').value,
+    fecha_ingreso_programa: document.getElementById('insped-fecha-ingreso-programa').value,
+    ultimo_estatus_aprobado: document.getElementById('insped-ultimo-estatus-aprobado').value,
+    ultimo_estatus_propuesto: document.getElementById('insped-ultimo-estatus-propuesto').value,
+    tipo_cultivo: document.getElementById('insped-tipo-cultivo').value,
+
+    datosGenerales: {
+      grado_instruccion: document.getElementById('insped-grado-instruccion').value,
+      estado_civil: document.getElementById('insped-estado-civil').value,
+      conyuge: {
+        nombre: document.getElementById('insped-conyuge-nombre').value,
+        dni: document.getElementById('insped-conyuge-dni').value,
+        fecha_nac: document.getElementById('insped-conyuge-fecha-nac').value,
+        grado_instruccion: document.getElementById('insped-conyuge-grado-instruccion').value
+      },
+      celular: document.getElementById('insped-celular').value,
+      celular2: document.getElementById('insped-celular2').value,
+      tiene_ruc: document.getElementById('insped-tiene-ruc').value,
+      radio_favorita: document.getElementById('insped-radio-favorita').value,
+      acceso_internet: document.getElementById('insped-acceso-internet').value,
+      redes_cuales: document.getElementById('insped-redes-cuales').value,
+      programa_social_cuales: document.getElementById('insped-programa-social-cuales').value,
+      num_personas_familia: document.getElementById('insped-num-personas-familia').value,
+      num_hijos_menores: document.getElementById('insped-num-hijos-menores').value,
+      satisfaccion_servicios: document.getElementById('insped-satisfaccion-servicios').value,
+      ingresos_adicionales: document.getElementById('insped-ingresos-adicionales').value,
+      pct_dependencia_cafe: document.getElementById('insped-pct-dependencia-cafe').value,
+      costos_produccion: document.getElementById('insped-costos-produccion').value
+    },
+
+    certificaciones: {
+      nop_usda: document.getElementById('insped-cert-nop-usda').checked,
+      cee_834_07: document.getElementById('insped-cert-cee').checked,
+      cor: document.getElementById('insped-cert-cor').checked,
+      peru_ds044: document.getElementById('insped-cert-ds044').checked,
+      comercio_justo_generico: document.getElementById('insped-cert-comerciojusto').checked,
+      fairtrade_usa: document.getElementById('insped-cert-fairtradeusa').checked,
+      fair_for_life: document.getElementById('insped-cert-fairforlife').checked,
+      otros_organismos_texto: document.getElementById('insped-cert-otros-organismos').value,
+      recibe_creditos_organizacion: document.getElementById('insped-credito-organizacion').value,
+      tiene_credito_otras_entidades: document.getElementById('insped-credito-otras-entidades').value,
+      credito_cuales: document.getElementById('insped-credito-cuales').value
+    },
+
+    hijos: JSON.parse(JSON.stringify(insp_hijosTemp)),
+    parcela_ids: parcelaIds,
+    respuestas: JSON.parse(JSON.stringify(insp_respuestas)),
+    firma_productor: firmaProductor,
+    firma_inspector: firmaInspector,
+    fotos: JSON.parse(JSON.stringify(insp_fotosTemp)),
+    resumen,
     usuario: SESSION.user,
     sincronizado: navigator.onLine === true,
     creado_offline: navigator.onLine !== true
   };
 
   if(!DB.inspecciones) DB.inspecciones=[];
-  DB.inspecciones.push(registro);
+  if(insp_editandoIdx >= 0 && DB.inspecciones[insp_editandoIdx]){
+    DB.inspecciones[insp_editandoIdx] = registro;
+  } else {
+    DB.inspecciones.push(registro);
+  }
   guardarDB();
-  cerrarModal('modal-inspeccion');
-  renderInspecciones();
+  showSection('inspecciones');
 }
 
 function eliminarInspeccion(idx){
@@ -11206,19 +12342,30 @@ function marcarInspeccionesSincronizadas(){
 }
 
 function filtrarInspecciones(){
+  _resetPag('inspecciones');
   renderInspecciones(document.getElementById('search-insp').value.toLowerCase());
 }
+
+// Un registro está en el formato NUEVO (Ficha completa) si tiene `.resumen`; si no, es un registro
+// del formato SIMPLE anterior (código, productor en texto libre, checklist libre, una firma) — ver
+// nota de compatibilidad en el plan: los registros viejos NO se migran, se siguen mostrando tal cual.
+function _inspEsFormatoNuevo(i){ return !!(i && i.resumen); }
+function _inspNombreSocio(i){ return _inspEsFormatoNuevo(i) ? i.socio_nombre : i.productor; }
+function _inspFecha(i){ return _inspEsFormatoNuevo(i) ? i.fecha_inicio : i.fecha; }
 
 function renderInspecciones(filtro){
   if(!DB.inspecciones) DB.inspecciones=[];
   filtro = filtro || '';
-  const lista = DB.inspecciones.filter(i=>{
-    return !filtro || (i.codigo||'').toLowerCase().includes(filtro) || (i.productor||'').toLowerCase().includes(filtro) || (i.tipo||'').toLowerCase().includes(filtro);
+  const listaCompleta = DB.inspecciones.filter(i=>{
+    const nombre = (_inspNombreSocio(i)||'').toLowerCase();
+    const cod = (i.codigo||'').toLowerCase();
+    const tipoOResultado = _inspEsFormatoNuevo(i) ? '' : (i.tipo||'').toLowerCase();
+    return !filtro || cod.includes(filtro) || nombre.includes(filtro) || tipoOResultado.includes(filtro);
   }).slice().reverse();
 
   document.getElementById('insp-total').textContent = DB.inspecciones.length;
-  document.getElementById('insp-aprobadas').textContent = DB.inspecciones.filter(i=>i.resultado==='Aprobado').length;
-  document.getElementById('insp-observadas').textContent = DB.inspecciones.filter(i=>i.resultado==='Observado'||i.resultado==='Rechazado').length;
+  document.getElementById('insp-aprobadas').textContent = DB.inspecciones.filter(i=>_inspEsFormatoNuevo(i) ? (i.resumen.num_incumplimientos===0) : i.resultado==='Aprobado').length;
+  document.getElementById('insp-observadas').textContent = DB.inspecciones.filter(i=>_inspEsFormatoNuevo(i) ? (i.resumen.num_incumplimientos>0) : (i.resultado==='Observado'||i.resultado==='Rechazado')).length;
   const sinSync = DB.inspecciones.filter(i=>!i.sincronizado).length;
   const elSync = document.getElementById('insp-sin-sync');
   elSync.textContent = sinSync;
@@ -11230,21 +12377,33 @@ function renderInspecciones(filtro){
     else badge.style.display='none';
   }
 
+  const lista = _paginaSlice('inspecciones', listaCompleta);
   const tb = document.getElementById('inspecciones-body');
   if(!lista.length){
     tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="ico">🔍</span>Aún no hay inspecciones registradas.</div></td></tr>`;
+    renderPager('inspecciones', listaCompleta.length, 'insp-pager');
     return;
   }
   tb.innerHTML = lista.map(i=>{
     const ri = DB.inspecciones.indexOf(i);
-    const badgeRes = i.resultado==='Aprobado'?'badge-verde':i.resultado==='Observado'?'badge-dorado':'badge-rojo';
+    const esNuevo = _inspEsFormatoNuevo(i);
+    let badgeHtml, tipoTxt;
+    if(esNuevo){
+      const ok = i.resumen.num_incumplimientos===0;
+      badgeHtml = `<span class="badge ${ok?'badge-verde':'badge-dorado'}">${ok?'Sin incumplimientos':i.resumen.num_incumplimientos+' incumplimiento(s)'}</span> <span style="font-size:0.68rem;color:#555;">${i.resumen.puntaje_total}/${i.resumen.puntaje_max} pts</span>`;
+      tipoTxt = 'Ficha completa';
+    } else {
+      const badgeRes = i.resultado==='Aprobado'?'badge-verde':i.resultado==='Observado'?'badge-dorado':'badge-rojo';
+      badgeHtml = `<span class="badge ${badgeRes}">${i.resultado}</span>`;
+      tipoTxt = `${i.tipo||''} <span style="font-size:0.65rem;color:#999;">(formato anterior)</span>`;
+    }
     return `<tr>
       <td class="td-codigo">${i.codigo}</td>
-      <td>${fechaDisplay(i.fecha)}</td>
-      <td><strong>${i.productor}</strong></td>
-      <td>${i.tipo}</td>
-      <td><span class="badge ${badgeRes}">${i.resultado}</span></td>
-      <td>${i.inspector}</td>
+      <td>${fechaDisplay(_inspFecha(i))}</td>
+      <td><strong>${_inspNombreSocio(i)||''}</strong></td>
+      <td>${tipoTxt}</td>
+      <td>${badgeHtml}</td>
+      <td>${esNuevo ? (i.inspector_interno||'') : (i.inspector||'')}</td>
       <td>${i.sincronizado ? '☁️ Sí' : '<span style="color:#c62828;font-weight:700;">📴 No</span>'}</td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn btn-dorado btn-sm" onclick="verPrintInspeccion(${ri})">🖨️</button>
@@ -11252,9 +12411,20 @@ function renderInspecciones(filtro){
       </div></td>
     </tr>`;
   }).join('');
+  renderPager('inspecciones', listaCompleta.length, 'insp-pager');
 }
 
+// Punto de entrada único desde la lista de inspecciones: reparte según el formato del registro.
+// Los registros viejos (sin `.resumen`) siguen usando exactamente la vista/impresión original
+// (`verPrintInspeccionSimple`); los nuevos usan la ficha condensada de varias páginas.
 function verPrintInspeccion(idx){
+  const i = DB.inspecciones[idx];
+  if(!i) return;
+  if(_inspEsFormatoNuevo(i)){ verPrintFichaInspeccion(idx); return; }
+  verPrintInspeccionSimple(idx);
+}
+
+function verPrintInspeccionSimple(idx){
   const i = DB.inspecciones[idx];
   if(!i) return;
   const badgeColor = i.resultado==='Aprobado'?'#2e7d32':i.resultado==='Observado'?'#e65100':'#c62828';
@@ -11300,6 +12470,126 @@ function verPrintInspeccion(idx){
   const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Inspección APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},80);};<\/script></body></html>`;
   const blob = new Blob([doc], {type:'text/html'});
   w.location = URL.createObjectURL(blob);
+}
+
+// ══════════════════════════════════════════
+// IMPRESIÓN DE LA FICHA DE INSPECCIÓN (formato nuevo) — condensada, no espejo del PDF de 48 páginas
+// ══════════════════════════════════════════
+function _fmtSiNo(v){ return v===true?'Sí':v===false?'No':(v||'—'); }
+
+function generarFichaInspeccionHTML(idx){
+  const i = DB.inspecciones[idx];
+  if(!i) return '';
+  const r = i.resumen || calcularResumenInspeccion(i.respuestas);
+  const dg = i.datosGenerales || {};
+  const cert = i.certificaciones || {};
+  const parcelas = (i.parcela_ids||[]).map(id=>(DB.parcelas||[]).find(p=>p.id===id)).filter(Boolean);
+
+  const criteriosHtml = (DB.criteriosInspeccion||[]).map(cat=>{
+    const pr = calcularPuntajeCategoria(cat, (i.respuestas||{})[cat.id]);
+    const logrado = pr.obligatorio.logrado+pr.mayor.logrado+pr.menor.logrado;
+    const max = pr.obligatorio.max+pr.mayor.max+pr.menor.max;
+    const filas = (cat.items||[]).filter(it=>it.activo!==false).map(item=>{
+      const resp = ((i.respuestas||{})[cat.id]||{})[item.id] || {};
+      const respTxt = resp.respuesta==='SI'?'✅ Sí cumple':resp.respuesta==='NO'?'❌ No cumple':resp.respuesta==='NA'?'No aplica':'—';
+      const detalle = (item.followUps||[]).map(fu=>resp[fu.key]?`${fu.label}: ${resp[fu.key]}`:null).filter(Boolean).join(' · ');
+      return `<tr>
+        <td style="border:1px solid #ccc;padding:3px 5px;width:24px;text-align:center;">${item.id}</td>
+        <td style="border:1px solid #ccc;padding:3px 5px;">${item.texto}${detalle?`<div style="color:#666;font-size:8px;margin-top:1px;">${detalle}</div>`:''}</td>
+        <td style="border:1px solid #ccc;padding:3px 5px;width:70px;text-align:center;">${respTxt}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="page-break-inside:avoid;margin-bottom:10px;">
+      <div style="background:#1a5c2e;color:#fff;font-weight:800;font-size:10px;padding:4px 8px;">${cat.nombre} — ${logrado}/${max}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:9px;"><tbody>${filas}</tbody></table>
+    </div>`;
+  }).join('');
+
+  const parcelasHtml = parcelas.length ? `<table style="width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:10px;">
+    <thead><tr style="background:#1a5c2e;color:#fff;">
+      <th style="border:1px solid #14431f;padding:4px;">Parcela</th><th style="border:1px solid #14431f;padding:4px;">Base/Sector</th>
+      <th style="border:1px solid #14431f;padding:4px;">Ha Total</th><th style="border:1px solid #14431f;padding:4px;">Plantas</th>
+      <th style="border:1px solid #14431f;padding:4px;">Sacos Campaña</th>
+    </tr></thead><tbody>
+    ${parcelas.map(p=>{
+      const areaTotal = _sumaHectareasParcela(p.hectareas);
+      const plantas = (p.variedades||[]).reduce((a,v)=>a+(parseFloat(v.plantas_produccion)||0)+(parseFloat(v.plantas_crecimiento)||0),0);
+      return `<tr><td style="border:1px solid #ccc;padding:4px;">${p.nombre||'—'}</td><td style="border:1px solid #ccc;padding:4px;">${p.base||''} ${p.sector||''}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${areaTotal.toFixed(2)}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${plantas}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${(parseFloat(p.resultados.sacos_campana)||0).toFixed(2)}</td></tr>`;
+    }).join('')}
+    </tbody></table>` : '<div style="font-size:10px;color:#999;margin-bottom:10px;">Sin parcelas registradas.</div>';
+
+  const fotosHtml = (i.fotos&&i.fotos.length) ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+    ${i.fotos.map(f=>`<div style="width:100px;"><img src="${f.dataUrl}" style="width:100%;height:75px;object-fit:cover;border:1px solid #ccc;">
+      ${f.caption?`<div style="font-size:7px;color:#666;">${f.caption}</div>`:''}</div>`).join('')}
+    </div>` : '';
+
+  return `
+  <div style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:760px;margin:0 auto;padding:14px 18px;color:#222;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">FICHA DE INSPECCIÓN INTERNA</div>
+        <div style="font-size:16px;font-weight:900;color:#1a5c2e;">${i.codigo}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px 10px;font-size:10px;margin-bottom:10px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:12px;">${i.socio_nombre||''}</strong> <span style="color:#666;">DNI:</span> <strong>${i.socio_dni||''}</strong></div>
+      <div><span style="color:#666;">Base:</span> <strong>${i.base||''}</strong></div>
+      <div><span style="color:#666;">Sector:</span> <strong>${i.sector||''}</strong></div>
+      <div><span style="color:#666;">Distrito:</span> <strong>${i.distrito||''}</strong></div>
+      <div><span style="color:#666;">Provincia:</span> <strong>${i.provincia||''}</strong></div>
+      <div><span style="color:#666;">Fecha:</span> <strong>${fechaDisplay(i.fecha_inicio)}</strong></div>
+      <div><span style="color:#666;">Inspector:</span> <strong>${i.inspector_interno||''}</strong></div>
+      <div style="grid-column:1/-1;"><span style="color:#666;">Estatus propuesto:</span> <strong>${i.ultimo_estatus_propuesto||'—'}</strong></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;text-align:center;">
+      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:8px;color:#666;">OBLIGATORIOS</div><div style="font-weight:800;">${r.obligatorios.logrado}/${r.obligatorios.max}</div></div>
+      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:8px;color:#666;">MAYORES</div><div style="font-weight:800;">${r.mayores.logrado}/${r.mayores.max}</div></div>
+      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:8px;color:#666;">MENORES</div><div style="font-weight:800;">${r.menores.logrado}/${r.menores.max}</div></div>
+      <div style="border:2px solid #1a5c2e;border-radius:6px;padding:6px;background:#f0faf4;"><div style="font-size:8px;color:#1a5c2e;">PUNTAJE TOTAL</div><div style="font-weight:900;color:#1a5c2e;">${r.puntaje_total}/${r.puntaje_max}</div></div>
+    </div>
+    ${r.num_incumplimientos>0?`<div style="font-size:9.5px;color:#c62828;margin-bottom:10px;">⚠️ Incumplimientos en: ${(r.resumen_incumplimientos_texto||'').split('===').join(', ')}</div>`:''}
+
+    <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Parcelas Inspeccionadas</div>
+    ${parcelasHtml}
+
+    <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Criterios de Cumplimiento</div>
+    ${criteriosHtml}
+
+    ${fotosHtml ? `<div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin:6px 0 4px;">Fotos</div>${fotosHtml}` : ''}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px;page-break-inside:avoid;">
+      <div>
+        <div style="font-size:8.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Productor</div>
+        ${i.firma_productor ? `<img src="${i.firma_productor}" style="max-width:220px;border-bottom:1.5px solid #333;">` : `<div style="border-bottom:1.5px solid #333;height:50px;"></div>`}
+        <div style="font-size:9px;color:#999;margin-top:2px;">${i.socio_nombre||''}</div>
+      </div>
+      <div>
+        <div style="font-size:8.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Inspector Interno</div>
+        ${i.firma_inspector ? `<img src="${i.firma_inspector}" style="max-width:220px;border-bottom:1.5px solid #333;">` : `<div style="border-bottom:1.5px solid #333;height:50px;"></div>`}
+        <div style="font-size:9px;color:#999;margin-top:2px;">${i.inspector_interno||''}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function verPrintFichaInspeccion(idx){
+  document.getElementById('print-inspeccion-content').innerHTML = `<div id="print-zona-inspeccion">${generarFichaInspeccionHTML(idx)}</div>`;
+  document.getElementById('print-inspeccion-content').dataset.idx = idx;
+  abrirModal('modal-print-inspeccion');
+}
+
+function imprimirFichaInspeccion(){
+  const c = document.getElementById('print-zona-inspeccion').outerHTML;
+  // Sin page-break-inside:avoid a nivel de todo el documento — es una ficha condensada de varias
+  // páginas a propósito (ver plan), a diferencia de un ticket/comprobante de una sola hoja.
+  abrirVentanaImpresion(c, 'Ficha de Inspección APARCH', '@page{size:A4;margin:10mm;}');
 }
 
 // ── Detección de conexión (online/offline) ──
