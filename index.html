@@ -1599,11 +1599,13 @@ tr:hover td{background:#f4f8f4;}
       <div class="card-title">🔍 Inspecciones Internas</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-export" onclick="exportarExcel('inspecciones')">📥 Exportar Excel</button>
+        <button class="btn btn-secondary" onclick="sincronizarInspeccionesDesdeNube()" title="Trae las fichas de inspección guardadas en Google Sheets desde otros dispositivos (p.ej. el celular) — solo agrega/actualiza, nunca borra ni toca otros módulos">🔄 Sincronizar desde el celular</button>
         <button class="btn btn-secondary" onclick="marcarInspeccionesSincronizadas()" title="Después de exportar/importar el respaldo o sincronizar con Drive, márcalas como ya sincronizadas">☁️ Marcar Sincronizado</button>
         <button class="btn btn-secondary" onclick="showSection('inspeccion-criterios')" title="Editar el texto y el peso (Obligatorio/Mayor/Menor) de los criterios de inspección">🛠️ Configurar Criterios</button>
         <button class="btn btn-primary" onclick="abrirEditorInspeccion()">+ Nueva Ficha de Inspección</button>
       </div>
     </div>
+    <div id="insp-sync-alert" style="margin-bottom:10px;"></div>
     <div class="stats-grid" style="margin-bottom:16px;">
       <div class="stat-card">
         <div class="stat-label">📋 Total Inspecciones</div>
@@ -1673,9 +1675,12 @@ tr:hover td{background:#f4f8f4;}
       <div class="form-grid-2">
         <div class="form-group form-full">
           <label>Socio / Productor</label>
-          <select id="insped-socio" onchange="seleccionarSocioInspeccion()">
-            <option value="">— Selecciona un socio —</option>
-          </select>
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <select id="insped-socio" onchange="seleccionarSocioInspeccion()" style="flex:1;">
+              <option value="">— Selecciona un socio —</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm" style="white-space:nowrap;" onclick="abrirNuevoSocioDesdeInspeccion()">➕ Nuevo Productor</button>
+          </div>
         </div>
         <div class="form-group"><label>DNI</label><input type="text" id="insped-dni" readonly></div>
         <div class="form-group"><label>Género</label><input type="text" id="insped-genero" readonly></div>
@@ -6517,7 +6522,14 @@ function calcEstKG(){
   const qq=parseFloat(document.getElementById('s-est-qq').value)||0;
   document.getElementById('s-est-kg').value=(qq*55.2).toFixed(2);
 }
-function abrirModalSocio(){
+// Si se abre desde otro formulario (p.ej. la ficha de Inspección) para crear un socio "al vuelo",
+// se pasa un callback que se invoca al guardar con el nombre del socio recién creado — así el
+// formulario de origen puede seleccionarlo automáticamente sin que el usuario tenga que buscarlo
+// de nuevo. Si se abre desde la sección Socios (como siempre), no se pasa nada y el comportamiento
+// es exactamente el mismo de antes.
+let _socioCallbackOrigen = null;
+function abrirModalSocio(callback){
+  _socioCallbackOrigen = callback || null;
   ['s-nombre','s-dni','s-caserio','s-base','s-distrito','s-provincia','s-departamento','s-parcela','s-area','s-tmha','s-est-qq','s-est-kg'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('s-genero').value='';
   document.getElementById('s-certificacion').value='';
@@ -6547,6 +6559,11 @@ function guardarSocio(){
     telefono:'', email:''
   });
   guardarDB(); cerrarModal('modal-socio'); renderSocios();
+  if(_socioCallbackOrigen){
+    const cb = _socioCallbackOrigen;
+    _socioCallbackOrigen = null;
+    cb(nombre);
+  }
 }
 
 function renderSocios(){
@@ -8391,6 +8408,99 @@ async function sheetsCargarManual(){
       <small>Para solucionar: descarga <strong>aparch_script_v2.gs</strong> desde el sistema, reemplaza el código en Google Apps Script y vuelve a implementar como aplicación web.</small>
     </div>`;
   }
+}
+
+// ── Sincronización SEGURA de Inspecciones (celular → nube → computadora) ──
+// A diferencia de sheetsCargarManual() (que reemplaza TODO `DB` — el mismo mecanismo que causó
+// la pérdida de datos de julio), esta función SOLO lee/escribe `DB.inspecciones`, `DB.parcelas` y
+// `DB.criteriosInspeccion`. Nunca toca tickets/guías/comprobantes/caja/socios/etc, y dentro de esas
+// 3 colecciones nunca borra nada: solo agrega fichas que no existían localmente, o actualiza una
+// ficha existente SOLO si la versión de la nube es más reciente (`ultima_modificacion`) — y en ese
+// caso conserva las firmas/fotos que ya estén guardadas en este dispositivo si la nube no las trae
+// (las firmas/fotos nunca viajan a Sheets por el límite de tamaño de una celda).
+async function sincronizarInspeccionesDesdeNube(){
+  const url = SHEETS_URL || localStorage.getItem('aparch_sheets_url')||'';
+  const alertEl = document.getElementById('insp-sync-alert');
+  if(!url){
+    const msg = 'Primero configura la URL del Apps Script en ⚙️ Configuración → Google Sheets.';
+    if(alertEl) alertEl.innerHTML = `<div class="alert alert-error">${msg}</div>`; else alert(msg);
+    return;
+  }
+  if(alertEl) alertEl.innerHTML = '<div class="alert alert-info">⏳ Buscando fichas de inspección nuevas en la nube...</div>';
+
+  let data;
+  try{
+    const res = await fetch(url+'?accion=cargar', { method:'GET', mode:'cors' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    data = await res.json();
+    if(!data.ok || !data.db) throw new Error(data.msg || 'No se recibieron datos.');
+  }catch(err){
+    const msg = `❌ No se pudo conectar con Google Sheets: ${err.message}`;
+    if(alertEl) alertEl.innerHTML = `<div class="alert alert-error">${msg}</div>`; else alert(msg);
+    return;
+  }
+
+  const db = data.db;
+  const nubeInspecciones = db.inspecciones || [];
+  const nubeParcelas = db.parcelas || [];
+  const nubeCriterios = db.criteriosInspeccion || [];
+
+  if(!DB.inspecciones) DB.inspecciones = [];
+  if(!DB.parcelas) DB.parcelas = [];
+
+  let nuevas = 0, actualizadas = 0, sinCambios = 0;
+  nubeInspecciones.forEach(remota=>{
+    if(!remota || !remota.codigo) return;
+    const idxLocal = DB.inspecciones.findIndex(l=>l.codigo === remota.codigo);
+    if(idxLocal < 0){
+      DB.inspecciones.push(remota);
+      nuevas++;
+      return;
+    }
+    const local = DB.inspecciones[idxLocal];
+    const tsLocal = local.ultima_modificacion || '';
+    const tsRemoto = remota.ultima_modificacion || '';
+    if(!tsRemoto || tsRemoto <= tsLocal){
+      sinCambios++;
+      return;
+    }
+    // La versión de la nube es más reciente: se toman sus datos, pero nunca se pierde una
+    // firma/foto que ya exista localmente si la nube no la trae.
+    const merge = Object.assign({}, remota);
+    if(!merge.firma_productor && local.firma_productor) merge.firma_productor = local.firma_productor;
+    if(!merge.firma_inspector && local.firma_inspector) merge.firma_inspector = local.firma_inspector;
+    const nubeTieneFotos = merge.fotos && merge.fotos.length && merge.fotos.some(f=>f && f.dataUrl);
+    if(!nubeTieneFotos && local.fotos && local.fotos.length) merge.fotos = local.fotos;
+    DB.inspecciones[idxLocal] = merge;
+    actualizadas++;
+  });
+
+  let parcelasNuevas = 0, parcelasActualizadas = 0;
+  nubeParcelas.forEach(remota=>{
+    if(!remota || remota.id===undefined || remota.id===null || remota.id==='') return;
+    const idxLocal = DB.parcelas.findIndex(l=>String(l.id) === String(remota.id));
+    if(idxLocal < 0){ DB.parcelas.push(remota); parcelasNuevas++; }
+    else { DB.parcelas[idxLocal] = remota; parcelasActualizadas++; }
+  });
+
+  // Los criterios son configuración compartida (pesos/textos de la ficha) — solo se traen de la
+  // nube si este dispositivo todavía no tiene ninguna configuración propia, para no pisar ajustes
+  // ya hechos aquí en "🛠️ Configurar Criterios".
+  if(nubeCriterios.length && (!DB.criteriosInspeccion || !DB.criteriosInspeccion.length)){
+    DB.criteriosInspeccion = nubeCriterios;
+  }
+
+  guardarDB();
+  renderInspecciones();
+
+  const partes = [`${nuevas} ficha(s) nueva(s)`, `${actualizadas} actualizada(s)`, `${sinCambios} sin cambios`];
+  let resumenMsg = `✅ Sincronización completa — ${partes.join(', ')}.`;
+  if(parcelasNuevas || parcelasActualizadas){
+    resumenMsg += ` Parcelas: ${parcelasNuevas} nueva(s), ${parcelasActualizadas} actualizada(s).`;
+  }
+  resumenMsg += ` No se tocó ningún otro módulo (tickets, guías, caja, etc.). Nota: las fotos y firmas de fichas hechas en OTRO dispositivo no viajan por este medio — si las necesitas completas, restaura el respaldo .json de ese dispositivo.`;
+  if(alertEl) alertEl.innerHTML = `<div class="alert alert-success">${resumenMsg}</div>`;
+  else alert(resumenMsg);
 }
 
 // Inicializar estado de Sheets al cargar
@@ -11697,6 +11807,30 @@ function switchInspTab(tab){
   if(tab==='firmas'){ initFirmaCanvas('productor'); initFirmaCanvas('inspector'); }
 }
 
+// Repuebla el <select> de socios de la ficha de inspección desde DB.socios — factorizado para
+// poder llamarse tanto al abrir el editor como después de crear un socio nuevo al vuelo.
+function _repoblarSelectSocioInspeccion(){
+  const sel = document.getElementById('insped-socio');
+  if(!sel) return;
+  const valorPrevio = sel.value;
+  sel.innerHTML = '<option value="">— Selecciona un socio —</option>' +
+    (DB.socios||[]).map(s=>`<option value="${s.nombre}">${s.nombre}${s.dni?' ['+s.dni+']':''}</option>`).join('');
+  sel.value = valorPrevio;
+}
+
+// "➕ Nuevo Productor" dentro de la ficha de inspección: abre el mismo modal de Socios, y al
+// guardar, selecciona automáticamente al socio recién creado sin que el usuario tenga que
+// volver a buscarlo — sin duplicar el formulario de socios.
+function abrirNuevoSocioDesdeInspeccion(){
+  abrirModalSocio(function(nombreNuevo){
+    _repoblarSelectSocioInspeccion();
+    const sel = document.getElementById('insped-socio');
+    if(sel){ sel.value = nombreNuevo; }
+    seleccionarSocioInspeccion();
+    showAlert('insped-form-alert','success', `✅ Productor "${nombreNuevo}" creado y seleccionado.`);
+  });
+}
+
 function abrirEditorInspeccion(idx){
   // Solo se puede editar una inspección ya guardada si es del formato nuevo (ficha completa);
   // los registros del formato anterior (checklist libre) no tienen forma razonable de mapearse
@@ -11713,8 +11847,7 @@ function abrirEditorInspeccion(idx){
   insp_firmas.inspector = { ctx:null, dibujando:false, tieneTrazo:false, cargarDesde:null };
 
   const sel = document.getElementById('insped-socio');
-  sel.innerHTML = '<option value="">— Selecciona un socio —</option>' +
-    (DB.socios||[]).map(s=>`<option value="${s.nombre}">${s.nombre}${s.dni?' ['+s.dni+']':''}</option>`).join('');
+  _repoblarSelectSocioInspeccion();
 
   if(editando){
     const i = DB.inspecciones[idx];
@@ -12002,6 +12135,11 @@ function renderParcelasCards(){
         <div class="form-group"><label>Latitud</label><input type="text" value="${p.gps.lat||''}" onchange="insp_parcelasTemp[${i}].gps.lat=this.value"></div>
         <div class="form-group"><label>Longitud</label><input type="text" value="${p.gps.lon||''}" onchange="insp_parcelasTemp[${i}].gps.lon=this.value"></div>
         <div class="form-group"><label>Altitud</label><input type="text" value="${p.gps.altitud||''}" onchange="insp_parcelasTemp[${i}].gps.altitud=this.value"></div>
+        <div class="form-group"><label>Precisión GPS</label><input type="text" value="${p.gps.accuracy?('±'+p.gps.accuracy+' m'):''}" readonly style="background:#ececec;cursor:not-allowed;"></div>
+        <div class="form-group form-full" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:-6px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="capturarGpsParcela(${i})">📍 Usar mi ubicación GPS</button>
+          <a href="#" onclick="return abrirGpsEnMaps(${i})" style="font-size:0.8rem;color:var(--verde-c);font-weight:700;text-decoration:none;">🗺️ Ver en Google Maps</a>
+        </div>
         <div class="form-group"><label>Promedio de Pendiente (%)</label><input type="number" value="${p.pendiente_promedio_pct||''}" onchange="insp_parcelasTemp[${i}].pendiente_promedio_pct=this.value"></div>
         <div class="form-group"><label>Este (colindancia)</label><input type="text" value="${p.colindancias.este||''}" onchange="insp_parcelasTemp[${i}].colindancias.este=this.value"></div>
         <div class="form-group"><label>Oeste (colindancia)</label><input type="text" value="${p.colindancias.oeste||''}" onchange="insp_parcelasTemp[${i}].colindancias.oeste=this.value"></div>
@@ -12079,6 +12217,52 @@ function renderParcelasCards(){
       </div>
     </div>`;
   }).join('');
+}
+
+// ── Captura automática de GPS (Geolocation API del navegador — gratis, sin API key) ──
+function capturarGpsParcela(i){
+  const p = insp_parcelasTemp[i];
+  if(!p) return;
+  if(!navigator.geolocation){
+    showAlert('insped-form-alert','error','Este navegador no soporta geolocalización. Ingresa las coordenadas a mano.');
+    return;
+  }
+  showAlert('insped-form-alert','info','⏳ Obteniendo tu ubicación GPS...');
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      const pActual = insp_parcelasTemp[i];
+      if(!pActual) return;
+      pActual.gps.lat = pos.coords.latitude.toFixed(6);
+      pActual.gps.lon = pos.coords.longitude.toFixed(6);
+      pActual.gps.accuracy = Math.round(pos.coords.accuracy);
+      let msg = `📍 Ubicación capturada para la Parcela ${i+1} (precisión ±${pActual.gps.accuracy} m).`;
+      if(pos.coords.altitude !== null && pos.coords.altitude !== undefined){
+        pActual.gps.altitud = Math.round(pos.coords.altitude);
+      } else {
+        msg += ' La altitud no está disponible en este dispositivo — puedes ingresarla a mano si la conoces.';
+      }
+      renderParcelasCards();
+      showAlert('insped-form-alert','success', msg);
+    },
+    (err)=>{
+      let msg = '⚠️ No se pudo obtener la ubicación.';
+      if(err.code === err.PERMISSION_DENIED) msg = '⚠️ Permiso de ubicación denegado. Actívalo en la configuración del navegador/celular e inténtalo de nuevo.';
+      else if(err.code === err.TIMEOUT) msg = '⚠️ Se agotó el tiempo esperando el GPS. Prueba de nuevo, al aire libre si es posible.';
+      else if(err.code === err.POSITION_UNAVAILABLE) msg = '⚠️ Ubicación no disponible en este dispositivo. Ingresa las coordenadas a mano.';
+      showAlert('insped-form-alert','error', msg);
+    },
+    {enableHighAccuracy:true, timeout:10000, maximumAge:0}
+  );
+}
+
+function abrirGpsEnMaps(i){
+  const p = insp_parcelasTemp[i];
+  if(!p || !p.gps.lat || !p.gps.lon){
+    showAlert('insped-form-alert','error','Primero captura o ingresa la latitud y longitud de esta parcela.');
+    return false;
+  }
+  window.open(`https://www.google.com/maps?q=${encodeURIComponent(p.gps.lat)},${encodeURIComponent(p.gps.lon)}`, '_blank');
+  return false;
 }
 
 // Resumen agregado del productor: suma de TODAS las parcelas de esta inspección (nunca se pide de nuevo)
@@ -12467,7 +12651,11 @@ function guardarInspeccion(){
     resumen,
     usuario: SESSION.user,
     sincronizado: navigator.onLine === true,
-    creado_offline: navigator.onLine !== true
+    creado_offline: navigator.onLine !== true,
+    // Timestamp de la última edición — lo usa sincronizarInspeccionesDesdeNube() para decidir,
+    // registro por registro, cuál versión es más reciente (la de este dispositivo o la de la nube)
+    // cuando la misma ficha (mismo código) fue editada en dos dispositivos distintos.
+    ultima_modificacion: new Date().toISOString()
   };
 
   if(!DB.inspecciones) DB.inspecciones=[];
@@ -12668,21 +12856,95 @@ function generarFichaInspeccionHTML(idx){
     </div>`;
   }).join('');
 
-  const parcelasHtml = parcelas.length ? `<table style="width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:10px;">
-    <thead><tr style="background:#1a5c2e;color:#fff;">
-      <th style="border:1px solid #14431f;padding:4px;">Parcela</th><th style="border:1px solid #14431f;padding:4px;">Base/Sector</th>
-      <th style="border:1px solid #14431f;padding:4px;">Ha Total</th><th style="border:1px solid #14431f;padding:4px;">Plantas</th>
-      <th style="border:1px solid #14431f;padding:4px;">Sacos Campaña</th>
+  // ── Datos Generales del Productor (antes se calculaban `dg`/`cert` pero nunca se imprimían) ──
+  const dgFila = (label,val)=> (val!==undefined && val!==null && val!=='') ? `<div><span style="color:#666;">${label}:</span> <strong>${val}</strong></div>` : '';
+  const conyugeTxt = dg.conyuge && (dg.conyuge.nombre||dg.conyuge.dni)
+    ? `${dg.conyuge.nombre||''}${dg.conyuge.dni?' (DNI '+dg.conyuge.dni+')':''}${dg.conyuge.fecha_nac?' — Nac. '+fechaDisplay(dg.conyuge.fecha_nac):''}${dg.conyuge.grado_instruccion?' — '+dg.conyuge.grado_instruccion:''}`
+    : '';
+  const datosGeneralesHtml = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px 10px;font-size:9.5px;margin-bottom:10px;border:1px solid #ddd;border-radius:6px;padding:8px 10px;">
+    ${dgFila('Grado de instrucción', dg.grado_instruccion)}
+    ${dgFila('Estado civil', dg.estado_civil)}
+    ${dgFila('Celular', dg.celular)}
+    ${dgFila('Celular alterno', dg.celular2)}
+    ${dgFila('¿Tiene RUC?', dg.tiene_ruc)}
+    ${dgFila('Radio favorita', dg.radio_favorita)}
+    ${dgFila('Acceso a internet', dg.acceso_internet)}
+    ${dgFila('Redes sociales', dg.redes_cuales)}
+    ${dgFila('Programa social', dg.programa_social_cuales)}
+    ${dgFila('N° personas en la familia', dg.num_personas_familia)}
+    ${dgFila('N° hijos menores', dg.num_hijos_menores)}
+    ${dgFila('Satisfacción con servicios', dg.satisfaccion_servicios)}
+    ${dgFila('Ingresos adicionales', dg.ingresos_adicionales)}
+    ${dgFila('% dependencia del café', dg.pct_dependencia_cafe)}
+    ${dgFila('Costos de producción', dg.costos_produccion)}
+    ${conyugeTxt ? `<div style="grid-column:1/-1;"><span style="color:#666;">Cónyuge:</span> <strong>${conyugeTxt}</strong></div>` : ''}
+  </div>`;
+
+  // ── Hijos/as (solo si hay al menos uno registrado) ──
+  const hijosHtml = (i.hijos && i.hijos.length) ? `<table style="width:100%;border-collapse:collapse;font-size:9px;margin-bottom:10px;">
+    <thead><tr style="background:#eef6ef;">
+      <th style="border:1px solid #ccc;padding:3px 5px;">N°</th><th style="border:1px solid #ccc;padding:3px 5px;">Año Nac.</th>
+      <th style="border:1px solid #ccc;padding:3px 5px;">Género</th><th style="border:1px solid #ccc;padding:3px 5px;">¿Estudia?</th>
+      <th style="border:1px solid #ccc;padding:3px 5px;">Grado de Instrucción</th>
     </tr></thead><tbody>
-    ${parcelas.map(p=>{
-      const areaTotal = _sumaHectareasParcela(p.hectareas);
-      const plantas = (p.variedades||[]).reduce((a,v)=>a+(parseFloat(v.plantas_produccion)||0)+(parseFloat(v.plantas_crecimiento)||0),0);
-      return `<tr><td style="border:1px solid #ccc;padding:4px;">${p.nombre||'—'}</td><td style="border:1px solid #ccc;padding:4px;">${p.base||''} ${p.sector||''}</td>
-        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${areaTotal.toFixed(2)}</td>
-        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${plantas}</td>
-        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${(parseFloat(p.resultados.sacos_campana)||0).toFixed(2)}</td></tr>`;
-    }).join('')}
-    </tbody></table>` : '<div style="font-size:10px;color:#999;margin-bottom:10px;">Sin parcelas registradas.</div>';
+    ${i.hijos.map(h=>`<tr>
+      <td style="border:1px solid #ccc;padding:3px 5px;text-align:center;">${h.n||''}</td>
+      <td style="border:1px solid #ccc;padding:3px 5px;text-align:center;">${h.anio_nacimiento||''}</td>
+      <td style="border:1px solid #ccc;padding:3px 5px;">${h.genero||''}</td>
+      <td style="border:1px solid #ccc;padding:3px 5px;text-align:center;">${h.estudiando||''}</td>
+      <td style="border:1px solid #ccc;padding:3px 5px;">${h.grado_instruccion||''}</td>
+    </tr>`).join('')}
+    </tbody></table>` : '';
+
+  // ── Certificaciones ──
+  const certChk = (label,val)=>`<div>${val?'✅':'⬜'} ${label}</div>`;
+  const certificacionesHtml = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px 10px;font-size:9.5px;margin-bottom:10px;border:1px solid #ddd;border-radius:6px;padding:8px 10px;">
+    ${certChk('NOP-USDA', cert.nop_usda)}
+    ${certChk('CEE 834/07', cert.cee_834_07)}
+    ${certChk('COR', cert.cor)}
+    ${certChk('Perú DS044', cert.peru_ds044)}
+    ${certChk('Comercio Justo genérico', cert.comercio_justo_generico)}
+    ${certChk('Fairtrade USA', cert.fairtrade_usa)}
+    ${certChk('Fair for Life', cert.fair_for_life)}
+    ${cert.otros_organismos_texto ? `<div style="grid-column:1/-1;"><span style="color:#666;">Otros organismos:</span> <strong>${cert.otros_organismos_texto}</strong></div>` : ''}
+    ${cert.recibe_creditos_organizacion ? `<div><span style="color:#666;">¿Recibe créditos de la organización?</span> <strong>${cert.recibe_creditos_organizacion}</strong></div>` : ''}
+    ${cert.tiene_credito_otras_entidades ? `<div><span style="color:#666;">¿Crédito en otras entidades?</span> <strong>${cert.tiene_credito_otras_entidades}</strong></div>` : ''}
+    ${cert.credito_cuales ? `<div style="grid-column:1/-1;"><span style="color:#666;">¿Cuáles?</span> <strong>${cert.credito_cuales}</strong></div>` : ''}
+  </div>`;
+
+  // ── Parcelas — detalle completo (código/GPS/linderos/sombra/hectáreas/variedades con datos) ──
+  const parcelasHtml = parcelas.length ? parcelas.map(p=>{
+    const areaTotal = _sumaHectareasParcela(p.hectareas);
+    const c = p.colindancias||{}, som = p.sombra||{}, gps = p.gps||{};
+    const linderoTxt = (dir,val,otro)=> val ? `${dir}: ${val}${otro?' ('+otro+')':''}` : null;
+    const linderos = [linderoTxt('Este',c.este,c.este_otro), linderoTxt('Oeste',c.oeste,c.oeste_otro), linderoTxt('Norte',c.norte,c.norte_otro), linderoTxt('Sur',c.sur,c.sur_otro)].filter(Boolean).join(' · ');
+    const gpsTxt = gps.lat && gps.lon ? `${gps.lat}, ${gps.lon}${gps.altitud?' — Alt. '+gps.altitud+'m':''}${gps.accuracy?' (±'+gps.accuracy+'m)':''}` : '—';
+    const hectareasFilas = [['Producción',p.hectareas.produccion],['Crecimiento',p.hectareas.crecimiento],['Pan Llevar',p.hectareas.pan_llevar],
+      ['Pastos Naturales',p.hectareas.pastos_naturales],['Pastos Cultivados',p.hectareas.pastos_cultivados],['Rastrojo/Purma',p.hectareas.rastrojo_purma],
+      ['Bosque Primario',p.hectareas.bosque_primario],['Bosque Secundario',p.hectareas.bosque_secundario],['Otras Áreas',p.hectareas.otras_areas]]
+      .filter(([,v])=>parseFloat(v)>0).map(([label,v])=>`${label}: ${parseFloat(v).toFixed(2)} ha`).join(' · ');
+    const variedadesConDatos = (p.variedades||[]).filter(v=>(parseFloat(v.plantas_produccion)||0)>0 || (parseFloat(v.plantas_crecimiento)||0)>0);
+    const variedadesHtml = variedadesConDatos.length ? `<table style="width:100%;border-collapse:collapse;font-size:8.5px;margin-top:4px;">
+      <thead><tr style="background:#eef6ef;"><th style="border:1px solid #ccc;padding:2px 4px;text-align:left;">Variedad</th>
+        <th style="border:1px solid #ccc;padding:2px 4px;">Plantas Prod.</th><th style="border:1px solid #ccc;padding:2px 4px;">Plantas Crec.</th>
+        <th style="border:1px solid #ccc;padding:2px 4px;">Año Siembra</th><th style="border:1px solid #ccc;padding:2px 4px;">Ha</th></tr></thead>
+      <tbody>${variedadesConDatos.map(v=>`<tr>
+        <td style="border:1px solid #ccc;padding:2px 4px;">${v.variedad}</td>
+        <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${v.plantas_produccion||0}</td>
+        <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${v.plantas_crecimiento||0}</td>
+        <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${v.anio_plantacion||''}</td>
+        <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${parseFloat(v.ha||0).toFixed(2)}</td>
+      </tr>`).join('')}</tbody></table>` : '';
+    return `<div style="page-break-inside:avoid;border:1px solid #ddd;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:9.5px;">
+      <div style="font-weight:800;color:#1a5c2e;margin-bottom:3px;">${p.nombre||'(sin nombre)'} ${p.codigo?'— Cód. '+p.codigo:''}</div>
+      <div>${p.base||''} ${p.sector||''} · Área total: <strong>${areaTotal.toFixed(2)} ha</strong> · Pendiente: ${p.pendiente_promedio_pct||'—'}% · GPS: ${gpsTxt}</div>
+      ${linderos ? `<div style="color:#555;">Linderos: ${linderos}</div>` : ''}
+      ${p.necesita_zona_amortiguamiento ? `<div style="color:#555;">¿Zona de amortiguamiento?: ${p.necesita_zona_amortiguamiento}</div>` : ''}
+      ${(som.especies||som.num_arboles) ? `<div style="color:#555;">Sombra: ${som.especies||''} ${som.num_arboles?'— '+som.num_arboles+' árboles':''} ${som.distribucion?'('+som.distribucion+')':''}</div>` : ''}
+      ${hectareasFilas ? `<div style="color:#555;">Hectáreas: ${hectareasFilas}</div>` : ''}
+      ${variedadesHtml}
+    </div>`;
+  }).join('') : '<div style="font-size:10px;color:#999;margin-bottom:10px;">Sin parcelas registradas.</div>';
 
   const fotosHtml = (i.fotos&&i.fotos.length) ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
     ${i.fotos.map(f=>`<div style="width:100px;"><img src="${f.dataUrl}" style="width:100%;height:75px;object-fit:cover;border:1px solid #ccc;">
@@ -12718,6 +12980,14 @@ function generarFichaInspeccionHTML(idx){
       <div style="border:2px solid #1a5c2e;border-radius:6px;padding:6px;background:#f0faf4;"><div style="font-size:8px;color:#1a5c2e;">PUNTAJE TOTAL</div><div style="font-weight:900;color:#1a5c2e;">${r.puntaje_total}/${r.puntaje_max}</div></div>
     </div>
     ${r.num_incumplimientos>0?`<div style="font-size:9.5px;color:#c62828;margin-bottom:10px;">⚠️ Incumplimientos en: ${(r.resumen_incumplimientos_texto||'').split('===').join(', ')}</div>`:''}
+
+    <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Datos Generales del Productor</div>
+    ${datosGeneralesHtml}
+
+    ${hijosHtml ? `<div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Hijos / Hijas</div>${hijosHtml}` : ''}
+
+    <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Certificaciones</div>
+    ${certificacionesHtml}
 
     <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Parcelas Inspeccionadas</div>
     ${parcelasHtml}
