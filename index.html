@@ -1905,8 +1905,8 @@ tr:hover td{background:#f4f8f4;}
       <label>Banco / Proveedor (quien presta)</label>
       <input type="text" id="p-entidad-externa" placeholder="Ej. Banco de Crédito del Perú, Caja Municipal, Proveedor XYZ..." oninput="calcPrestamo()">
     </div>
-    <div class="form-group"><label>DNI / RUC</label><input type="text" id="p-dni" readonly style="background:#eee;"></div>
-    <div class="form-group"><label>Base / Caserío</label><input type="text" id="p-caserio" readonly style="background:#eee;"></div>
+    <div class="form-group" id="p-dni-group"><label id="p-dni-label">DNI / RUC</label><input type="text" id="p-dni" readonly style="background:#eee;"></div>
+    <div class="form-group" id="p-caserio-group"><label>Base / Caserío</label><input type="text" id="p-caserio" readonly style="background:#eee;"></div>
     <div class="form-group" id="p-tasa-manual-group" style="display:none;">
       <label>Tasa de Interés Manual (%)</label>
       <div style="display:flex;gap:6px;">
@@ -7537,10 +7537,14 @@ function abrirModalPrestamo(idx){
     document.getElementById('p-caserio').value = p.caserio || 'Sede Central';
   }
 
-  // Financiamiento externo: repoblar entidad prestamista + tasa manual
+  // Financiamiento externo: repoblar entidad prestamista + tasa manual + DNI/RUC
+  // (el toggle de arriba, al no encontrar un socio seleccionado, ya limpió p-dni — se repone aquí).
   document.getElementById('p-entidad-externa').value = (p && p.direccion==='recibido') ? (p.entidad_prestamista||p.socio||'') : '';
   document.getElementById('p-tasa-manual').value = (p && p.direccion==='recibido') ? (p.tasa||'') : '';
   document.getElementById('p-tasa-manual-periodo').value = (p && p.direccion==='recibido' && (p.tasaDesc||'').includes('anual')) ? 'anual' : 'mensual';
+  if(p && p.direccion==='recibido'){
+    document.getElementById('p-dni').value = p.dni || '';
+  }
 
   document.getElementById('prest-form-alert').innerHTML = '';
   calcPrestamo();
@@ -7574,12 +7578,19 @@ function calcPrestamo(){
   document.getElementById('p-entidad-externa-group').style.display = esFinExterno ? '' : 'none';
   document.getElementById('p-tasa-manual-group').style.display = esFinExterno ? '' : 'none';
   document.getElementById('p-es-organizacion-row').style.display = esFinExterno ? 'none' : '';
+  // Base/Caserío no aplica a un financiamiento de banco/proveedor — se oculta. El DNI/RUC SÍ
+  // aplica (es el RUC del banco o el DNI/RUC del proveedor), pero se vuelve editable a mano en
+  // vez de autocompletarse desde un socio.
+  document.getElementById('p-caserio-group').style.display = esFinExterno ? 'none' : '';
+  const dniInput = document.getElementById('p-dni');
+  dniInput.readOnly = !esFinExterno;
+  dniInput.style.background = esFinExterno ? '' : '#eee';
+  document.getElementById('p-dni-label').textContent = esFinExterno ? 'DNI / RUC (del Banco o Proveedor)' : 'DNI / RUC';
   if(esFinExterno){
     // La tasa la pone el usuario (no hay una fija) — se aplica al objeto de configuración
     // ANTES de calcular, así calcIntereses()/tasaMensual() la usan sin duplicar lógica.
     TIPOS_PRESTAMO.financiamiento_externo.tasa = parseFloat(document.getElementById('p-tasa-manual').value)||0;
     TIPOS_PRESTAMO.financiamiento_externo.periodo = document.getElementById('p-tasa-manual-periodo').value;
-    document.getElementById('p-dni').value = '';
     document.getElementById('p-caserio').value = '';
   }
 
@@ -7593,7 +7604,8 @@ function calcPrestamo(){
     document.getElementById('p-tipo-ico').textContent   = cfg.ico;
     document.getElementById('p-tipo-nombre').textContent = cfg.nombre;
     document.getElementById('p-tipo-nombre').style.color = cfg.color;
-    const tasaDisplay = cfg.tasa === 0 ? '0% (Sin interés)' : `${cfg.tasa}% ${cfg.periodo}`;
+    const tasaDisplay = (esFinExterno && cfg.tasa === 0) ? 'Ingresa la tasa manual abajo ↓'
+                       : cfg.tasa === 0 ? '0% (Sin interés)' : `${cfg.tasa}% ${cfg.periodo}`;
     document.getElementById('p-tasa-label').textContent = `Tasa: ${tasaDisplay}`;
     document.getElementById('p-tasa-label').style.color  = cfg.color;
     document.getElementById('p-tasa-display').value = tasaDisplay;
@@ -7672,7 +7684,7 @@ function guardarPrestamo(){
     es_organizacion: esOrganizacion,
     direccion,
     entidad_prestamista: esFinExterno ? socio : '',
-    dni:          esFinExterno ? '' : document.getElementById('p-dni').value,
+    dni:          document.getElementById('p-dni').value,
     caserio:      esFinExterno ? '' : document.getElementById('p-caserio').value,
     monto:        monto.toFixed(2),
     plazo, plazoUnidad: unidad, plazoMeses,
