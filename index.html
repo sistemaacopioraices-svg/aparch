@@ -1067,8 +1067,22 @@ tr:hover td{background:#f4f8f4;}
     </div>
   </div>
 
+  <!-- STATS FINANCIAMIENTO RECIBIDO (banco/proveedor → la Organización) — pasivo, aparte de lo que la Organización presta -->
+  <div class="stats-grid" style="margin-bottom:18px;">
+    <div class="stat-card" style="border-left-color:#4a148c;">
+      <div class="stat-label">🏦 Financiamiento Recibido</div>
+      <div class="stat-val" id="prest-stat-recibido-total">S/. 0</div>
+      <div class="stat-sub">Total recibido de bancos/proveedores</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#4a148c;">
+      <div class="stat-label">📤 Saldo por Pagar</div>
+      <div class="stat-val" id="prest-stat-recibido-saldo">S/. 0</div>
+      <div class="stat-sub">Pendiente de devolver a terceros</div>
+    </div>
+  </div>
+
   <!-- TIPOS DE PRÉSTAMO como cards informativas -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;">
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px;">
     <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:16px 18px;">
       <div style="font-size:1.5rem;margin-bottom:6px;">☕</div>
       <div style="font-weight:800;color:#0d47a1;font-size:0.9rem;">Adelanto por Compra de Café</div>
@@ -1087,6 +1101,12 @@ tr:hover td{background:#f4f8f4;}
       <div style="font-size:0.78rem;color:#c2185b;margin-top:4px;">Tasa: <strong>1% mensual</strong></div>
       <div style="font-size:0.72rem;color:#555;margin-top:4px;">Para atención médica y emergencias de salud del asociado.</div>
     </div>
+    <div style="background:#f3e5f5;border:1px solid #ce93d8;border-radius:10px;padding:16px 18px;">
+      <div style="font-size:1.5rem;margin-bottom:6px;">🏦</div>
+      <div style="font-weight:800;color:#4a148c;font-size:0.9rem;">Financiamiento de Banco/Proveedor</div>
+      <div style="font-size:0.78rem;color:#6a1b9a;margin-top:4px;">Tasa: <strong>manual (la fija el usuario)</strong></div>
+      <div style="font-size:0.72rem;color:#555;margin-top:4px;">Dinero que un tercero le presta a la Organización: ingresa a caja al recibirlo y sale de caja al pagar cada cuota.</div>
+    </div>
   </div>
 
   <div class="card">
@@ -1104,6 +1124,7 @@ tr:hover td{background:#f4f8f4;}
         <option value="adelanto_cafe">Adelanto Café</option>
         <option value="prestamo_cosecha">Préstamo Cosecha</option>
         <option value="prestamo_salud">Préstamo Salud</option>
+        <option value="financiamiento_externo">Financiamiento Externo</option>
       </select>
       <select id="filter-prest-estado" onchange="filtrarPrestamos()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.82rem;">
         <option value="">Todos los estados</option>
@@ -1114,7 +1135,7 @@ tr:hover td{background:#f4f8f4;}
     </div>
     <div class="table-wrap">
       <table><thead><tr>
-        <th>N° Préstamo</th><th>Fecha</th><th>Socio</th><th>DNI</th>
+        <th>N° Préstamo</th><th>Fecha</th><th>Socio / Entidad</th><th>DNI</th>
         <th>Tipo</th><th>Monto S/.</th><th>Tasa</th><th>Plazo</th>
         <th>Interés S/.</th><th>Total S/.</th><th>Pagado S/.</th>
         <th>Saldo S/.</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th>
@@ -1858,7 +1879,7 @@ tr:hover td{background:#f4f8f4;}
 
   <div class="subsection-title" style="margin-top:0;">DATOS DEL PRÉSTAMO</div>
   <div class="form-grid">
-    <div class="form-group form-full" style="display:flex;align-items:center;gap:8px;background:#fff8e1;border:1px solid #ffe0a3;border-radius:8px;padding:8px 12px;">
+    <div class="form-group form-full" id="p-es-organizacion-row" style="display:flex;align-items:center;gap:8px;background:#fff8e1;border:1px solid #ffe0a3;border-radius:8px;padding:8px 12px;">
       <input type="checkbox" id="p-es-organizacion" onchange="toggleEsOrganizacionPrestamo()" style="width:18px;height:18px;flex-shrink:0;">
       <label for="p-es-organizacion" style="font-weight:700;margin:0;cursor:pointer;">🏢 Este préstamo lo saca la Organización (no un socio)</label>
     </div>
@@ -1871,16 +1892,31 @@ tr:hover td{background:#f4f8f4;}
         <option value="adelanto_cafe">☕ Adelanto por Compra de Café (0% mensual)</option>
         <option value="prestamo_cosecha">🌱 Préstamo por Cosecha (1.5% anual)</option>
         <option value="prestamo_salud">🏥 Préstamo de Salud (1% mensual)</option>
+        <option value="financiamiento_externo">🏦 Financiamiento recibido de Banco/Proveedor (tasa manual)</option>
       </select>
     </div>
-    <div class="form-group">
+    <div class="form-group" id="p-socio-group">
       <label id="p-socio-label">Socio / Productor</label>
       <select id="p-socio" onchange="cargarSocioPrestamo()" style="font-weight:600;">
         <option value="">-- Seleccionar Socio --</option>
       </select>
     </div>
+    <div class="form-group" id="p-entidad-externa-group" style="display:none;">
+      <label>Banco / Proveedor (quien presta)</label>
+      <input type="text" id="p-entidad-externa" placeholder="Ej. Banco de Crédito del Perú, Caja Municipal, Proveedor XYZ..." oninput="calcPrestamo()">
+    </div>
     <div class="form-group"><label>DNI / RUC</label><input type="text" id="p-dni" readonly style="background:#eee;"></div>
     <div class="form-group"><label>Base / Caserío</label><input type="text" id="p-caserio" readonly style="background:#eee;"></div>
+    <div class="form-group" id="p-tasa-manual-group" style="display:none;">
+      <label>Tasa de Interés Manual (%)</label>
+      <div style="display:flex;gap:6px;">
+        <input type="number" id="p-tasa-manual" step="0.01" min="0" oninput="calcPrestamo()" style="flex:1;font-weight:700;" placeholder="Ej. 2.5">
+        <select id="p-tasa-manual-periodo" onchange="calcPrestamo()" style="width:110px;">
+          <option value="mensual">% Mensual</option>
+          <option value="anual">% Anual</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="subsection-title">CONDICIONES FINANCIERAS</div>
@@ -1951,14 +1987,14 @@ tr:hover td{background:#f4f8f4;}
 <div class="modal-overlay" id="modal-abono">
 <div class="modal" style="max-width:540px;">
   <div class="modal-header">
-    <div class="modal-title">💳 Registrar Abono</div>
+    <div class="modal-title" id="modal-abono-titulo">💳 Registrar Abono</div>
     <button class="modal-close" onclick="cerrarModal('modal-abono')">✕</button>
   </div>
   <div id="abono-alert"></div>
 
   <div style="background:#f0faf4;border:1px solid #b2dfcb;border-radius:9px;padding:12px 16px;margin-bottom:14px;" id="abono-info-panel">
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:0.82rem;">
-      <div><span style="font-size:0.68rem;color:#555;display:block;">Socio</span><strong id="ab-socio">—</strong></div>
+      <div><span style="font-size:0.68rem;color:#555;display:block;" id="ab-socio-label">Socio</span><strong id="ab-socio">—</strong></div>
       <div><span style="font-size:0.68rem;color:#555;display:block;">Total Préstamo</span><strong id="ab-total" style="color:#e65100;">—</strong></div>
       <div><span style="font-size:0.68rem;color:#555;display:block;">Saldo Pendiente</span><strong id="ab-saldo" style="color:#c62828;font-size:1.1rem;">—</strong></div>
     </div>
@@ -1991,7 +2027,7 @@ tr:hover td{background:#f4f8f4;}
   </div>
   <div class="form-actions">
     <button class="btn btn-secondary" onclick="cerrarModal('modal-abono')">Cancelar</button>
-    <button class="btn btn-primary" onclick="guardarAbono()">💳 Registrar Abono</button>
+    <button class="btn btn-primary" id="ab-btn-guardar" onclick="guardarAbono()">💳 Registrar Abono</button>
   </div>
 </div></div>
 
@@ -6788,9 +6824,10 @@ function exportarExcel(tipo){
       a.fecha_cierre||'', a.estado]);
     n='Aperturas_Caja_APARCH';
   } else if(tipo==='prestamos'){
-    h=['N° Préstamo','Fecha','Socio','DNI','Tipo','Monto S/.','Tasa','Plazo','Interés S/.','Total S/.','Pagado S/.','Saldo S/.','Vencimiento','Estado'];
+    h=['N° Préstamo','Fecha','Socio / Entidad','DNI','Dirección','Tipo','Monto S/.','Tasa','Plazo','Interés S/.','Total S/.','Pagado S/.','Saldo S/.','Vencimiento','Estado'];
     d=(DB.prestamos||[]).map((p,pi)=>[p.codigo,p.fecha,p.socio,p.dni,
-      p.tipo==='adelanto_cafe'?'Adelanto Café':p.tipo==='prestamo_cosecha'?'Préstamo Cosecha':'Préstamo Salud',
+      p.direccion==='recibido' ? 'Recibido (debemos)' : 'Otorgado (nos deben)',
+      p.tipo==='adelanto_cafe'?'Adelanto Café':p.tipo==='prestamo_cosecha'?'Préstamo Cosecha':p.tipo==='prestamo_salud'?'Préstamo Salud':'Financiamiento Externo',
       parseFloat(p.monto||0), p.tasaDesc||'', `${p.plazo} ${p.plazoUnidad}`,
       parseFloat(p.interes||0), parseFloat(p.total||0), totalPagadoPrestamo(pi), saldoPrestamo(pi),
       p.vencimiento, estadoPrestamo(pi)]);
@@ -7391,9 +7428,15 @@ function updateExportCounts(){
 
 // Configuración de tasas
 const TIPOS_PRESTAMO = {
-  adelanto_cafe:     { nombre:'Adelanto por Compra de Café', ico:'☕', tasa:0,    periodo:'mensual', color:'#0d47a1', bg:'#e3f2fd' },
-  prestamo_cosecha:  { nombre:'Préstamo por Cosecha',        ico:'🌱', tasa:1.5,  periodo:'anual',   color:'#e65100', bg:'#fff8e1' },
-  prestamo_salud:    { nombre:'Préstamo de Salud',           ico:'🏥', tasa:1.0,  periodo:'mensual', color:'#880e4f', bg:'#fce4ec' }
+  adelanto_cafe:        { nombre:'Adelanto por Compra de Café',        ico:'☕', tasa:0,    periodo:'mensual', color:'#0d47a1', bg:'#e3f2fd' },
+  prestamo_cosecha:     { nombre:'Préstamo por Cosecha',                ico:'🌱', tasa:1.5,  periodo:'anual',   color:'#e65100', bg:'#fff8e1' },
+  prestamo_salud:       { nombre:'Préstamo de Salud',                   ico:'🏥', tasa:1.0,  periodo:'mensual', color:'#880e4f', bg:'#fce4ec' },
+  // Dinero que un banco o proveedor le presta A LA ORGANIZACIÓN — tasa manual (no hay una tasa fija
+  // conocida de antemano, la pone el usuario según lo que le ofrezca la entidad). A diferencia de los
+  // 3 tipos de arriba (la organización presta a un socio → egreso al desembolsar, ingreso al abonar),
+  // este tipo INVIERTE el flujo de caja: ingreso al desembolsar (recibe el préstamo), egreso al pagar
+  // cuotas (le paga al banco/proveedor). Ver `direccion:'recibido'` usado en guardarPrestamo/guardarAbono.
+  financiamiento_externo:{ nombre:'Financiamiento de Banco/Proveedor',  ico:'🏦', tasa:0,    periodo:'mensual', color:'#4a148c', bg:'#f3e5f5', manual:true, direccion:'recibido' }
 };
 
 // Identidad usada cuando el préstamo lo saca la Organización (no un socio individual)
@@ -7482,17 +7525,22 @@ function abrirModalPrestamo(idx){
   DB.socios.forEach(s=>{
     selS.innerHTML += `<option value="${s.nombre}" data-dni="${s.dni||''}" data-caserio="${s.caserio||''}">${s.nombre}${s.dni?' ['+s.dni+']':''}</option>`;
   });
-  selS.value = p ? p.socio : '';
+  selS.value = (p && p.direccion!=='recibido') ? p.socio : '';
   document.getElementById('p-dni').value     = p ? p.dni     : '';
   document.getElementById('p-caserio').value = p ? p.caserio : '';
 
   // Restaurar / limpiar el checkbox "préstamo de la Organización"
-  document.getElementById('p-es-organizacion').checked = !!(p && p.es_organizacion);
+  document.getElementById('p-es-organizacion').checked = !!(p && p.es_organizacion && p.direccion!=='recibido');
   toggleEsOrganizacionPrestamo();
-  if(p && p.es_organizacion){
+  if(p && p.es_organizacion && p.direccion!=='recibido'){
     document.getElementById('p-dni').value     = p.dni     || RUC_ORGANIZACION;
     document.getElementById('p-caserio').value = p.caserio || 'Sede Central';
   }
+
+  // Financiamiento externo: repoblar entidad prestamista + tasa manual
+  document.getElementById('p-entidad-externa').value = (p && p.direccion==='recibido') ? (p.entidad_prestamista||p.socio||'') : '';
+  document.getElementById('p-tasa-manual').value = (p && p.direccion==='recibido') ? (p.tasa||'') : '';
+  document.getElementById('p-tasa-manual-periodo').value = (p && p.direccion==='recibido' && (p.tasaDesc||'').includes('anual')) ? 'anual' : 'mensual';
 
   document.getElementById('prest-form-alert').innerHTML = '';
   calcPrestamo();
@@ -7518,6 +7566,22 @@ function calcPrestamo(){
   const fecha  = document.getElementById('p-fecha').value || hoy();
 
   const plazoMeses = unidad === 'años' ? plazo * 12 : plazo;
+
+  // Alterna entre "Socio / Productor" y "Banco / Proveedor" según el tipo elegido,
+  // y muestra el input de tasa manual solo para financiamiento externo.
+  const esFinExterno = tipo === 'financiamiento_externo';
+  document.getElementById('p-socio-group').style.display = esFinExterno ? 'none' : '';
+  document.getElementById('p-entidad-externa-group').style.display = esFinExterno ? '' : 'none';
+  document.getElementById('p-tasa-manual-group').style.display = esFinExterno ? '' : 'none';
+  document.getElementById('p-es-organizacion-row').style.display = esFinExterno ? 'none' : '';
+  if(esFinExterno){
+    // La tasa la pone el usuario (no hay una fija) — se aplica al objeto de configuración
+    // ANTES de calcular, así calcIntereses()/tasaMensual() la usan sin duplicar lógica.
+    TIPOS_PRESTAMO.financiamiento_externo.tasa = parseFloat(document.getElementById('p-tasa-manual').value)||0;
+    TIPOS_PRESTAMO.financiamiento_externo.periodo = document.getElementById('p-tasa-manual-periodo').value;
+    document.getElementById('p-dni').value = '';
+    document.getElementById('p-caserio').value = '';
+  }
 
   // Panel informativo del tipo
   const panel = document.getElementById('p-tasa-panel');
@@ -7573,30 +7637,43 @@ function calcPrestamo(){
 
 function guardarPrestamo(){
   const tipo   = document.getElementById('p-tipo').value;
-  const esOrganizacion = document.getElementById('p-es-organizacion').checked;
-  const socio  = esOrganizacion ? NOMBRE_ORGANIZACION : document.getElementById('p-socio').value;
+  const esFinExterno = tipo === 'financiamiento_externo';
+  const esOrganizacion = esFinExterno ? true : document.getElementById('p-es-organizacion').checked;
+  const socio  = esFinExterno ? document.getElementById('p-entidad-externa').value.trim()
+               : esOrganizacion ? NOMBRE_ORGANIZACION
+               : document.getElementById('p-socio').value;
   const monto  = parseFloat(document.getElementById('p-monto').value)||0;
   const plazo  = parseInt(document.getElementById('p-plazo').value)||1;
   const unidad = document.getElementById('p-plazo-unidad').value;
   const fecha  = document.getElementById('p-fecha').value;
 
   if(!tipo)  { showAlert('prest-form-alert','error','Seleccione el tipo de préstamo.'); return; }
-  if(!esOrganizacion && !socio) { showAlert('prest-form-alert','error','Seleccione el socio, o marque que el préstamo lo saca la Organización.'); return; }
+  if(esFinExterno && !socio) { showAlert('prest-form-alert','error','Ingrese el nombre del banco o proveedor que otorga el financiamiento.'); return; }
+  if(!esFinExterno && !esOrganizacion && !socio) { showAlert('prest-form-alert','error','Seleccione el socio, o marque que el préstamo lo saca la Organización.'); return; }
   if(!monto) { showAlert('prest-form-alert','error','Ingrese el monto del préstamo.'); return; }
   if(!fecha) { showAlert('prest-form-alert','error','Ingrese la fecha.'); return; }
+  if(esFinExterno){
+    // Refleja la tasa manual vigente en el formulario (por si el usuario la cambió sin
+    // disparar otro evento oninput justo antes de guardar).
+    TIPOS_PRESTAMO.financiamiento_externo.tasa = parseFloat(document.getElementById('p-tasa-manual').value)||0;
+    TIPOS_PRESTAMO.financiamiento_externo.periodo = document.getElementById('p-tasa-manual-periodo').value;
+  }
 
   const plazoMeses = unidad === 'años' ? plazo * 12 : plazo;
   const interes    = calcIntereses(monto, tipo, plazoMeses);
   const total      = monto + interes;
   const cfg        = TIPOS_PRESTAMO[tipo];
+  const direccion  = cfg.direccion || 'otorgado'; // 'recibido' = la Organización es quien debe (banco/proveedor)
 
   const prestamo = {
     codigo:       document.getElementById('p-codigo').value,
     fecha, tipo,
     socio,
     es_organizacion: esOrganizacion,
-    dni:          document.getElementById('p-dni').value,
-    caserio:      document.getElementById('p-caserio').value,
+    direccion,
+    entidad_prestamista: esFinExterno ? socio : '',
+    dni:          esFinExterno ? '' : document.getElementById('p-dni').value,
+    caserio:      esFinExterno ? '' : document.getElementById('p-caserio').value,
     monto:        monto.toFixed(2),
     plazo, plazoUnidad: unidad, plazoMeses,
     tasa:         cfg.tasa,
@@ -7613,24 +7690,40 @@ function guardarPrestamo(){
   if(!isNaN(editIdx) && editIdx >= 0){
     prestamo.abonos = DB.prestamos[editIdx].abonos || [];
     prestamo.recibo_egreso_ref = DB.prestamos[editIdx].recibo_egreso_ref || '';
+    prestamo.recibo_ingreso_ref = DB.prestamos[editIdx].recibo_ingreso_ref || '';
     DB.prestamos[editIdx] = prestamo;
   } else {
     if(!DB.prestamos) DB.prestamos=[];
-    // Generar egreso en caja automáticamente
+    // Generar movimiento de caja automático. Para préstamos normales (la Organización presta
+    // a un socio, o a sí misma) es un EGRESO — el dinero sale. Para financiamiento externo
+    // (banco/proveedor le presta A la Organización) es al revés: un INGRESO — el dinero entra.
     const cajaIdx = cajaAbiertaActual();
     if(cajaIdx >= 0){
       const ap = DB.aperturas[cajaIdx];
       if(!DB.recibos) DB.recibos=[];
-      const codEgr = nextCodigo(DB.recibos, 'EGR-');
-      DB.recibos.push({
-        codigo: codEgr, tipo: 'egreso',
-        fecha, persona: socio,
-        concepto: `Préstamo ${prestamo.codigo} — ${tipo} — ${socio}`,
-        monto: monto.toFixed(2), formapago: 'Efectivo',
-        observaciones: `Desembolso préstamo ${prestamo.codigo}`,
-        apertura_ref: ap.codigo, usuario: SESSION.user
-      });
-      prestamo.recibo_egreso_ref = codEgr;
+      if(direccion === 'recibido'){
+        const codIng = nextCodigo(DB.recibos, 'ING-');
+        DB.recibos.push({
+          codigo: codIng, tipo: 'ingreso',
+          fecha, persona: socio,
+          concepto: `Financiamiento recibido ${prestamo.codigo} — ${socio}`,
+          monto: monto.toFixed(2), formapago: 'Efectivo',
+          observaciones: `Ingreso por financiamiento ${prestamo.codigo}`,
+          apertura_ref: ap.codigo, usuario: SESSION.user
+        });
+        prestamo.recibo_ingreso_ref = codIng;
+      } else {
+        const codEgr = nextCodigo(DB.recibos, 'EGR-');
+        DB.recibos.push({
+          codigo: codEgr, tipo: 'egreso',
+          fecha, persona: socio,
+          concepto: `Préstamo ${prestamo.codigo} — ${tipo} — ${socio}`,
+          monto: monto.toFixed(2), formapago: 'Efectivo',
+          observaciones: `Desembolso préstamo ${prestamo.codigo}`,
+          apertura_ref: ap.codigo, usuario: SESSION.user
+        });
+        prestamo.recibo_egreso_ref = codEgr;
+      }
     }
     DB.prestamos.push(prestamo);
   }
@@ -7638,7 +7731,11 @@ function guardarPrestamo(){
   if(!isNaN(editIdx) && editIdx >= 0) return;
   const cajaAb = cajaAbiertaActual();
   if(cajaAb >= 0){
-    setTimeout(()=>alert(`✅ Préstamo registrado.\n🏦 Egreso S/. ${fmt(monto)} descontado de caja ${DB.aperturas[cajaAb]?.codigo||''}`),200);
+    if(direccion === 'recibido'){
+      setTimeout(()=>alert(`✅ Financiamiento registrado.\n📥 Ingreso S/. ${fmt(monto)} agregado a caja ${DB.aperturas[cajaAb]?.codigo||''}`),200);
+    } else {
+      setTimeout(()=>alert(`✅ Préstamo registrado.\n🏦 Egreso S/. ${fmt(monto)} descontado de caja ${DB.aperturas[cajaAb]?.codigo||''}`),200);
+    }
   }
 }
 
@@ -7653,11 +7750,18 @@ function renderPrestamos(filtro, tipoF, estadoF){
     return matchTxt && matchTipo && matchEst;
   }).reverse();
 
-  // Stats
-  let totalPrestado=0, saldoTotal=0, pagados=0, vencidos=0;
+  // Stats — separados por dirección: "otorgado" (la Organización presta, es un activo/por cobrar)
+  // vs "recibido" (un banco/proveedor le presta a la Organización, es un pasivo/por pagar).
+  // Sumarlos juntos confundiría cuánto nos deben con cuánto debemos.
+  let totalPrestado=0, saldoTotal=0, totalRecibido=0, saldoRecibido=0, pagados=0, vencidos=0;
   DB.prestamos.forEach((p,i)=>{
-    totalPrestado += parseFloat(p.total||0);
-    saldoTotal    += saldoPrestamo(i);
+    if((p.direccion||'otorgado')==='recibido'){
+      totalRecibido += parseFloat(p.total||0);
+      saldoRecibido += saldoPrestamo(i);
+    } else {
+      totalPrestado += parseFloat(p.total||0);
+      saldoTotal    += saldoPrestamo(i);
+    }
     const est = estadoPrestamo(i);
     if(est==='Pagado') pagados++;
     if(est==='Vencido') vencidos++;
@@ -7666,6 +7770,10 @@ function renderPrestamos(filtro, tipoF, estadoF){
   document.getElementById('prest-stat-saldo').textContent   = fmtS(saldoTotal);
   document.getElementById('prest-stat-pagados').textContent = pagados;
   document.getElementById('prest-stat-vencidos').textContent= vencidos;
+  const elRecTot = document.getElementById('prest-stat-recibido-total');
+  const elRecSal = document.getElementById('prest-stat-recibido-saldo');
+  if(elRecTot) elRecTot.textContent = fmtS(totalRecibido);
+  if(elRecSal) elRecSal.textContent = fmtS(saldoRecibido);
 
   const tb = document.getElementById('prestamos-body');
   if(!lista.length){
@@ -7684,14 +7792,22 @@ function renderPrestamos(filtro, tipoF, estadoF){
                    : est==='Vencido' ? 'background:#ffebee;color:#c62828;border:1px solid #ef9a9a;'
                    :                   'background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9;';
 
+    const socioDisplay = p.direccion==='recibido'
+      ? `🏦 ${p.socio||'—'}`
+      : (p.es_organizacion ? '🏢 La Organización' : (p.socio||'—'));
+    const tipoLabel = p.tipo==='adelanto_cafe' ? 'Adelanto Café'
+                     : p.tipo==='prestamo_cosecha' ? 'Cosecha'
+                     : p.tipo==='prestamo_salud' ? 'Salud'
+                     : 'Financiamiento Externo';
+
     return `<tr style="${est==='Vencido'?'background:#fff5f5;':est==='Pagado'?'background:#f9fff9;':''}">
       <td class="td-codigo">${p.codigo}</td>
       <td>${fechaDisplay(p.fecha)}</td>
-      <td><strong>${p.es_organizacion ? '🏢 La Organización' : (p.socio||'—')}</strong></td>
+      <td><strong>${socioDisplay}</strong>${p.direccion==='recibido'?' <span style="font-size:0.65rem;color:#4a148c;font-weight:700;">(recibido)</span>':''}</td>
       <td style="font-size:0.76rem;">${p.dni||'—'}</td>
       <td>
         <span style="display:inline-flex;align-items:center;gap:4px;background:${cfg.bg};color:${cfg.color};border-radius:6px;padding:3px 7px;font-size:0.7rem;font-weight:700;border:1px solid ${cfg.color}44;">
-          ${cfg.ico} ${p.tipo==='adelanto_cafe'?'Adelanto Café':p.tipo==='prestamo_cosecha'?'Cosecha':'Salud'}
+          ${cfg.ico} ${tipoLabel}
         </span>
       </td>
       <td style="text-align:right;font-weight:700;">S/. ${fmt(p.monto)}</td>
@@ -7832,6 +7948,7 @@ function eliminarPrestamo(i){
 function abrirModalAbono(idx){
   const p = DB.prestamos[idx];
   if(!p) return;
+  const esRecibido = p.direccion === 'recibido';
   const sald = saldoPrestamo(idx);
   document.getElementById('ab-prestamo-idx').value = idx;
   document.getElementById('ab-fecha').value = hoy();
@@ -7845,6 +7962,10 @@ function abrirModalAbono(idx){
   document.getElementById('ab-saldo').textContent  = fmtS(sald);
   document.getElementById('ab-saldo').style.color  = sald<=0.05?'#2e7d32':'#c62828';
   document.getElementById('abono-alert').innerHTML = '';
+  // Financiamiento externo: esto es un pago de cuota a un tercero, no un abono que recibimos
+  document.getElementById('modal-abono-titulo').textContent = esRecibido ? '💳 Registrar Pago de Cuota' : '💳 Registrar Abono';
+  document.getElementById('ab-socio-label').textContent = esRecibido ? 'Banco / Proveedor' : 'Socio';
+  document.getElementById('ab-btn-guardar').textContent = esRecibido ? '💳 Registrar Pago' : '💳 Registrar Abono';
   abrirModal('modal-abono');
 }
 
@@ -7871,6 +7992,22 @@ function guardarAbono(){
   const sald = saldoPrestamo(idx);
   if(monto > sald + 0.01){ showAlert('abono-alert','error',`El abono (S/. ${monto.toFixed(2)}) supera el saldo (S/. ${fmt(sald)}).`); return; }
 
+  const pPrevio = DB.prestamos[idx];
+  const esRecibido = pPrevio.direccion === 'recibido';
+
+  // Financiamiento externo: el pago de cuota SALE de caja (le pagamos al banco/proveedor).
+  // Si no hay caja abierta, o el egreso superaría el saldo disponible, se confirma antes de continuar
+  // (mismo criterio de seguridad que ya usa guardarRecibo() para egresos manuales).
+  if(esRecibido){
+    const cajaIdxPrev = cajaAbiertaActual();
+    if(cajaIdxPrev >= 0){
+      const saldoCaja = saldoActualApertura(DB.aperturas[cajaIdxPrev].codigo);
+      if(monto > saldoCaja){
+        if(!confirm(`⚠️ El pago (S/. ${monto.toFixed(2)}) supera el saldo disponible en caja (S/. ${saldoCaja.toFixed(2)}).\n¿Registrar de todas formas?`)) return;
+      }
+    }
+  }
+
   if(!DB.prestamos[idx].abonos) DB.prestamos[idx].abonos=[];
   const abono = {
     fecha, monto: monto.toFixed(2),
@@ -7881,31 +8018,50 @@ function guardarAbono(){
   };
   DB.prestamos[idx].abonos.push(abono);
 
-  // Registrar INGRESO en caja por el abono
+  // Registrar el movimiento de caja del abono. Normalmente es un INGRESO (el socio nos devuelve
+  // dinero). Para financiamiento externo (direccion==='recibido') es un EGRESO — le pagamos al
+  // banco/proveedor una cuota de lo que la Organización debe.
   const cajaIdx = cajaAbiertaActual();
   if(cajaIdx >= 0){
     const ap = DB.aperturas[cajaIdx];
     if(!DB.recibos) DB.recibos=[];
     const p = DB.prestamos[idx];
-    const codIng = nextCodigo(DB.recibos, 'ING-');
-    DB.recibos.push({
-      codigo: codIng, tipo: 'ingreso',
-      fecha, persona: p.socio,
-      concepto: `Abono Préstamo ${p.codigo} — ${p.tipo}`,
-      monto: monto.toFixed(2),
-      formapago: abono.formapago,
-      observaciones: abono.obs || `Abono préstamo ${p.codigo}`,
-      apertura_ref: ap.codigo, usuario: SESSION.user
-    });
-    abono.recibo_ref = codIng;
+    if(esRecibido){
+      const codEgr = nextCodigo(DB.recibos, 'EGR-');
+      DB.recibos.push({
+        codigo: codEgr, tipo: 'egreso',
+        fecha, persona: p.socio,
+        concepto: `Pago de cuota — Financiamiento ${p.codigo} — ${p.socio}`,
+        monto: monto.toFixed(2),
+        formapago: abono.formapago,
+        observaciones: abono.obs || `Pago cuota financiamiento ${p.codigo}`,
+        apertura_ref: ap.codigo, usuario: SESSION.user
+      });
+      abono.recibo_ref = codEgr;
+    } else {
+      const codIng = nextCodigo(DB.recibos, 'ING-');
+      DB.recibos.push({
+        codigo: codIng, tipo: 'ingreso',
+        fecha, persona: p.socio,
+        concepto: `Abono Préstamo ${p.codigo} — ${p.tipo}`,
+        monto: monto.toFixed(2),
+        formapago: abono.formapago,
+        observaciones: abono.obs || `Abono préstamo ${p.codigo}`,
+        apertura_ref: ap.codigo, usuario: SESSION.user
+      });
+      abono.recibo_ref = codIng;
+    }
   }
 
   guardarDB(); cerrarModal('modal-abono'); renderPrestamos();
   const saldNew = saldoPrestamo(idx);
   const abonoIdxGuardado = DB.prestamos[idx].abonos.length - 1;
   setTimeout(()=>verPrintAbono(idx, abonoIdxGuardado), 200);
-  if(saldNew<=0.05) alert('✅ Préstamo liquidado completamente.');
-  else if(cajaIdx>=0) alert(`✅ Abono registrado.\n📥 Ingreso S/. ${fmt(monto)} registrado en caja.`);
+  if(saldNew<=0.05) alert(esRecibido ? '✅ Financiamiento liquidado completamente.' : '✅ Préstamo liquidado completamente.');
+  else if(cajaIdx>=0){
+    if(esRecibido) alert(`✅ Pago registrado.\n📤 Egreso S/. ${fmt(monto)} descontado de caja.`);
+    else alert(`✅ Abono registrado.\n📥 Ingreso S/. ${fmt(monto)} registrado en caja.`);
+  }
 }
 
 // ── DETALLE ──
