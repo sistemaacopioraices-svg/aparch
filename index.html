@@ -1946,6 +1946,11 @@ tr:hover td{background:#f4f8f4;}
         </select>
       </div>
     </div>
+    <div class="form-group" id="p-fecha-fin-group" style="display:none;">
+      <label>Fecha Fin (opcional — calcula el plazo exacto)</label>
+      <input type="date" id="p-fecha-fin" oninput="calcPrestamo()">
+      <div id="p-plazo-calc-info" style="font-size:0.72rem;color:#4a148c;font-weight:700;margin-top:3px;"></div>
+    </div>
     <div class="form-group" id="p-modalidad-pago-group" style="display:none;">
       <label>Modalidad de Pago</label>
       <select id="p-modalidad-pago" onchange="calcPrestamo()">
@@ -7509,6 +7514,24 @@ function fechaSumar(fechaStr, meses){
   return d.toISOString().split('T')[0];
 }
 
+// Diferencia calendario entre 2 fechas ISO ('YYYY-MM-DD'), en meses completos + días remanentes.
+// Ej: 2026-07-13 → 2026-11-23 = 4 meses y 10 días (13-jul+4meses=13-nov, +10 días=23-nov).
+// Se usa para financiamiento externo con Fecha Fin manual: si el plazo real es menor a un mes
+// completo, meses=0 y todo el interés se prorratea por días.
+function mesesYDiasEntre(fechaInicioStr, fechaFinStr){
+  const ini = new Date(fechaInicioStr);
+  const fin = new Date(fechaFinStr);
+  let meses = 0;
+  let cursor = new Date(ini);
+  while(true){
+    const siguiente = new Date(cursor);
+    siguiente.setMonth(siguiente.getMonth()+1);
+    if(siguiente <= fin){ meses++; cursor = siguiente; } else break;
+  }
+  const dias = Math.round((fin - cursor) / 86400000);
+  return { meses, dias };
+}
+
 // ── ABRIR MODAL PRÉSTAMO ──
 function abrirModalPrestamo(idx){
   const editando = idx !== undefined ? idx : -1;
@@ -7550,6 +7573,7 @@ function abrirModalPrestamo(idx){
   document.getElementById('p-tasa-manual').value = (p && p.direccion==='recibido') ? (p.tasa||'') : '';
   document.getElementById('p-tasa-manual-periodo').value = (p && p.direccion==='recibido' && (p.tasaDesc||'').includes('anual')) ? 'anual' : 'mensual';
   document.getElementById('p-modalidad-pago').value = (p && p.modalidad_pago) ? p.modalidad_pago : 'cuotas';
+  document.getElementById('p-fecha-fin').value = (p && p.fecha_fin) ? p.fecha_fin : '';
   if(p && p.direccion==='recibido'){
     document.getElementById('p-dni').value = p.dni || '';
   }
@@ -7595,12 +7619,40 @@ function calcPrestamo(){
   dniInput.style.background = esFinExterno ? '' : '#eee';
   document.getElementById('p-dni-label').textContent = esFinExterno ? 'DNI / RUC (del Banco o Proveedor)' : 'DNI / RUC';
   document.getElementById('p-modalidad-pago-group').style.display = esFinExterno ? '' : 'none';
+  document.getElementById('p-fecha-fin-group').style.display = esFinExterno ? '' : 'none';
   if(esFinExterno){
     // La tasa la pone el usuario (no hay una fija) — se aplica al objeto de configuración
     // ANTES de calcular, así calcIntereses()/tasaMensual() la usan sin duplicar lógica.
     TIPOS_PRESTAMO.financiamiento_externo.tasa = parseFloat(document.getElementById('p-tasa-manual').value)||0;
     TIPOS_PRESTAMO.financiamiento_externo.periodo = document.getElementById('p-tasa-manual-periodo').value;
     document.getElementById('p-caserio').value = '';
+  }
+
+  // Fecha Fin manual (solo financiamiento externo): si se llena, reemplaza el Plazo numérico
+  // como fuente de verdad — se calcula el plazo exacto en meses completos + días remanentes,
+  // y si el total es menor a un mes, todo se prorratea por días (nunca se redondea a "1 mes").
+  const fechaFinVal = document.getElementById('p-fecha-fin').value;
+  const usarFechaFin = esFinExterno && !!fechaFinVal;
+  const infoEl = document.getElementById('p-plazo-calc-info');
+  let mesesEfectivo = plazoMeses, diasExtra = 0, fechaFinEfectiva = null;
+  if(usarFechaFin){
+    if(new Date(fechaFinVal) <= new Date(fecha)){
+      infoEl.textContent = '⚠️ La Fecha Fin debe ser posterior a la Fecha de Desembolso.';
+      infoEl.style.color = '#c62828';
+      document.getElementById('p-interes').value=''; document.getElementById('p-total').value='';
+      document.getElementById('p-vencimiento').value=''; document.getElementById('p-amort-body').innerHTML='';
+      return;
+    }
+    const md = mesesYDiasEntre(fecha, fechaFinVal);
+    mesesEfectivo = md.meses;
+    diasExtra = md.dias;
+    fechaFinEfectiva = fechaFinVal;
+    infoEl.style.color = '#4a148c';
+    infoEl.textContent = mesesEfectivo>0 && diasExtra>0 ? `🗓️ Plazo exacto: ${mesesEfectivo} mes(es) y ${diasExtra} día(s)`
+                       : mesesEfectivo>0 ? `🗓️ Plazo exacto: ${mesesEfectivo} mes(es)`
+                       : `🗓️ Plazo exacto: ${diasExtra} día(s) (menos de un mes — el interés se prorratea por días)`;
+  } else if(infoEl){
+    infoEl.textContent = '';
   }
 
   // Panel informativo del tipo
@@ -7625,56 +7677,72 @@ function calcPrestamo(){
 
   if(!monto || !tipo){ document.getElementById('p-interes').value=''; document.getElementById('p-total').value=''; document.getElementById('p-vencimiento').value=''; document.getElementById('p-amort-body').innerHTML=''; return; }
 
-  const interes = calcIntereses(monto, tipo, plazoMeses);
+  const tm = tasaMensual(tipo);
+  // Interés total: meses completos con la fórmula de siempre (calcIntereses, sin cambios para
+  // los préstamos clásicos), + el remanente de días prorrateado (solo aplica con Fecha Fin manual).
+  const interes = parseFloat((calcIntereses(monto, tipo, mesesEfectivo) + (monto*(tm/30)*diasExtra)).toFixed(2));
   const total   = monto + interes;
-  const venc    = fechaSumar(fecha, plazoMeses);
+  const venc    = usarFechaFin ? fechaFinEfectiva : fechaSumar(fecha, mesesEfectivo);
 
   document.getElementById('p-interes').value    = interes.toFixed(2);
   document.getElementById('p-total').value      = total.toFixed(2);
   document.getElementById('p-vencimiento').value = fechaDisplay(venc);
 
-  // Tabla de amortización
+  // Tabla de amortización. Se arma como una sola lista de "periodos" (uno por mes completo, más
+  // un periodo final de días si sobran) para que el mismo bucle sirva tanto para el plazo clásico
+  // (meses exactos, sin cambios de comportamiento) como para el plazo con Fecha Fin manual, que
+  // puede incluir un tramo de días sueltos al final (o ser TODO en días, si dura menos de un mes).
   const tb = document.getElementById('p-amort-body');
-  if(!plazoMeses){ tb.innerHTML=''; return; }
-  const tm = tasaMensual(tipo);
+  const totalPeriodos = mesesEfectivo + (diasExtra>0 ? 1 : 0);
+  if(!totalPeriodos){ tb.innerHTML=''; return; }
   const modalidadPago = esFinExterno ? document.getElementById('p-modalidad-pago').value : 'cuotas';
-  let rows='';
-  if(modalidadPago === 'solo_interes'){
-    // Solo interés cada mes (el capital NO baja mes a mes) — el capital completo se devuelve
-    // recién en la última cuota, junto con el interés de ese mes. Típico de líneas de bancos/
-    // proveedores donde se paga "solo el interés" y el capital al vencimiento.
-    for(let i=1;i<=plazoMeses;i++){
-      const isLast = i === plazoMeses;
-      const intCuota = parseFloat((monto * tm).toFixed(2));
-      const capitalCuota = isLast ? monto : 0;
-      const cuotaTotal = parseFloat((capitalCuota + intCuota).toFixed(2));
-      const fechaCuota = fechaSumar(fecha, i);
-      rows += `<tr style="${isLast?'font-weight:700;background:#f0faf4;':''}">
-        <td style="text-align:center;">${i}</td>
+
+  const fila = (n, fechaCuota, capitalCuota, intCuota, isLast) => {
+    const cuotaTotal = parseFloat((capitalCuota + intCuota).toFixed(2));
+    return { html: `<tr style="${isLast?'font-weight:700;background:#f0faf4;':''}">
+        <td style="text-align:center;">${n}</td>
         <td>${fechaDisplay(fechaCuota)}</td>
         <td style="text-align:right;">S/. ${capitalCuota.toFixed(2)}</td>
         <td style="text-align:right;color:#e65100;">S/. ${intCuota.toFixed(2)}</td>
         <td style="text-align:right;font-weight:700;">S/. ${cuotaTotal.toFixed(2)}</td>
-      </tr>`;
+      </tr>`, capitalCuota, intCuota, cuotaTotal };
+  };
+
+  let rows='', saldoCap=monto, totCapital=0, totInteres=0, totCuota=0;
+  for(let i=1;i<=mesesEfectivo;i++){
+    const isLastOverall = (i===mesesEfectivo) && diasExtra<=0;
+    let capitalCuota, intCuota;
+    if(modalidadPago === 'solo_interes'){
+      capitalCuota = isLastOverall ? monto : 0;
+      intCuota = parseFloat((monto * tm).toFixed(2));
+    } else {
+      // Idéntico a la fórmula anterior cuando no hay días extra (totalPeriodos===mesesEfectivo).
+      capitalCuota = parseFloat((monto / totalPeriodos).toFixed(2));
+      intCuota = parseFloat((saldoCap * tm).toFixed(2));
+      saldoCap -= capitalCuota;
     }
-  } else {
-    const cuotaCapital  = monto / plazoMeses;
-    let saldoCap=monto;
-    for(let i=1;i<=plazoMeses;i++){
-      const intCuota  = parseFloat((saldoCap * tm).toFixed(2));
-      const cuotaTotal = parseFloat((cuotaCapital + intCuota).toFixed(2));
-      const fechaCuota = fechaSumar(fecha, i);
-      saldoCap -= cuotaCapital;
-      const isLast = i === plazoMeses;
-      rows += `<tr style="${isLast?'font-weight:700;background:#f0faf4;':''}">
-        <td style="text-align:center;">${i}</td>
-        <td>${fechaDisplay(fechaCuota)}</td>
-        <td style="text-align:right;">S/. ${cuotaCapital.toFixed(2)}</td>
-        <td style="text-align:right;color:#e65100;">S/. ${intCuota.toFixed(2)}</td>
-        <td style="text-align:right;font-weight:700;">S/. ${cuotaTotal.toFixed(2)}</td>
-      </tr>`;
-    }
+    const f = fila(i, fechaSumar(fecha, i), capitalCuota, intCuota, isLastOverall);
+    rows += f.html; totCapital += f.capitalCuota; totInteres += f.intCuota; totCuota += f.cuotaTotal;
   }
+  if(diasExtra>0){
+    let capitalCuota, intCuota;
+    if(modalidadPago === 'solo_interes'){
+      capitalCuota = monto;
+      intCuota = parseFloat((monto * (tm/30) * diasExtra).toFixed(2));
+    } else {
+      capitalCuota = parseFloat(saldoCap.toFixed(2)); // lo que reste, para que sume exacto el monto
+      intCuota = parseFloat((saldoCap * (tm/30) * diasExtra).toFixed(2));
+    }
+    const f = fila(mesesEfectivo+1, fechaFinEfectiva, capitalCuota, intCuota, true);
+    rows += f.html; totCapital += f.capitalCuota; totInteres += f.intCuota; totCuota += f.cuotaTotal;
+  }
+  // Fila TOTAL — el "reporte" que suma capital, interés y cuota de todo el cronograma.
+  rows += `<tr style="font-weight:900;background:#eef7ee;border-top:2px solid #1a5c2e;">
+      <td colspan="2" style="text-align:right;padding-right:10px;">TOTAL</td>
+      <td style="text-align:right;">S/. ${totCapital.toFixed(2)}</td>
+      <td style="text-align:right;color:#e65100;">S/. ${totInteres.toFixed(2)}</td>
+      <td style="text-align:right;">S/. ${totCuota.toFixed(2)}</td>
+    </tr>`;
   tb.innerHTML = rows;
 }
 
@@ -7703,9 +7771,21 @@ function guardarPrestamo(){
   }
 
   const plazoMeses = unidad === 'años' ? plazo * 12 : plazo;
-  const interes    = calcIntereses(monto, tipo, plazoMeses);
-  const total      = monto + interes;
+  const fechaFinVal = document.getElementById('p-fecha-fin').value;
+  const usarFechaFin = esFinExterno && !!fechaFinVal;
+  if(usarFechaFin && new Date(fechaFinVal) <= new Date(fecha)){
+    showAlert('prest-form-alert','error','La Fecha Fin debe ser posterior a la Fecha de Desembolso.'); return;
+  }
   const cfg        = TIPOS_PRESTAMO[tipo];
+  const tm         = tasaMensual(tipo);
+  // Mismo criterio que calcPrestamo(): meses completos con la fórmula clásica, más el remanente
+  // de días prorrateado si se usó Fecha Fin manual (0 días para el flujo clásico, sin cambios).
+  const md         = usarFechaFin ? mesesYDiasEntre(fecha, fechaFinVal) : { meses: plazoMeses, dias: 0 };
+  const mesesEfectivo = md.meses;
+  const diasExtra     = md.dias;
+  const interes    = parseFloat((calcIntereses(monto, tipo, mesesEfectivo) + (monto*(tm/30)*diasExtra)).toFixed(2));
+  const total      = monto + interes;
+  const vencimiento = usarFechaFin ? fechaFinVal : fechaSumar(fecha, plazoMeses);
   const direccion  = cfg.direccion || 'otorgado'; // 'recibido' = la Organización es quien debe (banco/proveedor)
 
   const prestamo = {
@@ -7716,6 +7796,9 @@ function guardarPrestamo(){
     direccion,
     entidad_prestamista: esFinExterno ? socio : '',
     modalidad_pago: esFinExterno ? document.getElementById('p-modalidad-pago').value : 'cuotas',
+    fecha_fin:    usarFechaFin ? fechaFinVal : '',
+    meses_efectivo: mesesEfectivo,
+    dias_extra:   diasExtra,
     dni:          document.getElementById('p-dni').value,
     caserio:      esFinExterno ? '' : document.getElementById('p-caserio').value,
     monto:        monto.toFixed(2),
@@ -7724,7 +7807,7 @@ function guardarPrestamo(){
     tasaDesc:     `${cfg.tasa}% ${cfg.periodo}`,
     interes:      interes.toFixed(2),
     total:        total.toFixed(2),
-    vencimiento:  fechaSumar(fecha, plazoMeses),
+    vencimiento,
     observaciones: document.getElementById('p-observaciones').value,
     abonos:       [],
     usuario:      SESSION.user
@@ -8150,6 +8233,7 @@ function verDetallePrestamo(idx){
       <div><div style="font-size:0.68rem;color:#555;">Total a Devolver</div><strong style="color:#1b5e20;font-size:1rem;">S/. ${parseFloat(p.total).toFixed(2)}</strong></div>
       <div><div style="font-size:0.68rem;color:#555;">Estado</div><span style="font-weight:700;color:${est==='Pagado'?'#2e7d32':est==='Vencido'?'#c62828':'#0d47a1'};">${est}</span></div>
       ${p.modalidad_pago==='solo_interes' ? `<div class="form-full" style="grid-column:1/-1;"><div style="font-size:0.68rem;color:#555;">Modalidad de Pago</div><strong style="color:#4a148c;">Solo interés mensual — capital S/. ${parseFloat(p.monto).toFixed(2)} se paga al vencimiento (${fechaDisplay(p.vencimiento)})</strong></div>` : ''}
+      ${p.fecha_fin ? `<div class="form-full" style="grid-column:1/-1;"><div style="font-size:0.68rem;color:#555;">Plazo Exacto</div><strong style="color:#4a148c;">${p.meses_efectivo>0 && p.dias_extra>0 ? `${p.meses_efectivo} mes(es) y ${p.dias_extra} día(s)` : p.meses_efectivo>0 ? `${p.meses_efectivo} mes(es)` : `${p.dias_extra} día(s)`} (del ${fechaDisplay(p.fecha)} al ${fechaDisplay(p.fecha_fin)})</strong></div>` : ''}
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;">
