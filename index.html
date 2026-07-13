@@ -1043,6 +1043,9 @@ tr:hover td{background:#f4f8f4;}
 <!-- PRÉSTAMOS -->
 <div class="section" id="sec-prestamos">
 
+  <!-- ALERTAS DE VENCIMIENTO (financiamiento recibido de bancos/proveedores) -->
+  <div id="prest-alertas-banner"></div>
+
   <!-- STATS PRÉSTAMOS -->
   <div class="stats-grid" style="margin-bottom:18px;">
     <div class="stat-card azul">
@@ -1135,7 +1138,7 @@ tr:hover td{background:#f4f8f4;}
     </div>
     <div class="table-wrap">
       <table><thead><tr>
-        <th>N° Préstamo</th><th>Fecha</th><th>Socio / Entidad</th><th>DNI</th>
+        <th>N° Préstamo</th><th>Fecha Inicio</th><th>Socio / Entidad</th><th>DNI</th>
         <th>Tipo</th><th>Monto S/.</th><th>Tasa</th><th>Plazo</th>
         <th>Interés S/.</th><th>Total S/.</th><th>Pagado S/.</th>
         <th>Saldo S/.</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th>
@@ -2012,9 +2015,10 @@ tr:hover td{background:#f4f8f4;}
     </div>
   </div>
 
+  <div id="ab-reduccion-info"></div>
   <input type="hidden" id="ab-prestamo-idx">
   <div class="form-grid-2">
-    <div class="form-group"><label>Fecha de Abono</label><input type="date" id="ab-fecha"></div>
+    <div class="form-group"><label>Fecha de Abono</label><input type="date" id="ab-fecha" oninput="calcMontoAbono()"></div>
     <div class="form-group">
       <label>Tipo de Abono</label>
       <select id="ab-tipo" onchange="calcMontoAbono()">
@@ -6836,7 +6840,7 @@ function exportarExcel(tipo){
       a.fecha_cierre||'', a.estado]);
     n='Aperturas_Caja_APARCH';
   } else if(tipo==='prestamos'){
-    h=['N° Préstamo','Fecha','Socio / Entidad','DNI','Dirección','Tipo','Monto S/.','Tasa','Plazo','Interés S/.','Total S/.','Pagado S/.','Saldo S/.','Vencimiento','Estado'];
+    h=['N° Préstamo','Fecha Inicio','Socio / Entidad','DNI','Dirección','Tipo','Monto S/.','Tasa','Plazo','Interés S/.','Total S/.','Pagado S/.','Saldo S/.','Vencimiento','Estado'];
     d=(DB.prestamos||[]).map((p,pi)=>[p.codigo,p.fecha,p.socio,p.dni,
       p.direccion==='recibido' ? 'Recibido (debemos)' : 'Otorgado (nos deben)',
       p.tipo==='adelanto_cafe'?'Adelanto Café':p.tipo==='prestamo_cosecha'?'Préstamo Cosecha':p.tipo==='prestamo_salud'?'Préstamo Salud':'Financiamiento Externo',
@@ -7492,6 +7496,55 @@ function saldoPrestamo(prestamoIdx){
   return Math.max(0, (parseFloat(p.total)||0) - totalPagadoPrestamo(prestamoIdx));
 }
 
+// Reconstruye la tasa mensual de un préstamo YA GUARDADO a partir de sus propios campos
+// (p.tasa/p.tasaDesc), sin depender de TIPOS_PRESTAMO.financiamiento_externo — ese objeto es
+// compartido y se sobreescribe cada vez que se abre el formulario de OTRO préstamo, así que no
+// es confiable para recalcular un registro histórico.
+function tasaMensualDesdeRegistro(p){
+  const tasa = parseFloat(p.tasa)||0;
+  const esAnual = (p.tasaDesc||'').includes('anual');
+  return esAnual ? tasa/100/12 : tasa/100;
+}
+
+// Total "real" de un financiamiento externo (banco/proveedor) a una fecha de corte dada.
+// Si se cancela ANTES del vencimiento, el interés se recalcula sobre el plazo realmente
+// transcurrido (meses completos + días, igual criterio que al crear el préstamo) en vez de
+// cobrar el interés del plazo completo original — por eso "amortizar antes reduce el interés".
+// Si la fecha de corte ya alcanzó o pasó el vencimiento, se cobra el interés total original
+// (ya se devengó por completo). Los préstamos clásicos (a un socio) no cambian: siempre se
+// devuelve su total tal cual quedó fijado al crearse.
+function totalActualizadoPrestamo(prestamoIdx, fechaCorte){
+  const p = DB.prestamos[prestamoIdx];
+  if(!p) return { interes:0, total:0, reducido:false };
+  const totalOriginal = parseFloat(p.total)||0;
+  const interesOriginal = parseFloat(p.interes)||0;
+  if(p.direccion !== 'recibido' || !p.vencimiento || !p.fecha){
+    return { interes:interesOriginal, total:totalOriginal, reducido:false };
+  }
+  const corte = fechaCorte || hoy();
+  if(new Date(corte) >= new Date(p.vencimiento)){
+    return { interes:interesOriginal, total:totalOriginal, reducido:false };
+  }
+  if(new Date(corte) <= new Date(p.fecha)){
+    // Cancelar el mismo día del desembolso (o antes, por error de fecha): 0 días transcurridos.
+    return { interes:0, total: parseFloat(p.monto)||0, reducido:true };
+  }
+  const tm = tasaMensualDesdeRegistro(p);
+  const md = mesesYDiasEntre(p.fecha, corte);
+  const monto = parseFloat(p.monto)||0;
+  const interesReal = parseFloat((monto*tm*md.meses + monto*(tm/30)*md.dias).toFixed(2));
+  const totalReal = parseFloat((monto + interesReal).toFixed(2));
+  return { interes: interesReal, total: totalReal, reducido: totalReal < totalOriginal };
+}
+
+// Saldo pendiente considerando la reducción de interés por cancelación anticipada (solo aplica
+// cuando se está por registrar un Pago Total antes del vencimiento; para abonos parciales normales
+// se sigue usando saldoPrestamo(), que se basa en el total original ya contratado).
+function saldoPrestamoAFecha(prestamoIdx, fechaCorte){
+  const { total } = totalActualizadoPrestamo(prestamoIdx, fechaCorte);
+  return Math.max(0, total - totalPagadoPrestamo(prestamoIdx));
+}
+
 function estadoPrestamo(idx){
   const p = DB.prestamos[idx];
   if(!p) return 'Vigente';
@@ -7530,6 +7583,12 @@ function mesesYDiasEntre(fechaInicioStr, fechaFinStr){
   }
   const dias = Math.round((fin - cursor) / 86400000);
   return { meses, dias };
+}
+
+// Diferencia simple en días calendario entre 2 fechas ISO (puede ser negativa si f2 < f1).
+// Se usa para las alertas de vencimiento: días que faltan (o que ya pasaron) hasta una fecha.
+function diasEntreFechas(f1, f2){
+  return Math.round((new Date(f2) - new Date(f1)) / 86400000);
 }
 
 // ── ABRIR MODAL PRÉSTAMO ──
@@ -7902,6 +7961,40 @@ function renderPrestamos(filtro, tipoF, estadoF){
   if(elRecTot) elRecTot.textContent = fmtS(totalRecibido);
   if(elRecSal) elRecSal.textContent = fmtS(saldoRecibido);
 
+  // Alertas de vencimiento: financiamientos recibidos (banco/proveedor) que ya vencieron o están
+  // por vencer en los próximos 15 días, y que aún no están pagados.
+  const bannerEl = document.getElementById('prest-alertas-banner');
+  if(bannerEl){
+    const hoyStr = hoy();
+    const vencidos15 = [], porVencer15 = [];
+    DB.prestamos.forEach((p,i)=>{
+      if((p.direccion||'otorgado') !== 'recibido') return;
+      if(estadoPrestamo(i) === 'Pagado') return;
+      if(!p.vencimiento) return;
+      const dias = diasEntreFechas(hoyStr, p.vencimiento);
+      if(dias < 0) vencidos15.push({p, dias});
+      else if(dias <= 15) porVencer15.push({p, dias});
+    });
+    if(vencidos15.length || porVencer15.length){
+      let html = '';
+      if(vencidos15.length){
+        html += `<div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:9px;padding:10px 16px;margin-bottom:8px;">
+          <div style="font-weight:800;color:#c62828;font-size:0.88rem;margin-bottom:4px;">🔴 ${vencidos15.length} financiamiento(s) VENCIDO(S)</div>
+          ${vencidos15.map(v=>`<div style="font-size:0.78rem;color:#7a1f1f;">• ${v.p.codigo} — ${v.p.socio} — venció hace ${Math.abs(v.dias)} día(s) (${fechaDisplay(v.p.vencimiento)}) — Saldo: S/. ${fmt(saldoPrestamo(DB.prestamos.indexOf(v.p)))}</div>`).join('')}
+        </div>`;
+      }
+      if(porVencer15.length){
+        html += `<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:9px;padding:10px 16px;margin-bottom:8px;">
+          <div style="font-weight:800;color:#e65100;font-size:0.88rem;margin-bottom:4px;">🟠 ${porVencer15.length} financiamiento(s) por vencer en los próximos 15 días</div>
+          ${porVencer15.map(v=>`<div style="font-size:0.78rem;color:#8a5a00;">• ${v.p.codigo} — ${v.p.socio} — vence en ${v.dias} día(s) (${fechaDisplay(v.p.vencimiento)}) — Saldo: S/. ${fmt(saldoPrestamo(DB.prestamos.indexOf(v.p)))}</div>`).join('')}
+        </div>`;
+      }
+      bannerEl.innerHTML = html;
+    } else {
+      bannerEl.innerHTML = '';
+    }
+  }
+
   const tb = document.getElementById('prestamos-body');
   if(!lista.length){
     tb.innerHTML=`<tr><td colspan="15"><div class="empty-state"><span class="ico">💰</span>No hay préstamos registrados.</div></td></tr>`;
@@ -8089,6 +8182,7 @@ function abrirModalAbono(idx){
   document.getElementById('ab-saldo').textContent  = fmtS(sald);
   document.getElementById('ab-saldo').style.color  = sald<=0.05?'#2e7d32':'#c62828';
   document.getElementById('abono-alert').innerHTML = '';
+  document.getElementById('ab-reduccion-info').innerHTML = '';
   // Financiamiento externo: esto es un pago de cuota a un tercero, no un abono que recibimos
   document.getElementById('modal-abono-titulo').textContent = esRecibido ? '💳 Registrar Pago de Cuota' : '💳 Registrar Abono';
   document.getElementById('ab-socio-label').textContent = esRecibido ? 'Banco / Proveedor' : 'Socio';
@@ -8097,10 +8191,29 @@ function abrirModalAbono(idx){
 }
 
 function calcMontoAbono(){
-  const idx  = parseInt(document.getElementById('ab-prestamo-idx').value);
-  const tipo = document.getElementById('ab-tipo').value;
-  const sald = saldoPrestamo(idx);
+  const idx    = parseInt(document.getElementById('ab-prestamo-idx').value);
+  const tipo   = document.getElementById('ab-tipo').value;
+  const p      = DB.prestamos[idx];
+  const fechaAbono = document.getElementById('ab-fecha').value || hoy();
+  const infoEl = document.getElementById('ab-reduccion-info');
   const montoEl = document.getElementById('ab-monto');
+
+  // El "Pago Total (liquidar)" de un financiamiento externo cancelado ANTES del vencimiento
+  // recalcula el saldo con el interés reducido (solo por los días realmente transcurridos).
+  // Un abono parcial normal sigue midiéndose contra el total original ya contratado.
+  let sald = saldoPrestamo(idx);
+  infoEl.innerHTML = '';
+  if(tipo === 'total' && p && p.direccion==='recibido'){
+    const act = totalActualizadoPrestamo(idx, fechaAbono);
+    sald = Math.max(0, act.total - totalPagadoPrestamo(idx));
+    if(act.reducido){
+      const ahorro = (parseFloat(p.total)||0) - act.total;
+      infoEl.innerHTML = `<div style="background:#f3e5f5;border:1px solid #ce93d8;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.8rem;color:#4a148c;">
+        💡 Estás cancelando antes del vencimiento (${fechaDisplay(p.vencimiento)}). El interés se recalculó según los días reales:
+        <strong>ahora debes S/. ${act.total.toFixed(2)}</strong> en vez de S/. ${parseFloat(p.total).toFixed(2)} — ahorras S/. ${ahorro.toFixed(2)}.</div>`;
+    }
+  }
+
   if(tipo==='total'){ montoEl.value=sald.toFixed(2); montoEl.readOnly=true; }
   else { montoEl.readOnly=false; }
   const monto = parseFloat(montoEl.value)||0;
@@ -8112,15 +8225,35 @@ function calcMontoAbono(){
 
 function guardarAbono(){
   const idx    = parseInt(document.getElementById('ab-prestamo-idx').value);
+  const tipoAbono = document.getElementById('ab-tipo').value;
   const monto  = parseFloat(document.getElementById('ab-monto').value)||0;
   const fecha  = document.getElementById('ab-fecha').value;
   if(!monto)  { showAlert('abono-alert','error','Ingrese el monto del abono.'); return; }
   if(!fecha)  { showAlert('abono-alert','error','Ingrese la fecha.'); return; }
-  const sald = saldoPrestamo(idx);
-  if(monto > sald + 0.01){ showAlert('abono-alert','error',`El abono (S/. ${monto.toFixed(2)}) supera el saldo (S/. ${fmt(sald)}).`); return; }
 
   const pPrevio = DB.prestamos[idx];
   const esRecibido = pPrevio.direccion === 'recibido';
+  const interesOriginalTexto = pPrevio.interes; // capturado ANTES de mutar — pPrevio es la MISMA
+  // referencia que DB.prestamos[idx] (no una copia), así que hay que leer este valor antes de
+  // reasignar .interes más abajo o el mensaje de observaciones mostraría el interés YA reducido.
+
+  // Pago Total de un financiamiento externo cancelado antes del vencimiento: el interés se
+  // recalcula por los días realmente transcurridos (se reduce), y ese nuevo total/interés queda
+  // grabado en el préstamo — así el saldo/estado quedan correctos de ahí en adelante.
+  let cancelacionAnticipada = false;
+  if(tipoAbono === 'total' && esRecibido){
+    const act = totalActualizadoPrestamo(idx, fecha);
+    if(act.reducido){
+      DB.prestamos[idx].interes = act.interes.toFixed(2);
+      DB.prestamos[idx].total   = act.total.toFixed(2);
+      DB.prestamos[idx].observaciones = (DB.prestamos[idx].observaciones||'') +
+        `\n(Cancelado anticipadamente el ${fechaDisplay(fecha)}: interés recalculado a S/. ${act.interes.toFixed(2)}, antes S/. ${interesOriginalTexto})`;
+      cancelacionAnticipada = true;
+    }
+  }
+
+  const sald = saldoPrestamo(idx); // ya refleja el total recién actualizado, si hubo reducción
+  if(monto > sald + 0.01){ showAlert('abono-alert','error',`El abono (S/. ${monto.toFixed(2)}) supera el saldo (S/. ${fmt(sald)}).`); return; }
 
   // Financiamiento externo: el pago de cuota SALE de caja (le pagamos al banco/proveedor).
   // Si no hay caja abierta, o el egreso superaría el saldo disponible, se confirma antes de continuar
@@ -8184,8 +8317,10 @@ function guardarAbono(){
   const saldNew = saldoPrestamo(idx);
   const abonoIdxGuardado = DB.prestamos[idx].abonos.length - 1;
   setTimeout(()=>verPrintAbono(idx, abonoIdxGuardado), 200);
-  if(saldNew<=0.05) alert(esRecibido ? '✅ Financiamiento liquidado completamente.' : '✅ Préstamo liquidado completamente.');
-  else if(cajaIdx>=0){
+  if(saldNew<=0.05){
+    if(cancelacionAnticipada) alert(`✅ Financiamiento liquidado anticipadamente.\n💡 El interés se redujo a S/. ${DB.prestamos[idx].interes} por cancelar antes del vencimiento.`);
+    else alert(esRecibido ? '✅ Financiamiento liquidado completamente.' : '✅ Préstamo liquidado completamente.');
+  } else if(cajaIdx>=0){
     if(esRecibido) alert(`✅ Pago registrado.\n📤 Egreso S/. ${fmt(monto)} descontado de caja.`);
     else alert(`✅ Abono registrado.\n📥 Ingreso S/. ${fmt(monto)} registrado en caja.`);
   }
