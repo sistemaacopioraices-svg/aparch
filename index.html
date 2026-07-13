@@ -432,6 +432,10 @@ tr:hover td{background:#f4f8f4;}
     <div class="card-header">
       <div class="card-title">🎫 Tickets de Entrada</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar humedad de laboratorio desde Excel para tickets ya registrados (recalcula descuento por humedad y peso neto solos)">
+          📂 Importar Humedades
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarHumedadesTickets(this)">
+        </label>
         <button class="btn btn-export" onclick="exportarExcel('tickets')">📥 Exportar Excel</button>
         <button class="btn btn-dorado" onclick="imprimirTodosTickets()">🖨️ Imprimir Todos</button>
         <button class="btn btn-primary" onclick="abrirModalTicket()">+ Nuevo Ticket</button>
@@ -463,9 +467,13 @@ tr:hover td{background:#f4f8f4;}
     <div class="card-header">
       <div class="card-title">📋 Guías de Entrada</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar guías desde Excel">
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar guías NUEVAS desde Excel">
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
+        </label>
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar precio (o rendimiento/puntaje) y humedad de análisis desde Excel para guías YA registradas — recalcula el valor recibido solo">
+          📊 Importar Precios/Humedad
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPreciosGuias(this)">
         </label>
         <button class="btn btn-export" onclick="exportarExcel('guias')">📥 Exportar Excel</button>
         <button class="btn btn-secondary" onclick="vincularTicketsHuerfanos(true)" title="Solo úsalo para arreglar datos VIEJOS (guías huérfanas de antes). Revisa siempre el resultado antes de confiar en él — nunca se ejecuta solo.">🔗 Vincular Tickets Antiguos (revisar antes de usar)</button>
@@ -724,6 +732,19 @@ tr:hover td{background:#f4f8f4;}
       </div>
     </div>
 
+    <!-- ALERTAS DE PRÉSTAMOS (WHATSAPP) -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔔 Alertas de Préstamos (WhatsApp)</div></div>
+      <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.8rem;color:#2e7d32;">
+        La app no tiene servidor propio, así que no puede enviar mensajes de forma 100% automática. Cuando haya una cuota de interés o un vencimiento próximo de un financiamiento, el banner de la sección Préstamos te mostrará un botón "📱 Enviar por WhatsApp" que abre WhatsApp con el mensaje ya escrito — tú solo le das Enviar.
+      </div>
+      <div class="form-group" style="margin-bottom:6px;">
+        <label>Teléfono para las alertas (opcional)</label>
+        <input type="text" id="cfg-tel-alertas-prestamos" placeholder="Ej: 51987654321 (código de país + número, sin + ni espacios)" oninput="guardarTelefonoAlertasPrestamos()">
+      </div>
+      <div style="font-size:0.75rem;color:var(--txts);">Si lo dejas vacío, el botón abrirá WhatsApp para que elijas el contacto cada vez.</div>
+    </div>
+
     <!-- USUARIOS -->
     <div class="card admin-only">
       <div class="card-header"><div class="card-title">👤 Gestión de Usuarios</div></div>
@@ -802,13 +823,16 @@ tr:hover td{background:#f4f8f4;}
     <div class="card" style="grid-column:1/-1;">
       <div class="card-header">
         <div class="card-title">💰 Tabla de Precios — Rendimiento Físico</div>
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <span style="font-size:0.8rem;color:var(--txts);">Precio QQ a rendimiento 70:</span>
           <input type="number" id="cfg-precio-base" placeholder="790" value="790"
-            style="width:100px;padding:6px 10px;border:2px solid var(--verde-c);border-radius:7px;font-weight:700;font-size:0.9rem;"
-            oninput="recalcTablaPreciosConfig()">
+            style="width:100px;padding:6px 10px;border:2px solid var(--verde-c);border-radius:7px;font-weight:700;font-size:0.9rem;">
           <span style="font-size:0.75rem;color:var(--txts);">S/. (base 70)</span>
+          <button class="btn btn-secondary btn-sm" onclick="regenerarTablaDesdeBase()" title="Recalcula TODA la tabla desde este precio base con los incrementos de siempre — sobrescribe cualquier precio editado a mano nivel por nivel">🔄 Regenerar tabla desde base</button>
         </div>
+      </div>
+      <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.78rem;color:#2e7d32;">
+        💡 Cada precio "S/. QQ" de la tabla es editable directamente — haz clic en el número, cámbialo y sal del campo (Tab o clic afuera) para guardarlo. El precio S/. KG se calcula solo (QQ ÷ 55.2).
       </div>
       <div style="overflow-x:auto;">
         <table id="tabla-config-precios" style="font-size:0.78rem;">
@@ -825,6 +849,24 @@ tr:hover td{background:#f4f8f4;}
           </tr></thead>
           <tbody id="tabla-config-body"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- FÓRMULA DE DESCUENTO POR HUMEDAD -->
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-header"><div class="card-title">🌾 Fórmula de Descuento por Humedad</div></div>
+      <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:0.78rem;color:#2e7d32;">
+        💡 El descuento por humedad se calcula así: <strong>si la humedad supera el umbral</strong>, se descuenta del peso bruto un % igual a <strong>(humedad − umbral) × factor</strong>. Con los valores de siempre (umbral 12%, factor 1) equivale a la fórmula clásica: cada punto de humedad sobre 12% descuenta 1% del peso.
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Umbral de humedad (%)</label>
+          <input type="number" id="cfg-humedad-umbral" step="0.1" min="0" placeholder="12" oninput="guardarConfigHumedad()">
+        </div>
+        <div class="form-group">
+          <label>Factor de descuento por punto excedente</label>
+          <input type="number" id="cfg-humedad-factor" step="0.1" min="0" placeholder="1" oninput="guardarConfigHumedad()">
+        </div>
       </div>
     </div>
 
@@ -2884,7 +2926,7 @@ tr:hover td{background:#f4f8f4;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'} };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, tablaPrecios:null, configHumedad:null, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], telefonoAlertasPrestamos:'', facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'} };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -3389,7 +3431,7 @@ function restaurarDesdeJSON(input){
       if(!confirm(msg)){ input.value = ''; return; }
 
       // Restaurar — copiar todos los campos de datos al DB
-      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion'].forEach(key => {
+      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos'].forEach(key => {
         if(data[key] !== undefined) DB[key] = data[key];
       });
 
@@ -3404,6 +3446,8 @@ function restaurarDesdeJSON(input){
       updateExportCounts();
       actualizarCampaña();
       if(document.getElementById('cfg-precio-base')) document.getElementById('cfg-precio-base').value = DB.precioBase || 790;
+      cargarTelefonoAlertasPrestamos();
+      cargarConfigHumedad();
 
     }catch(err){
       const el = document.getElementById('restore-alert');
@@ -3586,13 +3630,91 @@ function buildTablaPreciosDesdeBase(precioBase70){
   for(const d of diffsArriba){ if(r>82) break; t[r]=t[r-1]+d; r++; }
   return t;
 }
-function getTablaPrecios(){ return buildTablaPreciosDesdeBase(DB.precioBase||790); }
 
-function recalcTablaPreciosConfig(){
-  const val=parseFloat(document.getElementById('cfg-precio-base').value)||790;
-  DB.precioBase=val; guardarDB();
+// La tabla de precios por rendimiento es EDITABLE celda por celda (DB.tablaPrecios), ya no se
+// recalcula siempre desde un único precio base con incrementos fijos en el código. La primera
+// vez que se usa (instalación existente o nueva) se "siembra" con exactamente los mismos valores
+// que antes generaba buildTablaPreciosDesdeBase(), así ninguna guía ya calculada cambia de precio
+// solo por este cambio — de ahí en adelante, cada nivel se puede ajustar a mano desde
+// Configuración y esa edición manual queda guardada tal cual.
+function getTablaPrecios(){
+  if(!DB.tablaPrecios || !Object.keys(DB.tablaPrecios).length){
+    DB.tablaPrecios = buildTablaPreciosDesdeBase(DB.precioBase||790);
+  }
+  return DB.tablaPrecios;
+}
+
+// Edita un único nivel de rendimiento en la tabla (input directo en Configuración).
+function editarPrecioTabla(rend, valor){
+  const t = getTablaPrecios(); // asegura que exista/esté sembrada antes de tocar un solo nivel
+  const v = parseFloat(valor);
+  if(!isNaN(v) && v>=0) t[rend] = v;
+  guardarDB();
   renderTablaPreciosConfig();
 }
+
+// Regenera TODA la tabla desde un precio base + los incrementos fijos de siempre — es una
+// acción explícita (no ocurre sola al escribir el precio base) porque sobrescribe cualquier
+// ajuste manual que se haya hecho nivel por nivel.
+function regenerarTablaDesdeBase(){
+  const val = parseFloat(document.getElementById('cfg-precio-base').value)||790;
+  if(!confirm('Esto va a REEMPLAZAR toda la tabla de precios (todos los niveles de rendimiento) con los valores calculados automáticamente desde este precio base.\n\nSi ya editaste precios a mano en algún nivel, se perderán.\n\n¿Continuar?')) return;
+  DB.precioBase = val;
+  DB.tablaPrecios = buildTablaPreciosDesdeBase(val);
+  guardarDB();
+  renderTablaPreciosConfig();
+  alert('✅ Tabla de precios regenerada desde el precio base.');
+}
+
+// ══════════════════════════════════════════
+// FÓRMULA DE DESCUENTO POR HUMEDAD (editable, ya no fija en el código)
+// ══════════════════════════════════════════
+// Antes el descuento por humedad estaba fijo en el código: humedad>12% se descontaba
+// pesoBruto*((humedad-12)/100). Ahora el umbral (12) y el "factor" (1) se guardan en
+// DB.configHumedad y son editables desde Configuración — con los valores por defecto (12/1) el
+// resultado es matemáticamente IDÉNTICO a la fórmula anterior, así que no cambia nada para
+// quien no toque esta configuración.
+function getConfigHumedad(){
+  if(!DB.configHumedad) DB.configHumedad = { umbral:12, factor:1 };
+  return DB.configHumedad;
+}
+function calcularDescuentoHumedad(pesoBruto, humedad){
+  const cfg = getConfigHumedad();
+  const umbral = parseFloat(cfg.umbral); const umbralVal = isNaN(umbral) ? 12 : umbral;
+  const factor = parseFloat(cfg.factor); const factorVal = isNaN(factor) ? 1 : factor;
+  const pb = parseFloat(pesoBruto)||0, hum = parseFloat(humedad)||0;
+  if(hum <= umbralVal) return 0;
+  return pb * ((hum - umbralVal)/100) * factorVal;
+}
+function guardarConfigHumedad(){
+  const umbral = parseFloat(document.getElementById('cfg-humedad-umbral').value);
+  const factor = parseFloat(document.getElementById('cfg-humedad-factor').value);
+  DB.configHumedad = {
+    umbral: isNaN(umbral) ? 12 : umbral,
+    factor: isNaN(factor) ? 1 : factor
+  };
+  guardarDB();
+}
+function cargarConfigHumedad(){
+  const cfg = getConfigHumedad();
+  const elU = document.getElementById('cfg-humedad-umbral');
+  const elF = document.getElementById('cfg-humedad-factor');
+  if(elU) elU.value = cfg.umbral;
+  if(elF) elF.value = cfg.factor;
+}
+
+// Teléfono (opcional) al que apuntan los botones "Enviar por WhatsApp" de las alertas de
+// Préstamos. Es una preferencia local (no crítica para la operación), se guarda igual que
+// el resto de DB así sobrevive a un respaldo/restauración JSON.
+function guardarTelefonoAlertasPrestamos(){
+  DB.telefonoAlertasPrestamos = document.getElementById('cfg-tel-alertas-prestamos').value.trim();
+  guardarDB();
+}
+function cargarTelefonoAlertasPrestamos(){
+  const el = document.getElementById('cfg-tel-alertas-prestamos');
+  if(el) el.value = DB.telefonoAlertasPrestamos || '';
+}
+
 function renderTablaPreciosConfig(){
   const tb=document.getElementById('tabla-config-body');
   if(!tb) return;
@@ -3611,7 +3733,11 @@ function renderTablaPreciosConfig(){
       const isBase=r===70;
       const sBase=isBase?'color:#c62828;font-weight:900;background:#fff9c4;':'';
       return `<td style="text-align:center;padding:4px 8px;${sBase}">${r}</td>
-              <td style="text-align:right;padding:4px 8px;${sBase}">${pqq.toFixed(0)}</td>
+              <td style="text-align:right;padding:2px 4px;${sBase}">
+                <input type="number" value="${pqq}" step="1" min="0"
+                  style="width:64px;text-align:right;padding:3px 5px;border:1px solid var(--borde);border-radius:5px;font-weight:700;"
+                  onchange="editarPrecioTabla(${r}, this.value)" title="Precio S/. por QQ a rendimiento ${r}">
+              </td>
               <td style="text-align:right;padding:4px 8px;${sBase}">${pkg}</td>`;
     };
     rows+=`<tr id="tr-cfg-${c1[i]}" style="border-bottom:1px solid #e8f5e9;">${mkCell(c1[i])}${mkCell(c2[i])}${mkCell(c3[i])}</tr>`;
@@ -3757,7 +3883,7 @@ function showSection(id){
   if(id==='guias'){ vincularTicketsHuerfanos(); renderGuias(); }
   if(id==='comprobantes') renderComprobantes();
   if(id==='socios') renderSocios();
-  if(id==='config'){ renderTablaPreciosConfig(); renderUsuarios(); actualizarCampaña(); cargarGdriveClientIdEnConfig(); actualizarEstadoSheets(); cargarConfigFacturacion(); }
+  if(id==='config'){ renderTablaPreciosConfig(); renderUsuarios(); actualizarCampaña(); cargarGdriveClientIdEnConfig(); actualizarEstadoSheets(); cargarConfigFacturacion(); cargarTelefonoAlertasPrestamos(); cargarConfigHumedad(); }
   if(id==='exportar') updateExportCounts();
   if(id==='prestamos') renderPrestamos();
   if(id==='caja'){ migrarEgresosCafeCoco(true); renderCaja(); }
@@ -4279,7 +4405,7 @@ function calcTicket(){
   const pb=parseFloat(document.getElementById('t-pesobruto').value)||0;
   const hum=parseFloat(document.getElementById('t-humedad').value)||0;
   const tara=sacos*0.25;
-  const dh=hum>12?pb*((hum-12)/100):0;
+  const dh=calcularDescuentoHumedad(pb, hum);
   const pn=Math.max(0,pb-tara-dh);
   document.getElementById('t-tara').value=tara.toFixed(2);
   document.getElementById('t-deschum').value=dh.toFixed(2);
@@ -4723,6 +4849,183 @@ function calcValorTotalGuia(){
   document.getElementById('rc-formula').textContent = formula;
 
   document.getElementById('rc-total').textContent = fmtS(valorTotal);
+}
+
+// Misma fórmula que calcValorTotalGuia(), pero operando directamente sobre un registro de
+// DB.guias YA GUARDADO (fuera del modal, sin depender de guiaTicketsTemp ni de los inputs del
+// formulario) — usa el propio tickets_detalle guardado en la guía para el peso neto total.
+// La usan los importadores masivos de precio/humedad para recalcular precikg y valorrecibido
+// exactamente igual que si se hubiera editado la guía a mano.
+function recalcularValorGuiaDesdeDatos(g){
+  const pqq = parseFloat(g.precioqq)||0;
+  const prima = parseFloat(g.prima_qq)||0;
+  const descQQ = (g.formaentrega==='Descuento') ? (parseFloat(g.descuento_qq)||0) : 0;
+  const totalPN = (g.tickets_detalle||[]).reduce((a,r)=>a+(parseFloat(r.pesoneto)||0),0);
+  const totalQQ = totalPN/55.2;
+  const precioEfectivoQQ = pqq + prima - descQQ;
+  const valorTotal = totalQQ * precioEfectivoQQ;
+  g.precikg = pqq>0 ? (pqq/55.2).toFixed(4) : '';
+  g.valorrecibido = valorTotal.toFixed(2);
+  return g;
+}
+
+// ── IMPORTAR HUMEDADES (TICKETS) — actualiza tickets YA registrados, no crea nuevos ──
+// Excel esperado: columnas "N° Ticket" (o "Código") y "Humedad". Para cada ticket encontrado
+// recalcula tara/descuento por humedad/peso neto con la MISMA fórmula que calcTicket() al
+// llenar el formulario a mano. Si el ticket ya está vinculado a una guía, también actualiza la
+// fila correspondiente en tickets_detalle de esa guía y recalcula su valor recibido (con el
+// precio que la guía ya tenía) para que los montos no queden desalineados.
+function importarHumedadesTickets(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      if(rows.length < 2){ alert('El Excel no tiene datos.'); return; }
+
+      const headers = rows[0].map(h=>(h||'').toString().toLowerCase().trim());
+      const find = (keys) => { for(const k of keys){ const i=headers.findIndex(h=>h.includes(k)); if(i>=0) return i; } return -1; };
+      const cols = {
+        codigo:  find(['n° ticket','nro ticket','n ticket','codigo','ticket']),
+        humedad: find(['humedad','hum%','hum'])
+      };
+      if(cols.codigo<0 || cols.humedad<0){
+        alert('❌ El Excel debe tener al menos las columnas "N° Ticket" (o "Código") y "Humedad".');
+        return;
+      }
+
+      let actualizados=0; const noEncontrados=[]; const guiasRecalculadas=new Set();
+      rows.slice(1).forEach(row=>{
+        if(!row.length) return;
+        const codigo = row[cols.codigo]!==undefined && row[cols.codigo]!==null ? String(row[cols.codigo]).trim() : '';
+        if(!codigo) return;
+        const humRaw = row[cols.humedad];
+        if(humRaw===undefined || humRaw===null || humRaw==='') return;
+        const humedad = parseFloat(humRaw);
+        if(isNaN(humedad)) return;
+
+        const tkIdx = DB.tickets.findIndex(t=>(t.codigo||'').toUpperCase()===codigo.toUpperCase());
+        if(tkIdx<0){ noEncontrados.push(codigo); return; }
+
+        const t = DB.tickets[tkIdx];
+        const sacos = parseFloat(t.sacos)||0;
+        const pb    = parseFloat(t.pesobruto)||0;
+        const tara  = sacos*0.25;
+        const dh    = calcularDescuentoHumedad(pb, humedad);
+        const pn    = Math.max(0, pb - tara - dh);
+        t.humedad  = humedad.toFixed(2);
+        t.tara     = tara.toFixed(2);
+        t.deschum  = dh.toFixed(2);
+        t.pesoneto = pn.toFixed(2);
+        actualizados++;
+
+        if(t.guia_asignada){
+          const gIdx = DB.guias.findIndex(g=>g.codigo===t.guia_asignada);
+          if(gIdx>=0){
+            const g = DB.guias[gIdx];
+            const detIdx = (g.tickets_detalle||[]).findIndex(td=>td.nticket===t.codigo);
+            if(detIdx>=0){
+              g.tickets_detalle[detIdx].desctohumedad = t.deschum;
+              g.tickets_detalle[detIdx].pesoneto = t.pesoneto;
+              recalcularValorGuiaDesdeDatos(g);
+              guiasRecalculadas.add(g.codigo);
+            }
+          }
+        }
+      });
+
+      guardarDB(); renderTickets(); renderGuias();
+      let msg = `✅ Importación de humedades completada:\n• ${actualizados} ticket(s) actualizado(s)`;
+      if(guiasRecalculadas.size) msg += `\n• ${guiasRecalculadas.size} guía(s) recalculada(s) automáticamente (valor recibido ajustado al nuevo peso neto)`;
+      if(noEncontrados.length) msg += `\n• ${noEncontrados.length} código(s) no encontrados en Tickets: ${noEncontrados.slice(0,10).join(', ')}${noEncontrados.length>10?'…':''}`;
+      alert(msg);
+    }catch(err){
+      alert('❌ Error al leer el Excel: '+err.message);
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── IMPORTAR PRECIOS/HUMEDAD (GUÍAS) — actualiza guías YA registradas, no crea nuevas ──
+// Excel esperado: columna "N° Guía" (o "Código") y al menos una de "Precio QQ" o
+// "Rendimiento"/"Puntaje" (busca en la Tabla de Precios de Configuración si no viene el precio
+// directo); opcionalmente "Humedad". Recalcula precikg y valorrecibido con la misma fórmula que
+// calcValorTotalGuia(), usando el tickets_detalle ya guardado en cada guía.
+function importarPreciosGuias(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      if(rows.length < 2){ alert('El Excel no tiene datos.'); return; }
+
+      const headers = rows[0].map(h=>(h||'').toString().toLowerCase().trim());
+      const find = (keys) => { for(const k of keys){ const i=headers.findIndex(h=>h.includes(k)); if(i>=0) return i; } return -1; };
+      const cols = {
+        codigo:  find(['n° guía','n° guia','nro guia','n guia','codigo','guia']),
+        rend:    find(['rend','rendimiento','puntaje','taza','cupping']),
+        precio:  find(['precio qq','precioqq','precio']),
+        humedad: find(['humedad'])
+      };
+      if(cols.codigo<0 || (cols.rend<0 && cols.precio<0)){
+        alert('❌ El Excel debe tener la columna "N° Guía" y al menos "Precio QQ" o "Rendimiento/Puntaje".');
+        return;
+      }
+
+      const T = getTablaPrecios();
+      let actualizadas=0; const noEncontradas=[];
+      rows.slice(1).forEach(row=>{
+        if(!row.length) return;
+        const codigo = row[cols.codigo]!==undefined && row[cols.codigo]!==null ? String(row[cols.codigo]).trim() : '';
+        if(!codigo) return;
+
+        const gIdx = DB.guias.findIndex(g=>(g.codigo||'').toUpperCase()===codigo.toUpperCase());
+        if(gIdx<0){ noEncontradas.push(codigo); return; }
+        const g = DB.guias[gIdx];
+
+        let cambios=false;
+        if(cols.humedad>=0 && row[cols.humedad]!==undefined && row[cols.humedad]!==null && row[cols.humedad]!==''){
+          const h = parseFloat(row[cols.humedad]);
+          if(!isNaN(h)){ g.humedadanalisis = h.toFixed(2); cambios=true; }
+        }
+        let rendVal=null;
+        if(cols.rend>=0 && row[cols.rend]!==undefined && row[cols.rend]!==null && row[cols.rend]!==''){
+          const r = parseInt(row[cols.rend]);
+          if(!isNaN(r)){ rendVal=r; g.rend_export = String(r); cambios=true; }
+        }
+        // El precio explícito del Excel tiene prioridad; si no viene, se busca por rendimiento
+        // en la Tabla de Precios vigente (Configuración → Tabla de Precios).
+        if(cols.precio>=0 && row[cols.precio]!==undefined && row[cols.precio]!==null && row[cols.precio]!==''){
+          const p = parseFloat(row[cols.precio]);
+          if(!isNaN(p)){ g.precioqq = p.toFixed(2); cambios=true; }
+        } else if(rendVal!==null && T[rendVal]){
+          g.precioqq = T[rendVal].toFixed(2);
+          cambios=true;
+        }
+
+        if(cambios){
+          recalcularValorGuiaDesdeDatos(g);
+          actualizadas++;
+        }
+      });
+
+      guardarDB(); renderGuias();
+      let msg = `✅ Importación de precios/humedad completada:\n• ${actualizadas} guía(s) actualizada(s) — valor recibido recalculado`;
+      if(noEncontradas.length) msg += `\n• ${noEncontradas.length} código(s) no encontrados en Guías: ${noEncontradas.slice(0,10).join(', ')}${noEncontradas.length>10?'…':''}`;
+      alert(msg);
+    }catch(err){
+      alert('❌ Error al leer el Excel: '+err.message);
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 // Reconstruye el campo guia_asignada de cada ticket de forma SEGURA:
@@ -7537,6 +7840,42 @@ function totalActualizadoPrestamo(prestamoIdx, fechaCorte){
   return { interes: interesReal, total: totalReal, reducido: totalReal < totalOriginal };
 }
 
+// Próxima cuota de interés (financiamiento "solo interés", más de 1 periodo) que aún no
+// alcanza a estar cubierta por el total abonado hasta ahora. Solo aplica a financiamientos
+// externos con modalidad "solo interés" y más de un periodo — el capital se paga junto con el
+// último interés al vencimiento, y ESE pago ya lo cubre el banner de vencimientos; por eso aquí
+// se excluye el último periodo (esUltimoPeriodo=true), para no duplicar la misma alerta dos veces.
+// Es una aproximación razonable (no hay registro de "qué cuota exacta cubre cada abono"): se
+// asume que los abonos se van aplicando en orden a las cuotas mensuales de interés.
+function proximaCuotaInteresPendiente(prestamoIdx){
+  const p = DB.prestamos[prestamoIdx];
+  if(!p) return null;
+  if(p.direccion !== 'recibido' || p.modalidad_pago !== 'solo_interes') return null;
+  const meses = parseInt(p.meses_efectivo || p.plazoMeses || p.plazo) || 0;
+  if(meses <= 1 || !p.fecha) return null;
+  const tm = tasaMensualDesdeRegistro(p);
+  const monto = parseFloat(p.monto)||0;
+  const cuotaInteres = parseFloat((monto*tm).toFixed(2));
+  if(cuotaInteres <= 0) return null;
+  const pagadoTotal = totalPagadoPrestamo(prestamoIdx);
+  for(let i=1; i<=meses; i++){
+    const esperadoAcumulado = parseFloat((cuotaInteres*i).toFixed(2));
+    if(pagadoTotal + 0.01 < esperadoAcumulado){
+      return { periodo:i, totalPeriodos:meses, cuotaMonto:cuotaInteres, fechaCuota: fechaSumar(p.fecha, i), esUltimoPeriodo: i===meses };
+    }
+  }
+  return null; // todas las cuotas de interés ya están cubiertas por lo abonado
+}
+
+// Arma el link "wa.me" para el botón de alerta. Si hay un teléfono configurado en
+// Configuración → Alertas de Préstamos, abre directo esa conversación; si no, abre el selector
+// de contactos de WhatsApp (funciona sin número, el usuario elige a quién enviárselo).
+function armarLinkWhatsApp(mensaje){
+  const tel = (DB.telefonoAlertasPrestamos||'').replace(/\D/g,'');
+  const texto = encodeURIComponent(mensaje);
+  return tel ? `https://wa.me/${tel}?text=${texto}` : `https://api.whatsapp.com/send?text=${texto}`;
+}
+
 // Saldo pendiente considerando la reducción de interés por cancelación anticipada (solo aplica
 // cuando se está por registrar un Pago Total antes del vencimiento; para abonos parciales normales
 // se sigue usando saldoPrestamo(), que se basa en el total original ya contratado).
@@ -7962,31 +8301,68 @@ function renderPrestamos(filtro, tipoF, estadoF){
   if(elRecSal) elRecSal.textContent = fmtS(saldoRecibido);
 
   // Alertas de vencimiento: financiamientos recibidos (banco/proveedor) que ya vencieron o están
-  // por vencer en los próximos 15 días, y que aún no están pagados.
+  // por vencer en los próximos 15 días, y que aún no están pagados. También se incluye una alerta
+  // separada para la próxima cuota MENSUAL de interés (financiamientos "solo interés"), avisando
+  // unos días antes de la fecha en que corresponde pagarla desde caja.
   const bannerEl = document.getElementById('prest-alertas-banner');
   if(bannerEl){
     const hoyStr = hoy();
-    const vencidos15 = [], porVencer15 = [];
+    const DIAS_AVISO_CUOTA = 5;
+    const vencidos15 = [], porVencer15 = [], cuotasInteres = [];
     DB.prestamos.forEach((p,i)=>{
       if((p.direccion||'otorgado') !== 'recibido') return;
       if(estadoPrestamo(i) === 'Pagado') return;
-      if(!p.vencimiento) return;
-      const dias = diasEntreFechas(hoyStr, p.vencimiento);
-      if(dias < 0) vencidos15.push({p, dias});
-      else if(dias <= 15) porVencer15.push({p, dias});
+      if(p.vencimiento){
+        const dias = diasEntreFechas(hoyStr, p.vencimiento);
+        if(dias < 0) vencidos15.push({p, i, dias});
+        else if(dias <= 15) porVencer15.push({p, i, dias});
+      }
+      const prox = proximaCuotaInteresPendiente(i);
+      if(prox && !prox.esUltimoPeriodo){
+        const diasCuota = diasEntreFechas(hoyStr, prox.fechaCuota);
+        if(diasCuota <= DIAS_AVISO_CUOTA) cuotasInteres.push({p, i, prox, dias: diasCuota});
+      }
     });
-    if(vencidos15.length || porVencer15.length){
+
+    // Botón "Enviar por WhatsApp" reutilizable para cada línea de alerta.
+    const botonWA = (mensaje) => `<a href="${armarLinkWhatsApp(mensaje)}" target="_blank" rel="noopener" style="background:#25d366;color:#fff;padding:2px 10px;border-radius:12px;text-decoration:none;font-weight:700;font-size:0.7rem;white-space:nowrap;">📱 Enviar por WhatsApp</a>`;
+
+    if(vencidos15.length || porVencer15.length || cuotasInteres.length){
       let html = '';
       if(vencidos15.length){
         html += `<div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:9px;padding:10px 16px;margin-bottom:8px;">
           <div style="font-weight:800;color:#c62828;font-size:0.88rem;margin-bottom:4px;">🔴 ${vencidos15.length} financiamiento(s) VENCIDO(S)</div>
-          ${vencidos15.map(v=>`<div style="font-size:0.78rem;color:#7a1f1f;">• ${v.p.codigo} — ${v.p.socio} — venció hace ${Math.abs(v.dias)} día(s) (${fechaDisplay(v.p.vencimiento)}) — Saldo: S/. ${fmt(saldoPrestamo(DB.prestamos.indexOf(v.p)))}</div>`).join('')}
+          ${vencidos15.map(v=>{
+            const saldo = fmt(saldoPrestamo(v.i));
+            const msg = `🔴 Recordatorio APARCH: el financiamiento ${v.p.codigo} (${v.p.socio}) venció hace ${Math.abs(v.dias)} día(s) (${fechaDisplay(v.p.vencimiento)}). Saldo pendiente: S/. ${saldo}. Por favor programar el pago desde caja.`;
+            return `<div style="font-size:0.78rem;color:#7a1f1f;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <span>• ${v.p.codigo} — ${v.p.socio} — venció hace ${Math.abs(v.dias)} día(s) (${fechaDisplay(v.p.vencimiento)}) — Saldo: S/. ${saldo}</span>${botonWA(msg)}
+            </div>`;
+          }).join('')}
+        </div>`;
+      }
+      if(cuotasInteres.length){
+        html += `<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:9px;padding:10px 16px;margin-bottom:8px;">
+          <div style="font-weight:800;color:#1565c0;font-size:0.88rem;margin-bottom:4px;">💳 ${cuotasInteres.length} cuota(s) de interés por pagar desde caja</div>
+          ${cuotasInteres.map(c=>{
+            const estadoTxt = c.dias<0 ? `atrasada ${Math.abs(c.dias)} día(s)` : (c.dias===0 ? 'vence hoy' : `en ${c.dias} día(s)`);
+            const msg = `💳 Recordatorio APARCH: cuota de interés del financiamiento ${c.p.codigo} (${c.p.socio}) — mes ${c.prox.periodo}/${c.prox.totalPeriodos}: S/. ${c.prox.cuotaMonto.toFixed(2)}. Fecha de pago: ${fechaDisplay(c.prox.fechaCuota)}. Por favor programar el pago desde caja.`;
+            return `<div style="font-size:0.78rem;color:#0d47a1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <span>• ${c.p.codigo} — ${c.p.socio} — cuota S/. ${c.prox.cuotaMonto.toFixed(2)} (mes ${c.prox.periodo}/${c.prox.totalPeriodos}) — ${estadoTxt} (${fechaDisplay(c.prox.fechaCuota)})</span>${botonWA(msg)}
+            </div>`;
+          }).join('')}
         </div>`;
       }
       if(porVencer15.length){
         html += `<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:9px;padding:10px 16px;margin-bottom:8px;">
           <div style="font-weight:800;color:#e65100;font-size:0.88rem;margin-bottom:4px;">🟠 ${porVencer15.length} financiamiento(s) por vencer en los próximos 15 días</div>
-          ${porVencer15.map(v=>`<div style="font-size:0.78rem;color:#8a5a00;">• ${v.p.codigo} — ${v.p.socio} — vence en ${v.dias} día(s) (${fechaDisplay(v.p.vencimiento)}) — Saldo: S/. ${fmt(saldoPrestamo(DB.prestamos.indexOf(v.p)))}</div>`).join('')}
+          ${porVencer15.map(v=>{
+            const saldo = fmt(saldoPrestamo(v.i));
+            const msg = `🟠 Recordatorio APARCH: el financiamiento ${v.p.codigo} (${v.p.socio}) vence en ${v.dias} día(s) (${fechaDisplay(v.p.vencimiento)}). Saldo pendiente: S/. ${saldo}. Por favor programar el pago desde caja.`;
+            return `<div style="font-size:0.78rem;color:#8a5a00;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <span>• ${v.p.codigo} — ${v.p.socio} — vence en ${v.dias} día(s) (${fechaDisplay(v.p.vencimiento)}) — Saldo: S/. ${saldo}</span>${botonWA(msg)}
+            </div>`;
+          }).join('')}
         </div>`;
       }
       bannerEl.innerHTML = html;
@@ -8705,7 +9081,7 @@ async function gdriveCargar(){
     if(!confirm(`📥 CARGAR DATOS DESDE GOOGLE DRIVE\n\nFecha del backup: ${fecha}\nTickets: ${info.tickets||0}\nGuías: ${info.guias||0}\nComprobantes: ${info.comprobantes||0}\nSocios: ${info.socios||0}\n\n⚠️ ESTO REEMPLAZARÁ tus datos actuales.\n¿Continuar?`)) return;
 
     // Restaurar datos
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos'].forEach(key=>{
       if(data[key]!==undefined) DB[key]=data[key];
     });
     guardarDB(); marcarRespaldado();
@@ -8718,6 +9094,8 @@ async function gdriveCargar(){
     // Refrescar UI
     renderDashboard(); updateExportCounts(); actualizarCampaña();
     if(document.getElementById('cfg-precio-base')) document.getElementById('cfg-precio-base').value = DB.precioBase||790;
+    cargarTelefonoAlertasPrestamos();
+    cargarConfigHumedad();
 
   }catch(err){
     gdriveShowAlert('error','❌ Error al cargar desde Drive: '+(err.message||err));
@@ -8848,7 +9226,7 @@ async function sheetsCargarManual(){
     const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
     if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos actuales.\n¿Continuar?`)) return;
 
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos'].forEach(key=>{
       if(db[key]!==undefined) DB[key]=db[key];
     });
     guardarDB(); marcarRespaldado();
@@ -8858,6 +9236,8 @@ async function sheetsCargarManual(){
     actualizarEstadoSheets();
     renderDashboard(); updateExportCounts(); actualizarCampaña();
     if(document.getElementById('cfg-precio-base')) document.getElementById('cfg-precio-base').value = DB.precioBase||790;
+    cargarTelefonoAlertasPrestamos();
+    cargarConfigHumedad();
     if(el) el.innerHTML = `<div class="alert alert-success" style="margin:0;">✅ Datos cargados: <strong>${(db.tickets||[]).length} tickets</strong>, <strong>${(db.guias||[]).length} guías</strong>, <strong>${(db.socios||[]).length} socios</strong></div>`;
 
   }catch(err){
@@ -10606,7 +10986,7 @@ async function masGenerarTodo(){
     // 1. Crear TICKET
     const codTicket = nextCodigoCertif('ticket', d.certif);
     const lote = `LT${String(DB.tickets.length+1).padStart(3,'0')}-${campana}`;
-    const descHum = d.humedad > 12 ? Math.round((d.humedad-12)*d.kgNeto*0.01*100)/100 : 0;
+    const descHum = Math.round(calcularDescuentoHumedad(d.kgNeto, d.humedad)*100)/100;
 
     const ticket = {
       codigo: codTicket, fecha: d.fecha, hora: '08:00',
