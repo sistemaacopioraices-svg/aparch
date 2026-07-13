@@ -2161,9 +2161,12 @@ tr:hover td{background:#f4f8f4;}
     <div class="form-group"><label>Fecha</label><input type="date" id="r-fecha"></div>
     <div class="form-group form-full">
       <label id="r-persona-label">Recibí de / Pagado a</label>
-      <input type="text" id="r-persona" list="r-persona-list" placeholder="Seleccione un socio o escriba un nombre/razón social" autocomplete="off">
+      <input type="text" id="r-persona" list="r-persona-list" placeholder="Seleccione un socio o escriba un nombre/razón social" autocomplete="off" oninput="autocompletarPersonaRecibo()">
       <datalist id="r-persona-list"></datalist>
     </div>
+    <div class="form-group"><label>DNI</label><input type="text" id="r-dni" placeholder="N° de DNI"></div>
+    <div class="form-group"><label>Base</label><input type="text" id="r-base" placeholder="Base"></div>
+    <div class="form-group form-full"><label>Caserío</label><input type="text" id="r-caserio" placeholder="Caserío"></div>
     <div class="form-group form-full">
       <label>Concepto</label>
       <input type="text" id="r-concepto" placeholder="Descripción del motivo del recibo...">
@@ -6892,8 +6895,8 @@ function exportarTodo(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hC,...DB.comprobantes.map(c=>[c.codigo,c.fecha,c.guia_ref,c.productor,c.total_guia,c.monto,c.tipopago,c.formapago,c.observaciones])]),'Comprobantes');
   const hS=['Nombre','DNI','Base','Caserío','Certif.','Est.QQ','Est.KG'];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hS,...DB.socios.map(s=>[s.nombre,s.dni,s.base,s.caserio,s.certificacion,s.estimado_qq,s.estimado_kg])]),'Socios');
-  const hR=['N° Recibo','Tipo','Fecha','Persona','Concepto','Monto','Forma Pago','N° Apertura','Usuario'];
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hR,...(DB.recibos||[]).map(r=>[r.codigo,r.tipo,r.fecha,r.persona,r.concepto,r.monto,r.formapago,r.apertura_ref,r.usuario])]),'Recibos_Caja');
+  const hR=['N° Recibo','Tipo','Fecha','Persona','DNI','Base','Caserío','Concepto','Monto','Forma Pago','N° Apertura','Usuario'];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hR,...(DB.recibos||[]).map(r=>[r.codigo,r.tipo,r.fecha,r.persona,r.dni,r.base,r.caserio,r.concepto,r.monto,r.formapago,r.apertura_ref,r.usuario])]),'Recibos_Caja');
   const hAp=['N° Apertura','Fecha','Hora','Usuario','Saldo Inicial','Ingresos','Egresos','Saldo Final','Fecha Cierre','Estado'];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hAp,...(DB.aperturas||[]).map(a=>[a.codigo,a.fecha,a.hora,a.usuario,a.saldo_inicial,totalIngresosApertura(a.codigo).toFixed(2),totalEgresosApertura(a.codigo).toFixed(2),a.saldo_final||saldoActualApertura(a.codigo).toFixed(2),a.fecha_cierre,a.estado])]),'Aperturas_Caja');
   const hCC=['N° Compra','Fecha','DNI','Nombres','Sacos','Kg Bruto','Tara','Kg Neto','Precio Kg','Total','Observación'];
@@ -8916,12 +8919,26 @@ function abrirModalRecibo(tipo, idx){
   document.getElementById('r-codigo').value = r ? r.codigo : nextCodigo(DB.recibos||[], esIngreso ? 'ING-' : 'EGR-');
   document.getElementById('r-fecha').value = r ? r.fecha : hoy();
   document.getElementById('r-persona').value = r ? r.persona : '';
+  document.getElementById('r-dni').value = r ? (r.dni||'') : '';
+  document.getElementById('r-base').value = r ? (r.base||'') : '';
+  document.getElementById('r-caserio').value = r ? (r.caserio||'') : '';
   document.getElementById('r-concepto').value = r ? r.concepto : '';
   document.getElementById('r-monto').value = r ? r.monto : '';
   document.getElementById('r-formapago').value = r ? r.formapago : 'Efectivo';
   document.getElementById('r-observaciones').value = r ? r.observaciones : '';
   document.getElementById('recibo-form-alert').innerHTML = '';
   abrirModal('modal-recibo');
+}
+
+// Autocompleta DNI/Base/Caserío al elegir un socio de la lista (o al escribir un nombre que coincida exacto)
+function autocompletarPersonaRecibo(){
+  const nombre = document.getElementById('r-persona').value.trim();
+  const s = DB.socios.find(x=>x.nombre===nombre);
+  if(s){
+    document.getElementById('r-dni').value = s.dni||'';
+    document.getElementById('r-base').value = s.base||'';
+    document.getElementById('r-caserio').value = s.caserio||'';
+  }
 }
 
 function guardarRecibo(){
@@ -8958,6 +8975,9 @@ function guardarRecibo(){
     codigo: document.getElementById('r-codigo').value,
     tipo, fecha,
     persona, concepto,
+    dni: document.getElementById('r-dni').value.trim(),
+    base: document.getElementById('r-base').value.trim(),
+    caserio: document.getElementById('r-caserio').value.trim(),
     monto: monto.toFixed(2),
     formapago: document.getElementById('r-formapago').value,
     observaciones: document.getElementById('r-observaciones').value,
@@ -9214,6 +9234,9 @@ function verPrintRecibo(idx){
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
       <tr><td style="width:38%;color:#444;">${esIngreso?'Recibí de':'Pagado a'}</td><td style="font-weight:800;">: ${r.persona||'—'}</td></tr>
+      ${r.dni ? `<tr><td style="color:#444;">DNI</td><td style="font-weight:700;">: ${r.dni}</td></tr>` : ''}
+      ${r.base ? `<tr><td style="color:#444;">Base</td><td style="font-weight:700;">: ${r.base}</td></tr>` : ''}
+      ${r.caserio ? `<tr><td style="color:#444;">Caserío</td><td style="font-weight:700;">: ${r.caserio}</td></tr>` : ''}
       <tr><td style="color:#444;">Concepto</td><td style="font-weight:700;">: ${r.concepto||'—'}</td></tr>
       <tr><td style="color:#444;">Forma de Pago</td><td style="font-weight:700;">: ${r.formapago||'—'}</td></tr>
       ${r.apertura_ref ? `<tr><td style="color:#444;">N° Apertura Caja</td><td style="font-weight:700;">: ${r.apertura_ref}</td></tr>` : ''}
