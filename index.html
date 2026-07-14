@@ -7928,12 +7928,12 @@ function exportarReporteCaja(){
 
 function exportarReporteGeneral(){
   const headers = [
-    'FECHA', 'N° LOTE', 'DNI', 'PRODUCTOR', 'N° GUÍA',
+    'FECHA', 'N° LOTE', 'DNI', 'PRODUCTOR', 'N° GUÍA', 'N° TICKET', 'CERTIFICACIÓN',
     'SACOS', 'KG BRUTO', 'KG NETO', 'QQ NETO',
     'RENDIMIENTO %', 'PRECIO KG (S/.)', 'PRECIO QQ (S/.)',
     'PRIMA QQ (S/.)', 'PRIMA TOTAL (S/.)',
     'DESCUENTO QQ (S/.)', 'DESCUENTO TOTAL (S/.)',
-    'TOTAL A PAGAR (S/.)', 'HUMEDAD %', 'DESCUENTO HUMEDAD (kg)', 'BASE', 'F.ENTREGA'
+    'TOTAL A PAGAR (S/.)', 'HUMEDAD %', 'DESCUENTO HUMEDAD (kg)', 'BASE', 'CASERÍO', 'F.ENTREGA'
   ];
 
   // Función para obtener precio/kg correcto
@@ -8016,6 +8016,8 @@ function exportarReporteGeneral(){
         g.dni || 'N/D',
         g.productor || 'N/D',
         g.codigo || '',
+        tk.codigo || 'N/D',
+        g.certificacion || tk.certificacion || 'N/D',
         sacos || 'N/D',
         kgBruto ? parseFloat(kgBruto.toFixed(2)) : 'N/D',
         kgNeto  ? parseFloat(kgNeto.toFixed(2))  : 'N/D',
@@ -8029,6 +8031,7 @@ function exportarReporteGeneral(){
         tk.humedad ? parseFloat(tk.humedad) : 'N/D',
         tk.deschum ? parseFloat(parseFloat(tk.deschum).toFixed(2)) : '',
         g.base || 'N/D',
+        g.caserio || tk.caserio || 'N/D',
         g.formaentrega || 'N/D'
       ]);
     } else {
@@ -8051,6 +8054,8 @@ function exportarReporteGeneral(){
           tk.dni   || g.dni    || 'N/D',
           tk.productor || g.productor || 'N/D',
           g.codigo || '',
+          td.nticket || tk.codigo || 'N/D',
+          g.certificacion || tk.certificacion || 'N/D',
           sacos  || 'N/D',
           pesoBruto ? parseFloat(pesoBruto.toFixed(2)) : 'N/D',
           pesoNeto  ? parseFloat(pesoNeto.toFixed(2))  : 'N/D',
@@ -8064,6 +8069,7 @@ function exportarReporteGeneral(){
           tk.humedad ? parseFloat(tk.humedad) : 'N/D',
           tk.deschum ? parseFloat(parseFloat(tk.deschum).toFixed(2)) : '',
           tk.base || g.base || 'N/D',
+          tk.caserio || g.caserio || 'N/D',
           g.formaentrega || 'N/D'
         ]);
       });
@@ -8094,12 +8100,12 @@ function exportarReporteGeneral(){
 
   // Anchos de columna
   ws['!cols'] = [
-    {wch:12},{wch:13},{wch:11},{wch:30},{wch:15},
+    {wch:12},{wch:13},{wch:11},{wch:30},{wch:15},{wch:15},{wch:18},
     {wch:7},{wch:10},{wch:10},{wch:10},
     {wch:13},{wch:13},{wch:13},
     {wch:13},{wch:14},
     {wch:15},{wch:16},
-    {wch:16},{wch:11},{wch:18},{wch:14},{wch:13}
+    {wch:16},{wch:11},{wch:18},{wch:14},{wch:14},{wch:13}
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Reporte General');
