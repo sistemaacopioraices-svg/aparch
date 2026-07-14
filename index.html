@@ -475,6 +475,10 @@ tr:hover td{background:#f4f8f4;}
           📊 Importar Precios/Humedad
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPreciosGuias(this)">
         </label>
+        <label class="btn btn-secondary" style="cursor:pointer;background:#fff3e0;border-color:#ffb74d;" title="Para historiales YA CALCULADOS Y YA PAGADOS (ej. campañas anteriores llevadas en Excel): crea ticket + guía + comprobante de pago (marcado como Pagado Total) por cada fila, sin recalcular montos">
+          📦 Importar Completo (Tickets+Guías+Pago)
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasCompletasExcel(this)">
+        </label>
         <button class="btn btn-export" onclick="exportarExcel('guias')">📥 Exportar Excel</button>
         <button class="btn btn-secondary" onclick="vincularTicketsHuerfanos(true)" title="Solo úsalo para arreglar datos VIEJOS (guías huérfanas de antes). Revisa siempre el resultado antes de confiar en él — nunca se ejecuta solo.">🔗 Vincular Tickets Antiguos (revisar antes de usar)</button>
         <button class="btn btn-dorado" onclick="imprimirTodasGuias()">🖨️ Imprimir Todas</button>
@@ -3617,6 +3621,49 @@ function cerrarCampaña(){
 }
 
 // ══════════════════════════════════════════
+// TABLA DE RENDIMIENTO — EXPORTABLE / SEGUNDA (DEFECTOS) / CÁSCARA
+// ══════════════════════════════════════════
+// Tabla real de la asociación (archivo "TABLA RENDIMIENTO_raices.xlsx"): para cada % de
+// Rendimiento (40 a 83) da los gramos de EXPORTABLE y de DEFECTOS de una muestra física — la
+// suma de ambos NO llega a 300g (varía, ronda los 246g), así que la CÁSCARA se completa como el
+// resto hasta los 300g de muestra que ya usa el resto de la app (calcRendimiento(), M=300) para
+// que los % sigan siendo comparables con los tickets cargados a mano.
+// Se usa SOLO en el importador de Excel (para no adivinar segunda/cáscara con un % inventado) —
+// el ticket manual sigue pidiendo los gramos de exportable y segunda directamente de la báscula/
+// catación, como siempre.
+const TABLA_RENDIMIENTO_DETALLE = {
+  40:{exp:120,def:127}, 41:{exp:123,def:123}, 42:{exp:126,def:120}, 43:{exp:129,def:117},
+  44:{exp:132,def:114}, 45:{exp:135,def:111}, 46:{exp:138,def:108}, 47:{exp:141,def:105},
+  48:{exp:144,def:102}, 49:{exp:147,def:99},  50:{exp:150,def:96},  51:{exp:153,def:93},
+  52:{exp:156,def:90},  53:{exp:159,def:87},  54:{exp:162,def:84},  55:{exp:165,def:81},
+  56:{exp:168,def:78},  57:{exp:171,def:75},  58:{exp:174,def:72},  59:{exp:177,def:69},
+  60:{exp:180,def:66},  61:{exp:183,def:63},  62:{exp:186,def:60},  63:{exp:189,def:57},
+  64:{exp:192,def:54},  65:{exp:195,def:51},  66:{exp:198,def:48},  67:{exp:201,def:45},
+  68:{exp:204,def:42},  69:{exp:207,def:39},  70:{exp:210,def:36},  71:{exp:213,def:33},
+  72:{exp:216,def:30},  73:{exp:219,def:27},  74:{exp:222,def:24},  75:{exp:225,def:21},
+  76:{exp:228,def:18},  77:{exp:231,def:15},  78:{exp:234,def:12},  79:{exp:237,def:9},
+  80:{exp:240,def:6},   81:{exp:243,def:3},   82:{exp:246,def:0},   83:{exp:249,def:0}
+};
+// Devuelve {exp_g, seg_g, cas_g, exp_pct, seg_pct, cas_pct} para un % de rendimiento dado,
+// usando la tabla real de arriba. Si el rendimiento cae fuera de la tabla (40–83), se usa el
+// nivel válido más cercano en vez de fallar — así un dato ligeramente fuera de rango no bloquea
+// la importación completa.
+function desglosarRendimiento(rendPct){
+  const M = 300;
+  let r = Math.round(parseFloat(rendPct)||0);
+  if(r < 40) r = 40;
+  if(r > 83) r = 83;
+  const fila = TABLA_RENDIMIENTO_DETALLE[r];
+  const expG = fila ? fila.exp : Math.round((parseFloat(rendPct)||0)/100*M);
+  const segG = fila ? fila.def : 0;
+  const casG = Math.max(0, M - expG - segG);
+  return {
+    exp_g:expG, seg_g:segG, cas_g:casG,
+    exp_pct:(expG/M*100).toFixed(2), seg_pct:(segG/M*100).toFixed(2), cas_pct:(casG/M*100).toFixed(2)
+  };
+}
+
+// ══════════════════════════════════════════
 // TABLA DE PRECIOS
 // ══════════════════════════════════════════
 function buildTablaPreciosDesdeBase(precioBase70){
@@ -5019,6 +5066,244 @@ function importarPreciosGuias(input){
       guardarDB(); renderGuias();
       let msg = `✅ Importación de precios/humedad completada:\n• ${actualizadas} guía(s) actualizada(s) — valor recibido recalculado`;
       if(noEncontradas.length) msg += `\n• ${noEncontradas.length} código(s) no encontrados en Guías: ${noEncontradas.slice(0,10).join(', ')}${noEncontradas.length>10?'…':''}`;
+      alert(msg);
+    }catch(err){
+      alert('❌ Error al leer el Excel: '+err.message);
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════
+// IMPORTAR GUÍAS COMPLETAS (Ticket + Guía + Comprobante YA PAGADO) DESDE EXCEL
+// ══════════════════════════════════════════
+// Pensado para historiales YA CALCULADOS Y YA LIQUIDADOS (ej. una campaña que se llevaba en
+// Excel y ahora se quiere volcar a la app). Por cada fila se crea: 1 ticket + 1 guía enlazada a
+// ese ticket + 1 comprobante de pago marcado como Pagado Total (con su egreso de caja). A
+// diferencia de los otros importadores, este NO recalcula peso neto ni valor recibido con las
+// fórmulas de hoy — usa los montos que el Excel ya trae, porque son compras que ya se cerraron.
+
+// Convierte un número de serie de fecha de Excel (días desde 1899-12-30) a fecha ISO.
+function excelSerialADate(serial){
+  const utcDays = Math.floor(serial - 25569); // 25569 = días entre 1899-12-30 y 1970-01-01
+  const utcValue = utcDays * 86400;
+  return new Date(utcValue * 1000);
+}
+// Interpreta la celda de fecha de una fila de Excel (puede venir como Date, número de serie,
+// o texto dd/mm/yyyy). Devuelve null si no se puede interpretar con confianza — en ese caso la
+// fila se OMITE en vez de inventarle una fecha, porque son registros de dinero ya pagado.
+function parseFechaImportacion(value){
+  if(value instanceof Date && !isNaN(value)) return value.toISOString().split('T')[0];
+  if(typeof value === 'number' && !isNaN(value)){
+    const d = excelSerialADate(value);
+    if(!isNaN(d)) return d.toISOString().split('T')[0];
+  }
+  if(typeof value === 'string'){
+    const s = value.trim();
+    let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  }
+  return null;
+}
+
+function importarGuiasCompletasExcel(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      if(rows.length < 2){ alert('El Excel no tiene datos.'); return; }
+
+      const headers = rows[0].map(h=>(h||'').toString().toLowerCase().trim());
+      const find = (keys) => { for(const k of keys){ const i=headers.findIndex(h=>h.includes(k)); if(i>=0) return i; } return -1; };
+      const cols = {
+        fecha:    find(['fecha']),
+        dni:      find(['dni']),
+        productor:find(['productor','nombre']),
+        nroguia:  find(['nro guía','nro guia','n° guía','n guia','guía','guia']),
+        sacos:    find(['sacos']),
+        kgbruto:  find(['kg. brutos','kg brutos','kilos brutos','peso bruto']),
+        tara:     find(['tara']),
+        kgneto:   find(['kg. netos','kg netos','kilos netos','peso neto']),
+        rend:     find(['rdto','rendimiento']),
+        preciokg: find(['precio unit. kg','precio unit kg','precio kg','preciokg']),
+        precioqq: find(['precio unit. qq','precio unit qq','precio qq','precioqq']),
+        total:    find(['total']),
+        humedad:  find(['humedad'])
+      };
+      const faltantes = [];
+      if(cols.productor<0) faltantes.push('Productor');
+      if(cols.kgbruto<0) faltantes.push('Kg. Brutos (o Peso Bruto)');
+      if(cols.total<0) faltantes.push('Total');
+      if(faltantes.length){
+        alert('❌ El Excel debe tener al menos las columnas: '+faltantes.join(', ')+'.');
+        input.value=''; return;
+      }
+
+      const dataRowsCrudo = rows.slice(1).filter(r=>r.length && r[cols.productor]);
+      if(!dataRowsCrudo.length){ alert('No se encontraron filas con datos.'); input.value=''; return; }
+
+      // Separar de una vez las filas con fecha válida de las que no — así el monto que se usa
+      // para dimensionar la caja (más abajo) coincide EXACTAMENTE con lo que realmente se va a
+      // pagar, y no incluye filas que después se van a omitir por tener una fecha inválida.
+      const dataRows = [];
+      const filasFechaInvalida = [];
+      dataRowsCrudo.forEach(row=>{
+        if(parseFechaImportacion(row[cols.fecha])) dataRows.push(row);
+        else filasFechaInvalida.push(String(row[cols.nroguia]!==undefined?row[cols.nroguia]:(row[cols.productor]||'—')));
+      });
+      if(!dataRows.length){ alert('Ninguna fila tiene una fecha válida — no se puede continuar.'); input.value=''; return; }
+
+      let mensajeConfirm = `Vas a importar ${dataRows.length} fila(s) del Excel.\n\nPor cada una se creará: 1 ticket + 1 guía + 1 comprobante de pago YA MARCADO COMO PAGADO (con salida de caja).\n\nLos montos NO se recalculan — se usan tal cual vienen en el Excel.`;
+      if(filasFechaInvalida.length) mensajeConfirm += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se van a OMITIR: ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
+      mensajeConfirm += `\n\n¿Continuar?`;
+      if(!confirm(mensajeConfirm)) { input.value=''; return; }
+
+      const montoTotalImport = dataRows.reduce((a,r)=>a+(parseFloat(r[cols.total])||0), 0);
+
+      // Solo se auto-crea una caja nueva si NO hay ninguna abierta ahora mismo — si ya hay una
+      // abierta se usa esa tal cual (puede quedar con saldo negativo si no alcanza; se avisa al
+      // final). Esto evita crear una segunda caja del mismo tipo, algo que la app no permite
+      // normalmente.
+      let idxCaja = cajaAbiertaActual();
+      let apCaja = idxCaja>=0 ? DB.aperturas[idxCaja] : null;
+      let cajaAutoCreada = false;
+      if(!apCaja){
+        if(!DB.aperturas) DB.aperturas=[];
+        const codigoAp = nextCodigo(DB.aperturas, 'APER-');
+        DB.aperturas.push({
+          codigo: codigoAp, fecha: hoy(), hora: ahora(),
+          usuario: SESSION.user||'admin',
+          saldo_inicial: montoTotalImport.toFixed(2),
+          tipo: 'GENERAL',
+          observaciones: `Apertura generada automáticamente para cubrir la importación de ${dataRows.length} guía(s) desde Excel (${file.name}).`,
+          estado: 'Abierta', fecha_cierre:'', hora_cierre:'', saldo_final:''
+        });
+        apCaja = DB.aperturas[DB.aperturas.length-1];
+        cajaAutoCreada = true;
+      }
+
+      let ticketsCreados=0, guiasCreadas=0, compsCreados=0;
+      const erroresFecha=[]; const productoresNoEncontrados=new Set();
+
+      dataRows.forEach(row=>{
+        const fechaVal = parseFechaImportacion(row[cols.fecha]);
+        if(!fechaVal){
+          erroresFecha.push(String(row[cols.nroguia]!==undefined?row[cols.nroguia]:(row[cols.productor]||'—')));
+          return; // se omite la fila completa — no se inventa una fecha en un registro de dinero
+        }
+
+        const productorExcel = String(row[cols.productor]||'').trim();
+        const dniExcel = row[cols.dni]!==undefined && row[cols.dni]!==null ? String(row[cols.dni]).trim() : '';
+
+        // Buscar el socio por DNI primero (más confiable que el nombre), luego por nombre.
+        let socio = null;
+        if(dniExcel) socio = DB.socios.find(s=>String(s.dni||'').trim()===dniExcel);
+        if(!socio) socio = DB.socios.find(s=>(s.nombre||'').trim().toUpperCase()===productorExcel.toUpperCase());
+        if(!socio) productoresNoEncontrados.add(productorExcel);
+
+        const productor = socio ? socio.nombre : productorExcel;
+        const dni = socio ? (socio.dni||dniExcel) : dniExcel;
+        const base = socio ? (socio.base||'') : '';
+        const caserio = socio ? (socio.caserio||'') : '';
+        // Certificación: se toma del propio socio si ya la tiene registrada; si no, se asume
+        // ORGANICO (con lo que el usuario indicó sobre este lote), así el código sale con la
+        // serie -ORG- correcta.
+        const certificacion = (socio && socio.certificacion) ? socio.certificacion : 'ORGANICO';
+
+        const nroGuiaOriginal = row[cols.nroguia]!==undefined ? String(row[cols.nroguia]).trim() : '';
+        const sacos    = parseFloat(row[cols.sacos])||0;
+        const kgBruto  = parseFloat(row[cols.kgbruto])||0;
+        const tara     = cols.tara>=0 ? (parseFloat(row[cols.tara])||0) : sacos*0.25;
+        const kgNeto   = cols.kgneto>=0 ? (parseFloat(row[cols.kgneto])||0) : Math.max(0, kgBruto-tara);
+        const rend     = cols.rend>=0 ? (parseFloat(row[cols.rend])||0) : 0;
+        const precioKg = cols.preciokg>=0 ? (parseFloat(row[cols.preciokg])||0) : 0;
+        const precioQq = cols.precioqq>=0 ? (parseFloat(row[cols.precioqq])||0) : 0;
+        const total    = parseFloat(row[cols.total])||0;
+        const humedad  = (cols.humedad>=0 && row[cols.humedad]!==undefined && row[cols.humedad]!==null && row[cols.humedad]!=='') ? parseFloat(row[cols.humedad]) : null;
+        // Descuento por humedad: se deriva de lo que YA CUADRA en el Excel (bruto−tara−neto), no
+        // se recalcula con la fórmula vigente hoy, para no alterar compras ya liquidadas.
+        const deschum  = Math.max(0, kgBruto - tara - kgNeto);
+        // Segunda/cáscara se sacan de la tabla real de rendimiento de la asociación (no se
+        // inventa un % fijo) — ver TABLA_RENDIMIENTO_DETALLE / desglosarRendimiento() arriba.
+        const desg = desglosarRendimiento(rend);
+
+        // ── TICKET ──
+        const codTicket = nextCodigoCertif('ticket', certificacion);
+        DB.tickets.push({
+          codigo: codTicket, fecha: fechaVal, hora:'08:00',
+          productor, dni, base, caserio, certificacion,
+          sacos: String(sacos), pesobruto: kgBruto.toFixed(2), tara: tara.toFixed(2),
+          humedad: humedad!==null ? humedad.toFixed(2) : '',
+          deschum: deschum.toFixed(2), pesoneto: kgNeto.toFixed(2),
+          exp_g:desg.exp_g, exp_pct:desg.exp_pct, seg_g:desg.seg_g, seg_pct:desg.seg_pct, cas_g:desg.cas_g, cas_pct:desg.cas_pct,
+          defectos:0, lote: nroGuiaOriginal || codTicket,
+          observaciones: `Importado desde Excel — guía original ${nroGuiaOriginal||'—'}`,
+          usuario: SESSION.user||'admin', guia_asignada:''
+        });
+        ticketsCreados++;
+
+        // ── GUÍA (enlazada al ticket recién creado) ──
+        const codGuia = nextCodigoCertif('guia', certificacion);
+        DB.guias.push({
+          codigo: codGuia, fecha: fechaVal, campana: DB.campana?DB.campana.nombre:'',
+          productor, dni, base, caserio, producto:'CAFE PERGAMINO', certificacion,
+          formaentrega:'Venta Directa', prima_qq:'0', descuento_qq:'0',
+          rend_export: rend||'', precikg: precioKg.toFixed(4), precioqq: precioQq.toFixed(2),
+          valorrecibido: total.toFixed(2),
+          exportacion:desg.exp_pct, segunda:desg.seg_pct, cascara:desg.cas_pct, totalmuestra:'300',
+          humedadanalisis: humedad!==null ? humedad.toFixed(2) : '', taza:'',
+          tickets_detalle:[{ nticket: codTicket, pesobrutokg:kgBruto, tara:tara, desctohumedad:deschum.toFixed(2), pesoneto:kgNeto.toFixed(2) }],
+          total_pagado:0, estado_pago:'Pendiente',
+          excel_ref: nroGuiaOriginal
+        });
+        DB.tickets[DB.tickets.length-1].guia_asignada = codGuia;
+        guiasCreadas++;
+
+        // ── COMPROBANTE DE PAGO (ya pagado, con su egreso de caja) ──
+        const codComp = nextCodigoCertif('comprobante', certificacion);
+        if(!DB.recibos) DB.recibos=[];
+        const codigoRecibo = nextCodigo(DB.recibos, 'EGR-');
+        DB.recibos.push({
+          codigo: codigoRecibo, tipo:'egreso', fecha: fechaVal,
+          persona: productor,
+          concepto: `Pago Guía ${codGuia} (Comprobante ${codComp}) — importado desde Excel`,
+          monto: total.toFixed(2), formapago:'Efectivo',
+          observaciones: `Generado automáticamente por importación de Excel (guía original ${nroGuiaOriginal||'—'})`,
+          apertura_ref: apCaja.codigo, usuario: SESSION.user||'admin'
+        });
+        DB.comprobantes.push({
+          codigo: codComp, fecha: fechaVal,
+          guia_ref: codGuia, guias_ref:[codGuia],
+          productor, dni, total_guia: total.toFixed(2), monto: total.toFixed(2),
+          tipopago:'total', formapago:'Efectivo',
+          observaciones: `Importado desde Excel — guía original ${nroGuiaOriginal||'—'}`,
+          descuento_prestamos:'0.00', prestamos_descontados:[],
+          apertura_ref: apCaja.codigo, recibo_egreso_ref: codigoRecibo, estado:'Activo'
+        });
+        actualizarEstadoPagoGuia(codGuia);
+        compsCreados++;
+      });
+
+      guardarDB();
+      renderTickets(); renderGuias();
+      if(typeof renderComprobantes==='function') renderComprobantes();
+      if(typeof renderCaja==='function') renderCaja();
+
+      const saldoFinalCaja = saldoActualApertura(apCaja.codigo);
+      let msg = `✅ Importación completada:\n• ${ticketsCreados} ticket(s)\n• ${guiasCreadas} guía(s)\n• ${compsCreados} comprobante(s) de pago (Pagado Total)\n• Total pagado: S/. ${montoTotalImport.toFixed(2)}`;
+      msg += cajaAutoCreada
+        ? `\n• Se abrió automáticamente la caja ${apCaja.codigo} con S/. ${montoTotalImport.toFixed(2)} para cubrir estos pagos.`
+        : `\n• Se usó la caja ya abierta ${apCaja.codigo}.`;
+      if(saldoFinalCaja < 0) msg += `\n\n⚠️ La caja ${apCaja.codigo} quedó con saldo NEGATIVO (S/. ${saldoFinalCaja.toFixed(2)}) porque no alcanzaba para cubrir todos los pagos importados. Considera registrar un ingreso adicional para cuadrarla.`;
+      if(productoresNoEncontrados.size) msg += `\n\n⚠️ ${productoresNoEncontrados.size} productor(es) NO estaban en tu lista de Socios (se registraron igual, con el nombre/DNI del Excel): ${Array.from(productoresNoEncontrados).slice(0,8).join(', ')}${productoresNoEncontrados.size>8?'…':''}`;
+      if(filasFechaInvalida.length) msg += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se OMITIERON (revísalas en el Excel y súbelas aparte): ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
       alert(msg);
     }catch(err){
       alert('❌ Error al leer el Excel: '+err.message);
