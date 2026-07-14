@@ -486,6 +486,7 @@ tr:hover td{background:#f4f8f4;}
       </div>
     </div>
     <div id="vinculacion-resultado"></div>
+    <div id="deshacer-import-banner"></div>
     <!-- TABS CERTIFICACIÓN -->
     <div style="display:flex;gap:6px;padding:10px 16px 0;border-bottom:2px solid var(--borde);margin-bottom:10px;flex-wrap:wrap;">
       <button id="g-tab-todos" class="btn btn-primary btn-sm" onclick="switchGuiaTab('todos')">🏦 Todas</button>
@@ -2930,7 +2931,7 @@ tr:hover td{background:#f4f8f4;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, tablaPrecios:null, configHumedad:null, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], telefonoAlertasPrestamos:'', facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'} };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, tablaPrecios:null, configHumedad:null, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], telefonoAlertasPrestamos:'', facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'}, ultimaImportacionGuias:null };
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -3435,7 +3436,7 @@ function restaurarDesdeJSON(input){
       if(!confirm(msg)){ input.value = ''; return; }
 
       // Restaurar — copiar todos los campos de datos al DB
-      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos'].forEach(key => {
+      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias'].forEach(key => {
         if(data[key] !== undefined) DB[key] = data[key];
       });
 
@@ -5167,6 +5168,12 @@ function importarGuiasCompletasExcel(input){
 
       const montoTotalImport = dataRows.reduce((a,r)=>a+(parseFloat(r[cols.total])||0), 0);
 
+      // Identificador único de este lote de importación — se marca en cada ticket/guía/comprobante/
+      // recibo (y en la apertura, si se crea sola) que genere esta corrida, para poder deshacer
+      // TODO lo que se creó aquí de un solo toque con deshacerUltimaImportacionGuias(), sin tocar
+      // nada creado antes o después manualmente.
+      const importBatchId = 'IMPGUIAS-' + Date.now();
+
       // Solo se auto-crea una caja nueva si NO hay ninguna abierta ahora mismo — si ya hay una
       // abierta se usa esa tal cual (puede quedar con saldo negativo si no alcanza; se avisa al
       // final). Esto evita crear una segunda caja del mismo tipo, algo que la app no permite
@@ -5183,7 +5190,8 @@ function importarGuiasCompletasExcel(input){
           saldo_inicial: montoTotalImport.toFixed(2),
           tipo: 'GENERAL',
           observaciones: `Apertura generada automáticamente para cubrir la importación de ${dataRows.length} guía(s) desde Excel (${file.name}).`,
-          estado: 'Abierta', fecha_cierre:'', hora_cierre:'', saldo_final:''
+          estado: 'Abierta', fecha_cierre:'', hora_cierre:'', saldo_final:'',
+          import_batch: importBatchId
         });
         apCaja = DB.aperturas[DB.aperturas.length-1];
         cajaAutoCreada = true;
@@ -5191,6 +5199,12 @@ function importarGuiasCompletasExcel(input){
 
       let ticketsCreados=0, guiasCreadas=0, compsCreados=0;
       const erroresFecha=[]; const productoresNoEncontrados=new Set();
+      // Igual que en el ingreso manual de un ticket (que sí valida el Estimado QQ/KG de cada
+      // socio), aquí se revisa el estimado — pero como esto es un lote histórico ya calculado y
+      // ya pagado, NO se bloquea ni se pregunta fila por fila (serían 300+ confirm()s). Se
+      // recolecta el estKg de cada socio que aparezca, y al final se compara su acumulado TOTAL
+      // (todos sus tickets, no solo los de este Excel) contra su estimado — solo informativo.
+      const productoresParaRevisarEstimado = new Map(); // nombre canónico del socio -> estKg
 
       dataRows.forEach(row=>{
         const fechaVal = parseFechaImportacion(row[cols.fecha]);
@@ -5212,6 +5226,11 @@ function importarGuiasCompletasExcel(input){
         const dni = socio ? (socio.dni||dniExcel) : dniExcel;
         const base = socio ? (socio.base||'') : '';
         const caserio = socio ? (socio.caserio||'') : '';
+        if(socio){
+          const estQq = parseFloat(socio.estimado_qq||0);
+          const estKg = estQq>0 ? estQq*55.2 : parseFloat(socio.estimado_kg||socio.estimado||0);
+          if(estKg>0) productoresParaRevisarEstimado.set(productor, estKg);
+        }
         // Certificación: se toma del propio socio si ya la tiene registrada; si no, se asume
         // ORGANICO (con lo que el usuario indicó sobre este lote), así el código sale con la
         // serie -ORG- correcta.
@@ -5245,7 +5264,8 @@ function importarGuiasCompletasExcel(input){
           exp_g:desg.exp_g, exp_pct:desg.exp_pct, seg_g:desg.seg_g, seg_pct:desg.seg_pct, cas_g:desg.cas_g, cas_pct:desg.cas_pct,
           defectos:0, lote: nroGuiaOriginal || codTicket,
           observaciones: `Importado desde Excel — guía original ${nroGuiaOriginal||'—'}`,
-          usuario: SESSION.user||'admin', guia_asignada:''
+          usuario: SESSION.user||'admin', guia_asignada:'',
+          import_batch: importBatchId
         });
         ticketsCreados++;
 
@@ -5261,7 +5281,8 @@ function importarGuiasCompletasExcel(input){
           humedadanalisis: humedad!==null ? humedad.toFixed(2) : '', taza:'',
           tickets_detalle:[{ nticket: codTicket, pesobrutokg:kgBruto, tara:tara, desctohumedad:deschum.toFixed(2), pesoneto:kgNeto.toFixed(2) }],
           total_pagado:0, estado_pago:'Pendiente',
-          excel_ref: nroGuiaOriginal
+          excel_ref: nroGuiaOriginal,
+          import_batch: importBatchId
         });
         DB.tickets[DB.tickets.length-1].guia_asignada = codGuia;
         guiasCreadas++;
@@ -5276,7 +5297,8 @@ function importarGuiasCompletasExcel(input){
           concepto: `Pago Guía ${codGuia} (Comprobante ${codComp}) — importado desde Excel`,
           monto: total.toFixed(2), formapago:'Efectivo',
           observaciones: `Generado automáticamente por importación de Excel (guía original ${nroGuiaOriginal||'—'})`,
-          apertura_ref: apCaja.codigo, usuario: SESSION.user||'admin'
+          apertura_ref: apCaja.codigo, usuario: SESSION.user||'admin',
+          import_batch: importBatchId
         });
         DB.comprobantes.push({
           codigo: codComp, fecha: fechaVal,
@@ -5285,11 +5307,31 @@ function importarGuiasCompletasExcel(input){
           tipopago:'total', formapago:'Efectivo',
           observaciones: `Importado desde Excel — guía original ${nroGuiaOriginal||'—'}`,
           descuento_prestamos:'0.00', prestamos_descontados:[],
-          apertura_ref: apCaja.codigo, recibo_egreso_ref: codigoRecibo, estado:'Activo'
+          apertura_ref: apCaja.codigo, recibo_egreso_ref: codigoRecibo, estado:'Activo',
+          import_batch: importBatchId
         });
         actualizarEstadoPagoGuia(codGuia);
         compsCreados++;
       });
+
+      // Revisión de estimado — solo informativa, DESPUÉS de crear todos los tickets, comparando el
+      // acumulado TOTAL de cada socio (incluye lo de antes de esta importación) contra su estimado.
+      const estimadosSuperados = [];
+      productoresParaRevisarEstimado.forEach((estKg, nombre)=>{
+        const acum = acumuladoSocio(nombre);
+        if(acum > estKg + 0.01) estimadosSuperados.push({ nombre, estKg, acum, exceso: acum-estKg });
+      });
+
+      // Se guarda un solo "recibo" de lo que se importó — permite deshacer TODO este lote de un
+      // solo toque con deshacerUltimaImportacionGuias(), sin afectar nada creado antes o después.
+      DB.ultimaImportacionGuias = {
+        batch: importBatchId,
+        archivo: file.name,
+        fecha: new Date().toISOString(),
+        tickets: ticketsCreados, guias: guiasCreadas, comprobantes: compsCreados, recibos: compsCreados,
+        montoTotal: montoTotalImport,
+        aperturaAutoCreada: cajaAutoCreada ? apCaja.codigo : null
+      };
 
       guardarDB();
       renderTickets(); renderGuias();
@@ -5304,6 +5346,12 @@ function importarGuiasCompletasExcel(input){
       if(saldoFinalCaja < 0) msg += `\n\n⚠️ La caja ${apCaja.codigo} quedó con saldo NEGATIVO (S/. ${saldoFinalCaja.toFixed(2)}) porque no alcanzaba para cubrir todos los pagos importados. Considera registrar un ingreso adicional para cuadrarla.`;
       if(productoresNoEncontrados.size) msg += `\n\n⚠️ ${productoresNoEncontrados.size} productor(es) NO estaban en tu lista de Socios (se registraron igual, con el nombre/DNI del Excel): ${Array.from(productoresNoEncontrados).slice(0,8).join(', ')}${productoresNoEncontrados.size>8?'…':''}`;
       if(filasFechaInvalida.length) msg += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se OMITIERON (revísalas en el Excel y súbelas aparte): ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
+      if(estimadosSuperados.length){
+        msg += `\n\n⚠️ ${estimadosSuperados.length} productor(es) quedaron POR ENCIMA de su estimado registrado (no se bloqueó nada, es solo informativo):`;
+        estimadosSuperados.slice(0,8).forEach(e=>{ msg += `\n   • ${e.nombre}: acumulado ${e.acum.toFixed(1)} kg vs. estimado ${e.estKg.toFixed(1)} kg (exceso ${e.exceso.toFixed(1)} kg)`; });
+        if(estimadosSuperados.length>8) msg += `\n   …y ${estimadosSuperados.length-8} más.`;
+      }
+      msg += `\n\n💡 Si algo no cuadra, puedes deshacer TODA esta importación de un solo toque con el botón "🗑️ Deshacer última importación" que aparece arriba de la lista de guías (solo funciona mientras no hagas otra importación completa después de esta).`;
       alert(msg);
     }catch(err){
       alert('❌ Error al leer el Excel: '+err.message);
@@ -5311,6 +5359,62 @@ function importarGuiasCompletasExcel(input){
     input.value='';
   };
   reader.readAsArrayBuffer(file);
+}
+
+// Muestra (si corresponde) el banner con el resumen de la última importación completa y el botón
+// para deshacerla de un solo toque. Se llama cada vez que se re-renderiza la lista de Guías.
+function renderDeshacerImportBanner(){
+  const el = document.getElementById('deshacer-import-banner');
+  if(!el) return;
+  const info = DB.ultimaImportacionGuias;
+  if(!info){ el.innerHTML=''; return; }
+  el.innerHTML = `
+    <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:9px;padding:10px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:0.8rem;color:#7a4a00;flex:1;min-width:220px;">
+        📦 Última importación completa: <b>${info.archivo||'Excel'}</b> — ${info.tickets} ticket(s), ${info.guias} guía(s), ${info.comprobantes} comprobante(s), total S/. ${(info.montoTotal||0).toFixed(2)}
+      </div>
+      <button class="btn" style="background:#c62828;color:#fff;" onclick="deshacerUltimaImportacionGuias()">🗑️ Deshacer última importación</button>
+    </div>`;
+}
+
+// Elimina de un solo toque TODO lo que creó la última corrida de importarGuiasCompletasExcel()
+// (tickets, guías, comprobantes, recibos y, si se auto-creó, la apertura de caja) — identificados
+// por su import_batch. Nunca toca nada que no tenga ese mismo batch, así que registros creados a
+// mano antes o después (o importaciones anteriores ya "confirmadas") quedan intactos.
+function deshacerUltimaImportacionGuias(){
+  const info = DB.ultimaImportacionGuias;
+  if(!info){ alert('No hay ninguna importación reciente para deshacer.'); return; }
+  const batch = info.batch;
+  let msgConf = `¿Seguro que quieres deshacer la última importación completa (${info.archivo||'Excel'})?\n\nSe eliminarán:\n• ${info.tickets} ticket(s)\n• ${info.guias} guía(s)\n• ${info.comprobantes} comprobante(s) de pago\n• ${info.recibos} recibo(s) de caja`;
+  if(info.aperturaAutoCreada) msgConf += `\n• La caja ${info.aperturaAutoCreada} (se auto-creó solo para esta importación, se elimina si no quedó con otros movimientos)`;
+  msgConf += `\n\nEsta acción NO se puede deshacer después.`;
+  if(!confirm(msgConf)) return;
+
+  const antes = { tickets:DB.tickets.length, guias:DB.guias.length, comprobantes:DB.comprobantes.length, recibos:(DB.recibos||[]).length };
+  DB.tickets = DB.tickets.filter(t=>t.import_batch!==batch);
+  DB.guias = DB.guias.filter(g=>g.import_batch!==batch);
+  DB.comprobantes = DB.comprobantes.filter(c=>c.import_batch!==batch);
+  if(DB.recibos) DB.recibos = DB.recibos.filter(r=>r.import_batch!==batch);
+
+  let aperturaEliminada = false;
+  if(info.aperturaAutoCreada){
+    const ap = DB.aperturas.find(a=>a.codigo===info.aperturaAutoCreada);
+    // Solo se borra la caja si sigue siendo la misma que se creó para este lote (import_batch
+    // coincide) y ya no le queda ningún recibo enganchado — si el usuario registró algún ingreso
+    // o egreso manual en ella mientras tanto, se conserva para no perder ese movimiento.
+    if(ap && ap.import_batch===batch && !(DB.recibos||[]).some(r=>r.apertura_ref===ap.codigo)){
+      DB.aperturas = DB.aperturas.filter(a=>a.codigo!==info.aperturaAutoCreada);
+      aperturaEliminada = true;
+    }
+  }
+
+  DB.ultimaImportacionGuias = null;
+  guardarDB();
+  renderTickets(); renderGuias();
+  if(typeof renderComprobantes==='function') renderComprobantes();
+  if(typeof renderCaja==='function') renderCaja();
+
+  alert(`✅ Importación deshecha:\n• ${antes.tickets-DB.tickets.length} ticket(s) eliminado(s)\n• ${antes.guias-DB.guias.length} guía(s) eliminada(s)\n• ${antes.comprobantes-DB.comprobantes.length} comprobante(s) eliminado(s)\n• ${antes.recibos-(DB.recibos||[]).length} recibo(s) eliminado(s)${aperturaEliminada?`\n• Se eliminó también la caja auto-creada ${info.aperturaAutoCreada}`:''}`);
 }
 
 // Reconstruye el campo guia_asignada de cada ticket de forma SEGURA:
@@ -5601,6 +5705,7 @@ function estadoPagoLive(g){
 }
 
 function renderGuias(filtro, desde, hasta, estado){
+  renderDeshacerImportBanner();
   const lista = DB.guias.filter(g=>{
     const matchTxt = !filtro || (g.codigo||'').toLowerCase().includes(filtro)||(g.productor||'').toLowerCase().includes(filtro)||(g.base||'').toLowerCase().includes(filtro)||(g.dni||'').toLowerCase().includes(filtro);
     const matchDesde = !desde || (g.fecha||'') >= desde;
@@ -9366,7 +9471,7 @@ async function gdriveCargar(){
     if(!confirm(`📥 CARGAR DATOS DESDE GOOGLE DRIVE\n\nFecha del backup: ${fecha}\nTickets: ${info.tickets||0}\nGuías: ${info.guias||0}\nComprobantes: ${info.comprobantes||0}\nSocios: ${info.socios||0}\n\n⚠️ ESTO REEMPLAZARÁ tus datos actuales.\n¿Continuar?`)) return;
 
     // Restaurar datos
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias'].forEach(key=>{
       if(data[key]!==undefined) DB[key]=data[key];
     });
     guardarDB(); marcarRespaldado();
@@ -9511,7 +9616,7 @@ async function sheetsCargarManual(){
     const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
     if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos actuales.\n¿Continuar?`)) return;
 
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias'].forEach(key=>{
       if(db[key]!==undefined) DB[key]=db[key];
     });
     guardarDB(); marcarRespaldado();
