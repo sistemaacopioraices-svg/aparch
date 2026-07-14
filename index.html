@@ -5174,11 +5174,27 @@ function importarGuiasCompletasExcel(input){
       // nada creado antes o después manualmente.
       const importBatchId = 'IMPGUIAS-' + Date.now();
 
-      // Solo se auto-crea una caja nueva si NO hay ninguna abierta ahora mismo — si ya hay una
-      // abierta se usa esa tal cual (puede quedar con saldo negativo si no alcanza; se avisa al
-      // final). Esto evita crear una segunda caja del mismo tipo, algo que la app no permite
-      // normalmente.
-      let idxCaja = cajaAbiertaActual();
+      // Determinar el TIPO de caja a usar (ORGANICO o CONVENCIONAL) según la certificación que
+      // predomine en este lote — así el importador nunca mezcla pagos orgánicos con la caja
+      // convencional (o viceversa) aunque ambas estén abiertas al mismo tiempo, que es justo lo
+      // que causó que una importación orgánica se pagara por error desde una caja convencional.
+      let countOrg=0, countConv=0;
+      dataRows.forEach(row=>{
+        const dniChk = row[cols.dni]!==undefined && row[cols.dni]!==null ? String(row[cols.dni]).trim() : '';
+        const prodChk = String(row[cols.productor]||'').trim();
+        let sChk = null;
+        if(dniChk) sChk = DB.socios.find(x=>String(x.dni||'').trim()===dniChk);
+        if(!sChk) sChk = DB.socios.find(x=>(x.nombre||'').trim().toUpperCase()===prodChk.toUpperCase());
+        const certifChk = (sChk && sChk.certificacion) ? sChk.certificacion : 'ORGANICO';
+        if(/organic|fair ?trade|\bft\b/i.test(certifChk)) countOrg++; else countConv++;
+      });
+      const tipoCajaLote = countOrg >= countConv ? 'ORGANICO' : 'CONVENCIONAL';
+
+      // Solo se auto-crea una caja nueva si NO hay ninguna abierta del tipo que corresponde — si
+      // ya hay una de ese tipo (o una GENERAL, como respaldo) se usa esa tal cual (puede quedar
+      // con saldo negativo si no alcanza; se avisa al final). Esto NUNCA toma una caja de OTRO
+      // tipo (p.ej. no usa la caja Convencional para pagar un lote Orgánico).
+      let idxCaja = cajaAbiertaTipo(tipoCajaLote);
       let apCaja = idxCaja>=0 ? DB.aperturas[idxCaja] : null;
       let cajaAutoCreada = false;
       if(!apCaja){
@@ -5188,8 +5204,8 @@ function importarGuiasCompletasExcel(input){
           codigo: codigoAp, fecha: hoy(), hora: ahora(),
           usuario: SESSION.user||'admin',
           saldo_inicial: montoTotalImport.toFixed(2),
-          tipo: 'GENERAL',
-          observaciones: `Apertura generada automáticamente para cubrir la importación de ${dataRows.length} guía(s) desde Excel (${file.name}).`,
+          tipo: tipoCajaLote,
+          observaciones: `Apertura generada automáticamente (caja ${tipoCajaLote}) para cubrir la importación de ${dataRows.length} guía(s) desde Excel (${file.name}).`,
           estado: 'Abierta', fecha_cierre:'', hora_cierre:'', saldo_final:'',
           import_batch: importBatchId
         });
@@ -5341,8 +5357,8 @@ function importarGuiasCompletasExcel(input){
       const saldoFinalCaja = saldoActualApertura(apCaja.codigo);
       let msg = `✅ Importación completada:\n• ${ticketsCreados} ticket(s)\n• ${guiasCreadas} guía(s)\n• ${compsCreados} comprobante(s) de pago (Pagado Total)\n• Total pagado: S/. ${montoTotalImport.toFixed(2)}`;
       msg += cajaAutoCreada
-        ? `\n• Se abrió automáticamente la caja ${apCaja.codigo} con S/. ${montoTotalImport.toFixed(2)} para cubrir estos pagos.`
-        : `\n• Se usó la caja ya abierta ${apCaja.codigo}.`;
+        ? `\n• Se abrió automáticamente la caja ${apCaja.codigo} (tipo ${apCaja.tipo}) con S/. ${montoTotalImport.toFixed(2)} para cubrir estos pagos.`
+        : `\n• Se usó la caja ya abierta ${apCaja.codigo} (tipo ${apCaja.tipo||'GENERAL'}).`;
       if(saldoFinalCaja < 0) msg += `\n\n⚠️ La caja ${apCaja.codigo} quedó con saldo NEGATIVO (S/. ${saldoFinalCaja.toFixed(2)}) porque no alcanzaba para cubrir todos los pagos importados. Considera registrar un ingreso adicional para cuadrarla.`;
       if(productoresNoEncontrados.size) msg += `\n\n⚠️ ${productoresNoEncontrados.size} productor(es) NO estaban en tu lista de Socios (se registraron igual, con el nombre/DNI del Excel): ${Array.from(productoresNoEncontrados).slice(0,8).join(', ')}${productoresNoEncontrados.size>8?'…':''}`;
       if(filasFechaInvalida.length) msg += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se OMITIERON (revísalas en el Excel y súbelas aparte): ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
