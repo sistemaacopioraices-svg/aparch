@@ -302,6 +302,18 @@ tr:hover td{background:#f4f8f4;}
   <a class="nav-item nav-solo-completo" onclick="showSection('cafecoco')" href="#">
     <span class="ico">🌰</span> Compra Café Coco
   </a>
+  <a class="nav-item nav-solo-completo" onclick="showSection('remision')" href="#">
+    <span class="ico">🚚</span> Guías de Remisión
+  </a>
+  <a class="nav-item nav-solo-completo" onclick="showSection('liquidacion')" href="#">
+    <span class="ico">🏭</span> Liquidaciones de Proceso
+  </a>
+  <a class="nav-item nav-solo-completo" onclick="showSection('facturasventa')" href="#">
+    <span class="ico">💵</span> Facturas de Venta
+  </a>
+  <a class="nav-item nav-solo-completo" onclick="showSection('resumencampana')" href="#">
+    <span class="ico">📊</span> Resumen de Campaña
+  </a>
   <a class="nav-item nav-solo-completo" onclick="showSection('kardex')" href="#">
     <span class="ico">📦</span> Kárdex de Ventas
   </a>
@@ -1331,6 +1343,235 @@ tr:hover td{background:#f4f8f4;}
         <th>Sacos</th><th>Kg Bruto</th><th>Tara</th><th>Kg Neto</th>
         <th>Precio/kg S/.</th><th>Total a Pagar S/.</th><th>Obs.</th><th>Acciones</th>
       </tr></thead><tbody id="cafecoco-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- GUÍAS DE REMISIÓN (Almacén → Planta) -->
+<div class="section" id="sec-remision">
+
+  <div class="stats-grid" style="margin-bottom:18px;">
+    <div class="stat-card">
+      <div class="stat-label">🚚 Guías de Remisión</div>
+      <div class="stat-val" id="rem-stat-total">0</div>
+      <div class="stat-sub">Total de registros</div>
+    </div>
+    <div class="stat-card cafe">
+      <div class="stat-label">⚖️ Kg Neto Enviado</div>
+      <div class="stat-val" id="rem-stat-kgsal">0</div>
+      <div class="stat-sub">Salida de almacén</div>
+    </div>
+    <div class="stat-card dorado">
+      <div class="stat-label">📥 Kg Neto Recibido</div>
+      <div class="stat-val" id="rem-stat-kgrec">0</div>
+      <div class="stat-sub">Recepción en planta (÷ 55.2 = QQ)</div>
+    </div>
+    <div class="stat-card azul">
+      <div class="stat-label">📉 Merma de Secado</div>
+      <div class="stat-val" id="rem-stat-merma">0</div>
+      <div class="stat-sub">Kg diferencia salida-recepción</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🚚 Guías de Remisión — Almacén a Planta</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar guías de remisión desde Excel">
+          📂 Importar Excel
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasRemisionExcel(this)">
+        </label>
+        <button class="btn btn-export" onclick="exportarGuiasRemision()">📥 Exportar Excel</button>
+        <button class="btn btn-primary" onclick="abrirModalRemision()">+ Nueva Guía de Remisión</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-rem" placeholder="🔍 Buscar por código, N° guía, contrato..." oninput="filtrarGuiasRemision()">
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Código</th><th>Fecha</th><th>N° Guía Remisión</th><th>Certif.</th><th>Contrato</th>
+        <th>Sacos Sal.</th><th>Kg Neto Sal.</th><th>Sacos Rec.</th><th>Kg Neto Rec.</th>
+        <th>Merma (kg)</th><th>Obs.</th><th>Acciones</th>
+      </tr></thead><tbody id="remision-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- LIQUIDACIONES DE PROCESO (Planta → Calidad) -->
+<div class="section" id="sec-liquidacion">
+
+  <div class="stats-grid" style="margin-bottom:18px;">
+    <div class="stat-card">
+      <div class="stat-label">🏭 Liquidaciones</div>
+      <div class="stat-val" id="liq-stat-total">0</div>
+      <div class="stat-sub">Total de registros</div>
+    </div>
+    <div class="stat-card cafe">
+      <div class="stat-label">⚖️ Kg Procesados</div>
+      <div class="stat-val" id="liq-stat-kg">0</div>
+      <div class="stat-sub">Suma de todas las calidades</div>
+    </div>
+    <div class="stat-card dorado">
+      <div class="stat-label">📦 QQ Exportable (÷46)</div>
+      <div class="stat-val" id="liq-stat-qqexport">0</div>
+      <div class="stat-sub">Solo calidad Exportación</div>
+    </div>
+    <div class="stat-card azul">
+      <div class="stat-label">📈 % Rendimiento Exportación</div>
+      <div class="stat-val" id="liq-stat-pctexport">0%</div>
+      <div class="stat-sub">Sobre el total procesado</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🏭 Liquidaciones de Proceso — Resultado por Calidad</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar liquidaciones desde Excel">
+          📂 Importar Excel
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarLiquidacionesExcel(this)">
+        </label>
+        <button class="btn btn-export" onclick="exportarLiquidaciones()">📥 Exportar Excel</button>
+        <button class="btn btn-primary" onclick="abrirModalLiquidacion()">+ Nueva Liquidación</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-liq" placeholder="🔍 Buscar por código, N° liquidación, contrato..." oninput="filtrarLiquidaciones()">
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Código</th><th>Fecha</th><th>N° Liquidación</th><th>Certif.</th><th>Planta</th><th>Contrato</th>
+        <th>Exportación Kg</th><th>Total Kg</th><th>Total QQ</th><th>% Export.</th><th>Acciones</th>
+      </tr></thead><tbody id="liquidacion-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- FACTURAS DE VENTA (Exportación, en USD) -->
+<div class="section" id="sec-facturasventa">
+
+  <div class="stats-grid" style="margin-bottom:18px;">
+    <div class="stat-card">
+      <div class="stat-label">💵 Facturas Registradas</div>
+      <div class="stat-val" id="fact-stat-total">0</div>
+      <div class="stat-sub">Total de registros</div>
+    </div>
+    <div class="stat-card cafe">
+      <div class="stat-label">⚖️ Kg Vendidos</div>
+      <div class="stat-val" id="fact-stat-kg">0</div>
+      <div class="stat-sub">Suma de kg facturados</div>
+    </div>
+    <div class="stat-card dorado">
+      <div class="stat-label">📦 QQ Vendidos (÷46)</div>
+      <div class="stat-val" id="fact-stat-qq">0</div>
+      <div class="stat-sub">Café ya exportable</div>
+    </div>
+    <div class="stat-card azul">
+      <div class="stat-label">💰 Valor Total Vendido</div>
+      <div class="stat-val" id="fact-stat-usd">US$ 0</div>
+      <div class="stat-sub">No usa la caja en soles</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">💵 Facturas de Venta — Exportación</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar facturas de venta desde Excel">
+          📂 Importar Excel
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarFacturasVentaExcel(this)">
+        </label>
+        <button class="btn btn-export" onclick="exportarFacturasVenta()">📥 Exportar Excel</button>
+        <button class="btn btn-primary" onclick="abrirModalFactura()">+ Nueva Factura</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-fact" placeholder="🔍 Buscar por código, factura, cliente, contrato..." oninput="filtrarFacturasVenta()">
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Código</th><th>Fecha</th><th>Factura</th><th>Cliente</th><th>Contrato</th><th>Tipo</th>
+        <th>Kg</th><th>QQ</th><th>Precio Unit. US$</th><th>Valor Total US$</th><th>Acciones</th>
+      </tr></thead><tbody id="facturasventa-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- RESUMEN GENERAL DE CAMPAÑA (dashboard, solo lectura, calculado al vuelo) -->
+<div class="section" id="sec-resumencampana">
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <div class="card-title">📊 Resumen General de Campaña</div>
+      <button class="btn btn-export" onclick="exportarResumenCampana()">📥 Exportar Excel</button>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:end;padding:6px 4px;">
+      <div class="form-group" style="min-width:220px;margin:0;">
+        <label>Certificación (Acopio / Remisión / Liquidación)</label>
+        <select id="rc-certificacion" onchange="renderResumenCampana()">
+          <option value="">Todas</option>
+          <option>ORGANICO - FAIRTRADE USA</option><option>ORGANICO</option><option>CONVENCIONAL</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="rc-solo-campana" onchange="renderResumenCampana()" style="width:auto;">
+          Solo campaña activa (aplica al Acopio)
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-grid" style="margin-bottom:16px;">
+    <div class="stat-card cafe">
+      <div class="stat-label">🎫 Total Acopio</div>
+      <div class="stat-val" id="rc-acopio-kg">0 kg</div>
+      <div class="stat-sub" id="rc-acopio-sub">0 QQ — S/. 0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🚚 Total Remitido a Planta</div>
+      <div class="stat-val" id="rc-remitido-kg">0 kg</div>
+      <div class="stat-sub" id="rc-remitido-sub">0 QQ (÷55.2)</div>
+    </div>
+    <div class="stat-card dorado">
+      <div class="stat-label">🏭 Total Procesado / Liquidado</div>
+      <div class="stat-val" id="rc-procesado-kg">0 kg</div>
+      <div class="stat-sub" id="rc-procesado-sub">0 QQ (÷46)</div>
+    </div>
+    <div class="stat-card azul">
+      <div class="stat-label">💵 Total Vendido</div>
+      <div class="stat-val" id="rc-vendido-kg">0 kg</div>
+      <div class="stat-sub" id="rc-vendido-sub">US$ 0</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header"><div class="card-title">⚖️ Desglose de lo Procesado, por Calidad</div></div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Calidad</th><th>Kg</th><th>QQ (÷46)</th><th>% del Total Procesado</th></tr></thead>
+      <tbody id="rc-desglose-body"></tbody></table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">📦 Saldos Vivos (qué queda pendiente en cada etapa)</div></div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">🏬 En Almacén sin Remitir</div>
+        <div class="stat-val" id="rc-saldo-almacen">0 kg</div>
+        <div class="stat-sub">Acopiado − Remitido</div>
+      </div>
+      <div class="stat-card cafe">
+        <div class="stat-label">🏭 En Planta sin Procesar</div>
+        <div class="stat-val" id="rc-saldo-planta">0 kg</div>
+        <div class="stat-sub">Remitido − Procesado</div>
+      </div>
+      <div class="stat-card dorado">
+        <div class="stat-label">📦 Exportable en Stock sin Vender</div>
+        <div class="stat-val" id="rc-saldo-exportable">0 kg</div>
+        <div class="stat-sub">(Procesado × % Exportación) − Vendido</div>
+      </div>
     </div>
   </div>
 </div>
@@ -2478,6 +2719,180 @@ tr:hover td{background:#f4f8f4;}
   </div>
   <div id="print-cc-content"></div>
 </div></div>
+
+<!-- ══════════ MODAL GUÍA DE REMISIÓN ══════════ -->
+<div class="modal-overlay" id="modal-remision">
+<div class="modal" style="max-width:760px;width:94vw;">
+  <div class="modal-header">
+    <div class="modal-title" id="modal-rem-titulo">🚚 Nueva Guía de Remisión</div>
+    <button class="modal-close" onclick="cerrarModal('modal-remision')">✕</button>
+  </div>
+  <div id="rem-form-alert"></div>
+  <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
+    <div class="form-group"><label>N° Registro</label><input type="text" id="rem-codigo" readonly style="background:#eee;"></div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="rem-fecha"></div>
+    <div class="form-group"><label>N° Guía de Remisión</label><input type="text" id="rem-guian" placeholder="Ej. EG07-00000001"></div>
+    <div class="form-group">
+      <label>Certificación</label>
+      <select id="rem-certificacion"><option value="">—</option><option>ORGANICO - FAIRTRADE USA</option><option>ORGANICO</option><option>CONVENCIONAL</option></select>
+    </div>
+    <div class="form-group form-full"><label>Contrato</label><input type="text" id="rem-contrato" placeholder="Se puede completar después, si aún no se sabe"></div>
+  </div>
+
+  <div style="margin-top:10px;padding:10px 12px;border:1px solid #c8e6c9;border-radius:8px;background:#f1f8f2;">
+    <div style="font-weight:800;color:#1b5e20;margin-bottom:8px;">📤 Salida (Almacén / Valles)</div>
+    <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+      <div class="form-group"><label>N° Sacos</label><input type="number" id="rem-sal-sacos" min="0" oninput="calcRemision()"></div>
+      <div class="form-group"><label>Kg Bruto</label><input type="number" id="rem-sal-kgbruto" min="0" step="0.01" oninput="calcRemision()"></div>
+      <div class="form-group"><label>Tara (0.25 × sacos)</label><input type="number" id="rem-sal-tara" readonly style="background:#e3f2fd;color:#0d47a1;font-weight:700;"></div>
+      <div class="form-group"><label>Kg Neto</label><input type="number" id="rem-sal-kgneto" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;"></div>
+    </div>
+  </div>
+
+  <div style="margin-top:10px;padding:10px 12px;border:1px solid #ffe0b2;border-radius:8px;background:#fff8f1;">
+    <div style="font-weight:800;color:#e65100;margin-bottom:8px;">📥 Recepción (Planta)</div>
+    <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+      <div class="form-group"><label>N° Sacos</label><input type="number" id="rem-rec-sacos" min="0" oninput="calcRemision()"></div>
+      <div class="form-group"><label>Kg Bruto</label><input type="number" id="rem-rec-kgbruto" min="0" step="0.01" oninput="calcRemision()"></div>
+      <div class="form-group"><label>Tara (0.25 × sacos)</label><input type="number" id="rem-rec-tara" readonly style="background:#e3f2fd;color:#0d47a1;font-weight:700;"></div>
+      <div class="form-group"><label>Kg Neto</label><input type="number" id="rem-rec-kgneto" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;"></div>
+    </div>
+  </div>
+
+  <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:10px;">
+    <div class="form-group"><label>Merma de Secado (Kg)</label><input type="number" id="rem-merma" readonly style="background:#fff8e1;color:#e65100;font-weight:800;"></div>
+    <div class="form-group form-full"><label>Observaciones</label><textarea id="rem-observaciones" placeholder="Notas del envío..."></textarea></div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-remision')">Cancelar</button>
+    <button class="btn btn-primary" onclick="guardarRemision()">💾 Guardar Guía de Remisión</button>
+  </div>
+</div></div>
+
+<!-- ══════════ MODAL IMPRESIÓN GUÍA DE REMISIÓN ══════════ -->
+<div class="modal-overlay" id="modal-print-rem">
+<div class="modal" style="max-width:560px;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Vista Previa Guía de Remisión</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="imprimirRemision()">🖨️ Imprimir</button>
+      <button class="modal-close" onclick="cerrarModal('modal-print-rem')">✕</button>
+    </div>
+  </div>
+  <div id="print-rem-content"></div>
+</div></div>
+
+<!-- ══════════ MODAL LIQUIDACIÓN DE PROCESO ══════════ -->
+<div class="modal-overlay" id="modal-liquidacion">
+<div class="modal" style="max-width:820px;width:96vw;">
+  <div class="modal-header">
+    <div class="modal-title" id="modal-liq-titulo">🏭 Nueva Liquidación de Proceso</div>
+    <button class="modal-close" onclick="cerrarModal('modal-liquidacion')">✕</button>
+  </div>
+  <div id="liq-form-alert"></div>
+  <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
+    <div class="form-group"><label>N° Registro</label><input type="text" id="liq-codigo" readonly style="background:#eee;"></div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="liq-fecha"></div>
+    <div class="form-group"><label>N° Liquidación</label><input type="text" id="liq-nliq" placeholder="Ej. SPN°033-2026"></div>
+    <div class="form-group">
+      <label>Certificación</label>
+      <select id="liq-certificacion"><option value="">—</option><option>ORGANICO - FAIRTRADE USA</option><option>ORGANICO</option><option>CONVENCIONAL</option></select>
+    </div>
+    <div class="form-group"><label>Planta</label><input type="text" id="liq-planta" placeholder="Ej. YANAPAMPA"></div>
+    <div class="form-group form-full"><label>Contrato</label><input type="text" id="liq-contrato" placeholder="Se puede completar después, si aún no se sabe"></div>
+  </div>
+
+  <div style="margin-top:10px;padding:10px 12px;border:1px solid #d7ccc8;border-radius:8px;background:#fbf8f6;">
+    <div style="font-weight:800;color:#4e342e;margin-bottom:8px;">⚖️ Desglose por Calidad (Kg)</div>
+    <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));">
+      <div class="form-group"><label>Exportación</label><input type="number" id="liq-exportacion" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Limpieza-Purga</label><input type="number" id="liq-limpieza" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Segunda</label><input type="number" id="liq-segunda" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Escojo</label><input type="number" id="liq-escojo" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Menudo</label><input type="number" id="liq-menudo" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Tercera</label><input type="number" id="liq-tercera" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Barrido</label><input type="number" id="liq-barrido" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Bola</label><input type="number" id="liq-bola" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Uña</label><input type="number" id="liq-una" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Piedra</label><input type="number" id="liq-piedra" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+      <div class="form-group"><label>Cáscara</label><input type="number" id="liq-cascara" min="0" step="0.01" oninput="calcLiquidacion()"></div>
+    </div>
+  </div>
+
+  <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:10px;">
+    <div class="form-group"><label>Total Kg Procesado</label><input type="number" id="liq-total-kg" readonly style="background:#e3f2fd;color:#0d47a1;font-weight:800;"></div>
+    <div class="form-group"><label>Total QQ (÷ 46 kg)</label><input type="number" id="liq-total-qq" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;"></div>
+    <div class="form-group"><label>% Exportación</label><input type="text" id="liq-pct-export" readonly style="background:#fff8e1;color:#e65100;font-weight:800;"></div>
+    <div class="form-group form-full"><label>Observaciones</label><textarea id="liq-observaciones" placeholder="Notas de la liquidación..."></textarea></div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-liquidacion')">Cancelar</button>
+    <button class="btn btn-primary" onclick="guardarLiquidacion()">💾 Guardar Liquidación</button>
+  </div>
+</div></div>
+
+<!-- ══════════ MODAL IMPRESIÓN LIQUIDACIÓN DE PROCESO ══════════ -->
+<div class="modal-overlay" id="modal-print-liq">
+<div class="modal" style="max-width:560px;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Vista Previa Liquidación de Proceso</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="imprimirLiquidacion()">🖨️ Imprimir</button>
+      <button class="modal-close" onclick="cerrarModal('modal-print-liq')">✕</button>
+    </div>
+  </div>
+  <div id="print-liq-content"></div>
+</div></div>
+
+<!-- ══════════ MODAL FACTURA DE VENTA ══════════ -->
+<div class="modal-overlay" id="modal-factura">
+<div class="modal" style="max-width:780px;width:96vw;">
+  <div class="modal-header">
+    <div class="modal-title" id="modal-fact-titulo">💵 Nueva Factura de Venta</div>
+    <button class="modal-close" onclick="cerrarModal('modal-factura')">✕</button>
+  </div>
+  <div id="fact-form-alert"></div>
+  <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+    <div class="form-group"><label>N° Registro</label><input type="text" id="fact-codigo" readonly style="background:#eee;"></div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="fact-fecha"></div>
+    <div class="form-group"><label>N° Factura</label><input type="text" id="fact-factura" placeholder="Ej. E001-9"></div>
+    <div class="form-group form-full"><label>Cliente</label><input type="text" id="fact-cliente" placeholder="Nombre del comprador"></div>
+    <div class="form-group"><label>Contrato</label><input type="text" id="fact-contrato" placeholder="Ej. FCH-014-2026"></div>
+    <div class="form-group"><label>Lote</label><input type="text" id="fact-lote"></div>
+    <div class="form-group"><label>Referencia</label><input type="text" id="fact-referencia"></div>
+    <div class="form-group">
+      <label>Tipo de Contrato</label>
+      <select id="fact-tipocontrato"><option value="">—</option><option>ORG</option><option>FTO INTERNACIONAL</option><option>FTO USA</option></select>
+    </div>
+    <div class="form-group"><label>Planta</label><input type="text" id="fact-planta" placeholder="Ej. YANAPAMPA"></div>
+    <div class="form-group"><label>Kg</label><input type="number" id="fact-kg" min="0" step="0.01" oninput="calcFactura()"></div>
+    <div class="form-group"><label>QQ (÷ 46 kg)</label><input type="number" id="fact-qq" readonly style="background:#e3f2fd;color:#0d47a1;font-weight:700;"></div>
+    <div class="form-group"><label>Precio Unit. (US$)</label><input type="number" id="fact-preciounit" min="0" step="0.000001" oninput="calcFactura()"></div>
+    <div class="form-group"><label>Prima (US$)</label><input type="number" id="fact-prima" min="0" step="0.01" oninput="calcFactura()"></div>
+    <div class="form-group"><label>Valor Total (US$)</label><input type="number" id="fact-valortotal" readonly style="background:#fff8e1;color:#e65100;font-weight:800;"></div>
+    <div class="form-group form-full"><label>Observaciones</label><textarea id="fact-observaciones" placeholder="Notas de la venta..."></textarea></div>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-factura')">Cancelar</button>
+    <button class="btn btn-primary" onclick="guardarFactura()">💾 Guardar Factura</button>
+  </div>
+</div></div>
+
+<!-- ══════════ MODAL IMPRESIÓN FACTURA DE VENTA ══════════ -->
+<div class="modal-overlay" id="modal-print-fact">
+<div class="modal" style="max-width:560px;">
+  <div class="modal-header">
+    <div class="modal-title">🖨️ Vista Previa Factura de Venta</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="imprimirFactura()">🖨️ Imprimir</button>
+      <button class="modal-close" onclick="cerrarModal('modal-print-fact')">✕</button>
+    </div>
+  </div>
+  <div id="print-fact-content"></div>
+</div></div>
+
 <div class="modal-overlay" id="modal-ticket">
 <div class="modal" style="max-width:860px;width:94vw;">
   <div class="modal-header">
@@ -2931,7 +3346,12 @@ tr:hover td{background:#f4f8f4;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, tablaPrecios:null, configHumedad:null, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], telefonoAlertasPrestamos:'', facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'}, ultimaImportacionGuias:null };
+let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, tablaPrecios:null, configHumedad:null, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], telefonoAlertasPrestamos:'', facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'}, ultimaImportacionGuias:null,
+  liquidacionesProceso:[], guiasRemision:[], facturasVenta:[] };
+
+// El café YA PROCESADO (exportable/descarte) usa 46 kg = 1 QQ, distinto del pergamino crudo
+// (55.2 kg = 1 QQ, usado en Tickets/Guías de Entrada) — NUNCA mezclar ambos factores.
+const QQ_EXPORTABLE_KG = 46;
 
 // Logo reutilizado desde el DOM (evita duplicar el base64 en el script)
 const LOGO_B64 = (function(){
@@ -3371,6 +3791,9 @@ function cargarDB(){
   if(!DB.inspecciones) DB.inspecciones=[];
   if(!DB.parcelas) DB.parcelas=[];
   if(!DB.criteriosInspeccion) DB.criteriosInspeccion=[];
+  if(!DB.liquidacionesProceso) DB.liquidacionesProceso=[];
+  if(!DB.guiasRemision) DB.guiasRemision=[];
+  if(!DB.facturasVenta) DB.facturasVenta=[];
   sembrarCriteriosInspeccionPorDefecto();
 }
 
@@ -3436,7 +3859,7 @@ function restaurarDesdeJSON(input){
       if(!confirm(msg)){ input.value = ''; return; }
 
       // Restaurar — copiar todos los campos de datos al DB
-      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias'].forEach(key => {
+      ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias','liquidacionesProceso','guiasRemision','facturasVenta'].forEach(key => {
         if(data[key] !== undefined) DB[key] = data[key];
       });
 
@@ -3909,6 +4332,10 @@ function cerrarModal(id){document.getElementById(id).classList.remove('open');}
 const secTitles={dashboard:'📊 Dashboard',tickets:'🎫 Ticket de Entrada',guias:'📋 Guía de Entrada',
   comprobantes:'🧾 Comprobante de Pagos',socios:'👥 Socios / Productores',
   prestamos:'💰 Préstamos', caja:'🏦 Caja', cafecoco:'🌰 Compra Café Coco',
+  remision:'🚚 Guías de Remisión',
+  liquidacion:'🏭 Liquidaciones de Proceso',
+  facturasventa:'💵 Facturas de Venta',
+  resumencampana:'📊 Resumen de Campaña',
   kardex:'📦 Kárdex de Ventas', masivo:'⚡ Generación Masiva',
   ganancias:'💰 Registro de Ganancias',
   tostado:'🔥 Café Tostado — Producción y Ventas',
@@ -3942,6 +4369,10 @@ function showSection(id){
   if(id==='inspeccion-criterios'){ renderConfigCriterios(); }
   if(id==='masivo'){ renderMasivo(); }
   if(id==='cafecoco') renderCafeCoco();
+  if(id==='remision') renderGuiasRemision();
+  if(id==='liquidacion') renderLiquidaciones();
+  if(id==='facturasventa') renderFacturasVenta();
+  if(id==='resumencampana') renderResumenCampana();
 }
 
 // ══════════════════════════════════════════
@@ -5108,6 +5539,54 @@ function parseFechaImportacion(value){
     if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
   }
   return null;
+}
+
+// Detecta la fila de encabezados de un Excel "de reporte" (como los que arma la asociación para
+// campaña) que puede traer 1 SOLA fila de encabezado simple, o 2 filas: una de grupo (con celdas
+// combinadas, ej. "Salida Valles" cubriendo Sacos/Kg Brutos/Tara/Kg Netos) y debajo otra con el
+// detalle de cada columna. Se usa para los importadores de Guías de Remisión, Liquidaciones de
+// Proceso y Facturas de Venta, cuyos Excel reales de origen vienen así. Devuelve encabezados ya
+// combinados en minúsculas ("salida valles sacos", "recepción planta kg\nnetos", etc.) y el índice
+// de la fila donde empiezan los datos.
+function leerEncabezadoFlexible(rows){
+  // Colapsa saltos de línea/espacios múltiples a un solo espacio — los Excel reales suelen traer
+  // encabezados con salto de línea (ej. "Kg\nBrutos"), que si no se normalizan rompen la búsqueda
+  // por palabra clave (ej. "kg bruto" nunca calzaría contra "kg\nbrutos").
+  const norm = v => (v===null||v===undefined) ? '' : v.toString().toLowerCase().trim().replace(/\s+/g,' ');
+  let headerRowIdx = -1;
+  for(let i=0; i<Math.min(6, rows.length); i++){
+    if((rows[i]||[]).some(c => norm(c)==='fecha')) { headerRowIdx = i; break; }
+  }
+  if(headerRowIdx < 0) headerRowIdx = 0; // no se encontró "fecha" exacta — se asume que la fila 1 ya es el encabezado
+
+  // OJO: cuando hay celdas combinadas (merge), sheet_to_json deja "huecos" (sparse array) en las
+  // posiciones cubiertas por el merge — .map()/.findIndex() SALTAN esos huecos sin llamar al
+  // callback, dejando basura (undefined real) más adelante. Array.from() sí visita cada índice y
+  // los convierte en undefined explícito, así el resto del código no revienta con
+  // "Cannot read properties of undefined".
+  const rowMain = Array.from(rows[headerRowIdx] || []);
+  const rowNext = Array.from(rows[headerRowIdx+1] || []);
+  const idxFecha = rowMain.findIndex(c=>norm(c)==='fecha');
+  // ¿La fila de abajo es OTRA fila de encabezados (subtítulos tipo "Sacos"/"Kg"/"QQ") o ya son datos?
+  // Si la celda que está justo debajo de "FECHA" no se puede interpretar como fecha, seguimos
+  // tratando esa fila como encabezado.
+  const siguienteEsEncabezado = idxFecha>=0 && !parseFechaImportacion(rowNext[idxFecha]);
+
+  let headers, dataStartIdx;
+  if(siguienteEsEncabezado){
+    let ultimoGrupo = '';
+    headers = rowMain.map((c,i)=>{
+      const cn = norm(c);
+      if(cn) ultimoGrupo = cn;
+      const sub = norm(rowNext[i]);
+      return (sub ? (ultimoGrupo+' '+sub) : ultimoGrupo).trim();
+    });
+    dataStartIdx = headerRowIdx+2;
+  } else {
+    headers = rowMain.map(c=>norm(c));
+    dataStartIdx = headerRowIdx+1;
+  }
+  return { headers, dataStartIdx };
 }
 
 function importarGuiasCompletasExcel(input){
@@ -7522,6 +8001,36 @@ function qqNetosGuia(g){
   return ((g.tickets_detalle||[]).reduce((a,r)=>a+(parseFloat(r.pesoneto)||0),0))/55.2;
 }
 
+// Kg netos de una guía de acopio — misma lógica de respaldo en cascada que usa
+// exportarReporteGeneral() (detalle de tickets → tickets vinculados en DB → derivado de
+// valor/precio QQ), expuesta como función compartida para que el dashboard de Resumen de
+// Campaña calcule el Total Acopio con el mismo criterio, sin duplicar ni desalinear cifras.
+function getKgNetosAcopioGuia(g){
+  const fromDetalle = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+  if(fromDetalle > 0) return fromDetalle;
+  const fromTks = DB.tickets.filter(t=>t.guia_asignada===g.codigo).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+  if(fromTks > 0) return fromTks;
+  const precioqq = parseFloat(g.precioqq||0);
+  const valor = parseFloat(g.valorrecibido||0);
+  if(precioqq > 0 && valor > 0) return (valor/precioqq)*55.2;
+  return 0;
+}
+
+// Totales de Acopio (Total Acopio del Resumen de Campaña) — kg neto, QQ (÷55.2) y S/. pagado,
+// con filtros opcionales por campaña activa y/o certificación.
+function calcularTotalesAcopio(filtros){
+  filtros = filtros || {};
+  let kgNeto=0, montoPagado=0, count=0;
+  DB.guias.forEach(g=>{
+    if(filtros.soloCampanaActiva && DB.campana && g.campana!==DB.campana.nombre) return;
+    if(filtros.certificacion && (g.certificacion||'')!==filtros.certificacion) return;
+    kgNeto += getKgNetosAcopioGuia(g);
+    montoPagado += parseFloat(g.valorrecibido||0)||0;
+    count++;
+  });
+  return { kgNeto, qq: kgNeto/55.2, montoPagado, count };
+}
+
 function exportarExcel(tipo){
   let h=[],d=[],n='';
   if(tipo==='tickets'){
@@ -9501,7 +10010,7 @@ async function gdriveCargar(){
     if(!confirm(`📥 CARGAR DATOS DESDE GOOGLE DRIVE\n\nFecha del backup: ${fecha}\nTickets: ${info.tickets||0}\nGuías: ${info.guias||0}\nComprobantes: ${info.comprobantes||0}\nSocios: ${info.socios||0}\n\n⚠️ ESTO REEMPLAZARÁ tus datos actuales.\n¿Continuar?`)) return;
 
     // Restaurar datos
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias','liquidacionesProceso','guiasRemision','facturasVenta'].forEach(key=>{
       if(data[key]!==undefined) DB[key]=data[key];
     });
     guardarDB(); marcarRespaldado();
@@ -9646,7 +10155,7 @@ async function sheetsCargarManual(){
     const info = `Tickets: ${(db.tickets||[]).length}, Guías: ${(db.guias||[]).length}, Socios: ${(db.socios||[]).length}`;
     if(!confirm(`📥 CARGAR DESDE GOOGLE SHEETS\n\n${info}\n\n⚠️ Esto reemplazará tus datos actuales.\n¿Continuar?`)) return;
 
-    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias'].forEach(key=>{
+    ['tickets','guias','comprobantes','socios','usuarios','campana','precioBase','tablaPrecios','configHumedad','prestamos','aperturas','recibos','cafecoco','kardex','arqueos','ganancias','tostadoProduccion','tostadoVentas','facturacionConfig','inspecciones','parcelas','criteriosInspeccion','telefonoAlertasPrestamos','ultimaImportacionGuias','liquidacionesProceso','guiasRemision','facturasVenta'].forEach(key=>{
       if(db[key]!==undefined) DB[key]=db[key];
     });
     guardarDB(); marcarRespaldado();
@@ -11052,6 +11561,1110 @@ function exportarCafeCoco(){
   XLSX.writeFile(wb, `APARCH_CompraCafeCoco_${fecha}.xlsx`);
 }
 
+// ══════════════════════════════════════════
+// MÓDULO GUÍAS DE REMISIÓN (Almacén → Planta)
+// ══════════════════════════════════════════
+let editandoRemisionIdx = -1;
+
+function abrirModalRemision(idx){
+  editandoRemisionIdx = (idx !== undefined) ? idx : -1;
+  const r = idx !== undefined ? DB.guiasRemision[idx] : null;
+
+  document.getElementById('modal-rem-titulo').textContent = r ? '✏️ Editar Guía de Remisión' : '🚚 Nueva Guía de Remisión';
+  document.getElementById('rem-codigo').value = r ? r.codigo : nextCodigo(DB.guiasRemision||[], 'REM-');
+  document.getElementById('rem-fecha').value = r ? r.fecha : hoy();
+  document.getElementById('rem-guian').value = r ? r.guia_remision_n : '';
+  document.getElementById('rem-certificacion').value = r ? (r.certificacion||'') : '';
+  document.getElementById('rem-contrato').value = r ? (r.contrato||'') : '';
+  document.getElementById('rem-sal-sacos').value = r ? r.salida.sacos : '';
+  document.getElementById('rem-sal-kgbruto').value = r ? r.salida.kg_brutos : '';
+  document.getElementById('rem-rec-sacos').value = r ? r.recepcion.sacos : '';
+  document.getElementById('rem-rec-kgbruto').value = r ? r.recepcion.kg_brutos : '';
+  document.getElementById('rem-observaciones').value = r ? (r.observaciones||'') : '';
+  document.getElementById('rem-form-alert').innerHTML = '';
+
+  abrirModal('modal-remision');
+  calcRemision();
+}
+
+function calcRemision(){
+  const salSacos = parseFloat(document.getElementById('rem-sal-sacos').value)||0;
+  const salKgBruto = parseFloat(document.getElementById('rem-sal-kgbruto').value)||0;
+  const recSacos = parseFloat(document.getElementById('rem-rec-sacos').value)||0;
+  const recKgBruto = parseFloat(document.getElementById('rem-rec-kgbruto').value)||0;
+
+  const salTara = salSacos * 0.25;
+  const salKgNeto = Math.max(0, salKgBruto - salTara);
+  const recTara = recSacos * 0.25;
+  const recKgNeto = Math.max(0, recKgBruto - recTara);
+  const merma = salKgNeto - recKgNeto;
+
+  document.getElementById('rem-sal-tara').value = salTara.toFixed(2);
+  document.getElementById('rem-sal-kgneto').value = salKgNeto.toFixed(2);
+  document.getElementById('rem-rec-tara').value = recTara.toFixed(2);
+  document.getElementById('rem-rec-kgneto').value = recKgNeto.toFixed(2);
+  document.getElementById('rem-merma').value = merma.toFixed(2);
+}
+
+function guardarRemision(){
+  const fecha = document.getElementById('rem-fecha').value;
+  const guiaN = document.getElementById('rem-guian').value.trim();
+  const salKgBruto = parseFloat(document.getElementById('rem-sal-kgbruto').value)||0;
+
+  if(!fecha){ showAlert('rem-form-alert','error','Ingrese la fecha.'); return; }
+  if(!guiaN){ showAlert('rem-form-alert','error','Ingrese el N° de guía de remisión.'); return; }
+  if(salKgBruto <= 0){ showAlert('rem-form-alert','error','Ingrese el peso bruto de salida.'); return; }
+
+  const registro = {
+    codigo: document.getElementById('rem-codigo').value,
+    fecha,
+    guia_remision_n: guiaN,
+    certificacion: document.getElementById('rem-certificacion').value,
+    contrato: document.getElementById('rem-contrato').value.trim(),
+    salida: {
+      sacos: document.getElementById('rem-sal-sacos').value,
+      kg_brutos: document.getElementById('rem-sal-kgbruto').value,
+      tara: document.getElementById('rem-sal-tara').value,
+      kg_netos: document.getElementById('rem-sal-kgneto').value
+    },
+    recepcion: {
+      sacos: document.getElementById('rem-rec-sacos').value,
+      kg_brutos: document.getElementById('rem-rec-kgbruto').value,
+      tara: document.getElementById('rem-rec-tara').value,
+      kg_netos: document.getElementById('rem-rec-kgneto').value
+    },
+    merma_secado_kg: document.getElementById('rem-merma').value,
+    observaciones: document.getElementById('rem-observaciones').value,
+    usuario: SESSION.user
+  };
+
+  if(!DB.guiasRemision) DB.guiasRemision=[];
+  if(editandoRemisionIdx >= 0) DB.guiasRemision[editandoRemisionIdx] = registro;
+  else DB.guiasRemision.push(registro);
+
+  guardarDB(); cerrarModal('modal-remision'); renderGuiasRemision(); showSection('remision');
+}
+
+function eliminarRemision(idx){
+  if(!confirm('¿Eliminar esta guía de remisión?')) return;
+  DB.guiasRemision.splice(idx,1); guardarDB(); renderGuiasRemision();
+}
+
+function renderGuiasRemision(filtro){
+  if(!DB.guiasRemision) DB.guiasRemision=[];
+  const lista = (filtro
+    ? DB.guiasRemision.filter(r=>(r.codigo||'').toLowerCase().includes(filtro)||(r.guia_remision_n||'').toLowerCase().includes(filtro)||(r.contrato||'').toLowerCase().includes(filtro))
+    : [...DB.guiasRemision]);
+
+  // Stats
+  const totalKgSal = DB.guiasRemision.reduce((a,r)=>a+(parseFloat(r.salida?.kg_netos)||0),0);
+  const totalKgRec = DB.guiasRemision.reduce((a,r)=>a+(parseFloat(r.recepcion?.kg_netos)||0),0);
+  const totalMerma = DB.guiasRemision.reduce((a,r)=>a+(parseFloat(r.merma_secado_kg)||0),0);
+  document.getElementById('rem-stat-total').textContent = DB.guiasRemision.length;
+  document.getElementById('rem-stat-kgsal').textContent = fmt(totalKgSal);
+  document.getElementById('rem-stat-kgrec').textContent = fmt(totalKgRec);
+  document.getElementById('rem-stat-merma').textContent = fmt(totalMerma);
+
+  const tb = document.getElementById('remision-body');
+  if(!lista.length){
+    tb.innerHTML = `<tr><td colspan="12"><div class="empty-state"><span class="ico">🚚</span>No hay guías de remisión registradas.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = [...lista].reverse().map(r=>{
+    const ri = DB.guiasRemision.indexOf(r);
+    return `<tr>
+      <td class="td-codigo">${r.codigo}</td>
+      <td>${fechaDisplay(r.fecha)}</td>
+      <td style="font-family:monospace;font-size:0.78rem;">${r.guia_remision_n||'—'}</td>
+      <td>${r.certificacion||'—'}</td>
+      <td style="font-size:0.78rem;max-width:130px;">${r.contrato||'—'}</td>
+      <td style="text-align:center;">${r.salida?.sacos||0}</td>
+      <td style="text-align:right;color:#1b5e20;font-weight:700;">${fmt(r.salida?.kg_netos)}</td>
+      <td style="text-align:center;">${r.recepcion?.sacos||0}</td>
+      <td style="text-align:right;color:#e65100;font-weight:700;">${fmt(r.recepcion?.kg_netos)}</td>
+      <td style="text-align:right;">${fmt(r.merma_secado_kg)}</td>
+      <td style="font-size:0.74rem;max-width:120px;">${r.observaciones||'—'}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-secondary btn-sm" onclick="abrirModalRemision(${ri})">✏️</button>
+        <button class="btn btn-dorado btn-sm" onclick="verPrintRemision(${ri})">🖨️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarRemision(${ri})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function filtrarGuiasRemision(){
+  renderGuiasRemision(document.getElementById('search-rem').value.toLowerCase());
+}
+
+// ── IMPRESIÓN DE GUÍA DE REMISIÓN INDIVIDUAL ──
+function verPrintRemision(idx){
+  const r = DB.guiasRemision[idx];
+  document.getElementById('print-rem-content').innerHTML = `
+  <div id="print-zona-rem" style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px 22px;border:2px solid #1b5e20;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #1b5e20;padding-bottom:8px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:11px;font-weight:800;color:#1b5e20;letter-spacing:0.5px;">GUÍA DE REMISIÓN — ALMACÉN A PLANTA</div>
+      </div>
+      <div style="width:40px;"></div>
+    </div>
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:18px;font-weight:900;color:#1b5e20;">${r.codigo}</div>
+      <div style="font-size:10px;color:#666;">${fechaDisplay(r.fecha)}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
+      <tr><td style="width:46%;color:#444;">N° Guía Remisión</td><td style="font-weight:800;">: ${r.guia_remision_n||'—'}</td></tr>
+      <tr><td style="color:#444;">Certificación</td><td style="font-weight:700;">: ${r.certificacion||'—'}</td></tr>
+      <tr><td style="color:#444;">Contrato</td><td style="font-weight:700;">: ${r.contrato||'—'}</td></tr>
+    </table>
+    <div style="margin-top:10px;font-size:11px;font-weight:800;color:#1b5e20;">SALIDA (Almacén)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:1.9;">
+      <tr><td style="width:46%;color:#444;">Sacos</td><td style="font-weight:700;">: ${r.salida?.sacos||0}</td></tr>
+      <tr><td style="color:#444;">Kg Bruto</td><td style="font-weight:700;">: ${fmt(r.salida?.kg_brutos)}</td></tr>
+      <tr><td style="color:#444;">Kg Neto</td><td style="font-weight:900;color:#1b5e20;">: ${fmt(r.salida?.kg_netos)}</td></tr>
+    </table>
+    <div style="margin-top:10px;font-size:11px;font-weight:800;color:#e65100;">RECEPCIÓN (Planta)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:1.9;">
+      <tr><td style="width:46%;color:#444;">Sacos</td><td style="font-weight:700;">: ${r.recepcion?.sacos||0}</td></tr>
+      <tr><td style="color:#444;">Kg Bruto</td><td style="font-weight:700;">: ${fmt(r.recepcion?.kg_brutos)}</td></tr>
+      <tr><td style="color:#444;">Kg Neto</td><td style="font-weight:900;color:#e65100;">: ${fmt(r.recepcion?.kg_netos)}</td></tr>
+    </table>
+    <div style="border:2px solid #1b5e20;border-radius:8px;padding:10px;text-align:center;margin:14px 0;background:#f1f8f2;">
+      <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">MERMA DE SECADO</div>
+      <div style="font-size:20px;font-weight:900;color:#1b5e20;">${fmt(r.merma_secado_kg)} kg</div>
+    </div>
+    ${r.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${r.observaciones}</div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px;">
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Entrega (Almacén)</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Recibe (Planta)</div>
+    </div>
+  </div>`;
+  abrirModal('modal-print-rem');
+}
+
+function imprimirRemision(){
+  const c = document.getElementById('print-zona-rem').outerHTML;
+  abrirVentanaImpresion(c, 'Guía de Remisión APARCH', 'body{padding:12px;}');
+}
+
+// ── EXPORTAR EXCEL ──
+function exportarGuiasRemision(){
+  if(!DB.guiasRemision || !DB.guiasRemision.length){ alert('No hay guías de remisión para exportar.'); return; }
+  const headers = ['Código','Fecha','N° Guía Remisión','Certificación','Contrato',
+    'Sacos Salida','Kg Bruto Salida','Tara Salida','Kg Neto Salida',
+    'Sacos Recepción','Kg Bruto Recepción','Tara Recepción','Kg Neto Recepción',
+    'Merma Secado (Kg)','Observaciones','Usuario'];
+  const filas = DB.guiasRemision.map(r=>[
+    r.codigo, r.fecha, r.guia_remision_n, r.certificacion||'', r.contrato||'',
+    parseFloat(r.salida?.sacos||0)||'', parseFloat(r.salida?.kg_brutos||0)||'', parseFloat(r.salida?.tara||0)||'', parseFloat(r.salida?.kg_netos||0)||'',
+    parseFloat(r.recepcion?.sacos||0)||'', parseFloat(r.recepcion?.kg_brutos||0)||'', parseFloat(r.recepcion?.tara||0)||'', parseFloat(r.recepcion?.kg_netos||0)||'',
+    parseFloat(r.merma_secado_kg||0)||0, r.observaciones||'', r.usuario||''
+  ]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...filas]);
+  ws['!cols'] = [{wch:12},{wch:12},{wch:18},{wch:22},{wch:20},{wch:10},{wch:12},{wch:10},{wch:12},{wch:10},{wch:12},{wch:10},{wch:12},{wch:14},{wch:25},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Guías Remisión');
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `APARCH_GuiasRemision_${fecha}.xlsx`);
+}
+
+// ── IMPORTAR EXCEL (hoja tipo ORG-YANAPAMPA: columnas "Salida" y "Recepción" repetidas) ──
+function importarGuiasRemisionExcel(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      if(rows.length < 2){ alert('El Excel no tiene datos.'); return; }
+
+      const { headers, dataStartIdx } = leerEncabezadoFlexible(rows);
+      // Cuando el mismo nombre de columna aparece dos veces (Salida / Recepción), buscamos la
+      // PRIMERA coincidencia para "salida" y la SIGUIENTE (después de esa posición) para "recepción".
+      const findFirst = (keys, desde) => {
+        for(let i=(desde||0); i<headers.length; i++){
+          for(const k of keys){ if(headers[i].includes(k)) return i; }
+        }
+        return -1;
+      };
+      const find = (keys) => findFirst(keys, 0);
+
+      const cols = {
+        fecha:    find(['fecha']),
+        guian:    find(['guía de remisión','guia de remision','g/remisión','g/remision','n° guía','n guia','guía','guia','remisión','remision']),
+        certif:   find(['certificacion','certificación','certif']),
+        contrato: find(['contrato']),
+      };
+      // Sacos/Kg Bruto/Tara/Kg Neto aparecen 2 veces cada uno: primera ocurrencia = Salida,
+      // segunda ocurrencia (buscada después de la posición de Salida) = Recepción.
+      const salSacos = find(['sacos']);
+      const salKgBruto = find(['kg. bruto','kg bruto','kilos brutos','peso bruto']);
+      const salTara = find(['tara']);
+      const salKgNeto = find(['kg. neto','kg neto','kilos netos','peso neto']);
+
+      const recSacos = findFirst(['sacos'], salSacos+1);
+      const recKgBruto = findFirst(['kg. bruto','kg bruto','kilos brutos','peso bruto'], salKgBruto+1);
+      const recTara = findFirst(['tara'], salTara+1);
+      const recKgNeto = findFirst(['kg. neto','kg neto','kilos netos','peso neto'], salKgNeto+1);
+
+      const faltantes = [];
+      if(cols.guian<0) faltantes.push('N° Guía de Remisión');
+      if(salKgBruto<0) faltantes.push('Kg Bruto (Salida)');
+      if(faltantes.length){
+        alert('❌ El Excel debe tener al menos las columnas: '+faltantes.join(', ')+'.');
+        input.value=''; return;
+      }
+      if(recSacos<0 && recKgBruto<0){
+        if(!confirm('⚠️ No se pudo distinguir una segunda columna (Recepción) separada de Salida — se importará solo con los datos de Salida, dejando Recepción en 0. ¿Continuar?')){
+          input.value=''; return;
+        }
+      }
+
+      const dataRowsCrudo = rows.slice(dataStartIdx).filter(r=>r.length && r[cols.guian]);
+      if(!dataRowsCrudo.length){ alert('No se encontraron filas con datos.'); input.value=''; return; }
+
+      const dataRows = [];
+      const filasFechaInvalida = [];
+      dataRowsCrudo.forEach(row=>{
+        if(parseFechaImportacion(row[cols.fecha])) dataRows.push(row);
+        else filasFechaInvalida.push(String(row[cols.guian]||'—'));
+      });
+      if(!dataRows.length){ alert('Ninguna fila tiene una fecha válida — no se puede continuar.'); input.value=''; return; }
+
+      let mensajeConfirm = `Vas a importar ${dataRows.length} guía(s) de remisión del Excel.`;
+      if(filasFechaInvalida.length) mensajeConfirm += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se van a OMITIR: ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
+      mensajeConfirm += `\n\n¿Continuar?`;
+      if(!confirm(mensajeConfirm)) { input.value=''; return; }
+
+      if(!DB.guiasRemision) DB.guiasRemision=[];
+      let creadas = 0;
+      dataRows.forEach(row=>{
+        const fechaVal = parseFechaImportacion(row[cols.fecha]);
+        const gSacos = salSacos>=0 ? (parseFloat(row[salSacos])||0) : 0;
+        const gKgBruto = parseFloat(row[salKgBruto])||0;
+        const gTara = salTara>=0 ? (parseFloat(row[salTara])||0) : gSacos*0.25;
+        const gKgNeto = salKgNeto>=0 ? (parseFloat(row[salKgNeto])||0) : Math.max(0, gKgBruto-gTara);
+
+        const rSacos = recSacos>=0 ? (parseFloat(row[recSacos])||0) : 0;
+        const rKgBruto = recKgBruto>=0 ? (parseFloat(row[recKgBruto])||0) : 0;
+        const rTara = recTara>=0 ? (parseFloat(row[recTara])||0) : rSacos*0.25;
+        const rKgNeto = recKgNeto>=0 ? (parseFloat(row[recKgNeto])||0) : Math.max(0, rKgBruto-rTara);
+
+        DB.guiasRemision.push({
+          codigo: nextCodigo(DB.guiasRemision, 'REM-'),
+          fecha: fechaVal,
+          guia_remision_n: String(row[cols.guian]||'').trim(),
+          certificacion: cols.certif>=0 ? String(row[cols.certif]||'').trim() : '',
+          contrato: cols.contrato>=0 ? String(row[cols.contrato]||'').trim() : '',
+          salida: { sacos: String(gSacos), kg_brutos: gKgBruto.toFixed(2), tara: gTara.toFixed(2), kg_netos: gKgNeto.toFixed(2) },
+          recepcion: { sacos: String(rSacos), kg_brutos: rKgBruto.toFixed(2), tara: rTara.toFixed(2), kg_netos: rKgNeto.toFixed(2) },
+          merma_secado_kg: (gKgNeto - rKgNeto).toFixed(2),
+          observaciones: 'Importado desde Excel',
+          usuario: SESSION.user||'admin'
+        });
+        creadas++;
+      });
+
+      guardarDB();
+      renderGuiasRemision();
+      input.value = '';
+
+      let msg = `✅ Importación completada: ${creadas} guía(s) de remisión creada(s).`;
+      if(filasFechaInvalida.length) msg += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se OMITIERON: ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
+      alert(msg);
+    }catch(err){
+      alert('❌ Error al leer el Excel: '+err.message);
+      input.value='';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════
+// MÓDULO LIQUIDACIONES DE PROCESO (Planta → Calidad)
+// ══════════════════════════════════════════
+const DESGLOSE_CALIDADES = ['exportacion','limpieza_purga','segunda','escojo','menudo','tercera','barrido','bola','una','piedra','cascara'];
+const DESGLOSE_LABELS = {exportacion:'Exportación',limpieza_purga:'Limpieza-Purga',segunda:'Segunda',escojo:'Escojo',menudo:'Menudo',tercera:'Tercera',barrido:'Barrido',bola:'Bola',una:'Uña',piedra:'Piedra',cascara:'Cáscara'};
+const DESGLOSE_IDS = {exportacion:'liq-exportacion',limpieza_purga:'liq-limpieza',segunda:'liq-segunda',escojo:'liq-escojo',menudo:'liq-menudo',tercera:'liq-tercera',barrido:'liq-barrido',bola:'liq-bola',una:'liq-una',piedra:'liq-piedra',cascara:'liq-cascara'};
+
+let editandoLiquidacionIdx = -1;
+
+function abrirModalLiquidacion(idx){
+  editandoLiquidacionIdx = (idx !== undefined) ? idx : -1;
+  const l = idx !== undefined ? DB.liquidacionesProceso[idx] : null;
+
+  document.getElementById('modal-liq-titulo').textContent = l ? '✏️ Editar Liquidación de Proceso' : '🏭 Nueva Liquidación de Proceso';
+  document.getElementById('liq-codigo').value = l ? l.codigo : nextCodigo(DB.liquidacionesProceso||[], 'LIQ-');
+  document.getElementById('liq-fecha').value = l ? l.fecha : hoy();
+  document.getElementById('liq-nliq').value = l ? l.n_liquidacion : '';
+  document.getElementById('liq-certificacion').value = l ? (l.certificacion||'') : '';
+  document.getElementById('liq-planta').value = l ? (l.planta||'') : '';
+  document.getElementById('liq-contrato').value = l ? (l.contrato||'') : '';
+  DESGLOSE_CALIDADES.forEach(cal=>{
+    document.getElementById(DESGLOSE_IDS[cal]).value = l ? (l.desglose[cal]||'') : '';
+  });
+  document.getElementById('liq-observaciones').value = l ? (l.observaciones||'') : '';
+  document.getElementById('liq-form-alert').innerHTML = '';
+
+  abrirModal('modal-liquidacion');
+  calcLiquidacion();
+}
+
+function calcLiquidacion(){
+  let totalKg = 0;
+  const valores = {};
+  DESGLOSE_CALIDADES.forEach(cal=>{
+    const v = parseFloat(document.getElementById(DESGLOSE_IDS[cal]).value)||0;
+    valores[cal] = v;
+    totalKg += v;
+  });
+  const totalQq = totalKg / QQ_EXPORTABLE_KG;
+  const pctExport = totalKg>0 ? (valores.exportacion/totalKg*100) : 0;
+
+  document.getElementById('liq-total-kg').value = totalKg.toFixed(2);
+  document.getElementById('liq-total-qq').value = totalQq.toFixed(2);
+  document.getElementById('liq-pct-export').value = pctExport.toFixed(2)+' %';
+}
+
+function guardarLiquidacion(){
+  const fecha = document.getElementById('liq-fecha').value;
+  const nliq = document.getElementById('liq-nliq').value.trim();
+
+  if(!fecha){ showAlert('liq-form-alert','error','Ingrese la fecha.'); return; }
+  if(!nliq){ showAlert('liq-form-alert','error','Ingrese el N° de liquidación.'); return; }
+
+  const desglose = {};
+  let totalKg = 0;
+  DESGLOSE_CALIDADES.forEach(cal=>{
+    const v = parseFloat(document.getElementById(DESGLOSE_IDS[cal]).value)||0;
+    desglose[cal] = v;
+    totalKg += v;
+  });
+  if(totalKg <= 0){ showAlert('liq-form-alert','error','Ingrese al menos un valor de calidad en Kg.'); return; }
+
+  const registro = {
+    codigo: document.getElementById('liq-codigo').value,
+    fecha,
+    n_liquidacion: nliq,
+    contrato: document.getElementById('liq-contrato').value.trim(),
+    certificacion: document.getElementById('liq-certificacion').value,
+    planta: document.getElementById('liq-planta').value.trim(),
+    desglose,
+    observaciones: document.getElementById('liq-observaciones').value,
+    usuario: SESSION.user
+  };
+
+  if(!DB.liquidacionesProceso) DB.liquidacionesProceso=[];
+  if(editandoLiquidacionIdx >= 0) DB.liquidacionesProceso[editandoLiquidacionIdx] = registro;
+  else DB.liquidacionesProceso.push(registro);
+
+  guardarDB(); cerrarModal('modal-liquidacion'); renderLiquidaciones(); showSection('liquidacion');
+}
+
+function eliminarLiquidacion(idx){
+  if(!confirm('¿Eliminar esta liquidación de proceso?')) return;
+  DB.liquidacionesProceso.splice(idx,1); guardarDB(); renderLiquidaciones();
+}
+
+function totalKgLiquidacion(l){
+  return DESGLOSE_CALIDADES.reduce((a,cal)=>a+(parseFloat(l.desglose?.[cal])||0),0);
+}
+
+function renderLiquidaciones(filtro){
+  if(!DB.liquidacionesProceso) DB.liquidacionesProceso=[];
+  const lista = (filtro
+    ? DB.liquidacionesProceso.filter(l=>(l.codigo||'').toLowerCase().includes(filtro)||(l.n_liquidacion||'').toLowerCase().includes(filtro)||(l.contrato||'').toLowerCase().includes(filtro))
+    : [...DB.liquidacionesProceso]);
+
+  // Stats
+  let totalKgGlobal=0, totalKgExport=0;
+  DB.liquidacionesProceso.forEach(l=>{
+    totalKgGlobal += totalKgLiquidacion(l);
+    totalKgExport += parseFloat(l.desglose?.exportacion)||0;
+  });
+  const pctExportGlobal = totalKgGlobal>0 ? (totalKgExport/totalKgGlobal*100) : 0;
+  document.getElementById('liq-stat-total').textContent = DB.liquidacionesProceso.length;
+  document.getElementById('liq-stat-kg').textContent = fmt(totalKgGlobal);
+  document.getElementById('liq-stat-qqexport').textContent = fmt(totalKgExport/QQ_EXPORTABLE_KG);
+  document.getElementById('liq-stat-pctexport').textContent = pctExportGlobal.toFixed(1)+'%';
+
+  const tb = document.getElementById('liquidacion-body');
+  if(!lista.length){
+    tb.innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="ico">🏭</span>No hay liquidaciones de proceso registradas.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = [...lista].reverse().map(l=>{
+    const ri = DB.liquidacionesProceso.indexOf(l);
+    const totalKg = totalKgLiquidacion(l);
+    const totalQq = totalKg/QQ_EXPORTABLE_KG;
+    const expKg = parseFloat(l.desglose?.exportacion)||0;
+    const pctExp = totalKg>0 ? (expKg/totalKg*100) : 0;
+    return `<tr>
+      <td class="td-codigo">${l.codigo}</td>
+      <td>${fechaDisplay(l.fecha)}</td>
+      <td style="font-family:monospace;font-size:0.78rem;">${l.n_liquidacion||'—'}</td>
+      <td>${l.certificacion||'—'}</td>
+      <td>${l.planta||'—'}</td>
+      <td style="font-size:0.78rem;max-width:130px;">${l.contrato||'—'}</td>
+      <td style="text-align:right;color:#1b5e20;font-weight:700;">${fmt(expKg)}</td>
+      <td style="text-align:right;font-weight:700;">${fmt(totalKg)}</td>
+      <td style="text-align:right;color:#0d47a1;font-weight:700;">${fmt(totalQq)}</td>
+      <td style="text-align:right;">${pctExp.toFixed(1)}%</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-secondary btn-sm" onclick="abrirModalLiquidacion(${ri})">✏️</button>
+        <button class="btn btn-dorado btn-sm" onclick="verPrintLiquidacion(${ri})">🖨️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarLiquidacion(${ri})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function filtrarLiquidaciones(){
+  renderLiquidaciones(document.getElementById('search-liq').value.toLowerCase());
+}
+
+// ── IMPRESIÓN DE LIQUIDACIÓN INDIVIDUAL ──
+function verPrintLiquidacion(idx){
+  const l = DB.liquidacionesProceso[idx];
+  const totalKg = totalKgLiquidacion(l);
+  const totalQq = totalKg/QQ_EXPORTABLE_KG;
+  const filasDesglose = DESGLOSE_CALIDADES.map(cal=>{
+    const kg = parseFloat(l.desglose?.[cal])||0;
+    if(kg<=0) return '';
+    const pct = totalKg>0 ? (kg/totalKg*100) : 0;
+    return `<tr><td style="color:#444;">${DESGLOSE_LABELS[cal]}</td><td style="text-align:right;font-weight:700;">${fmt(kg)} kg</td><td style="text-align:right;color:#777;">${pct.toFixed(1)}%</td></tr>`;
+  }).join('');
+  document.getElementById('print-liq-content').innerHTML = `
+  <div id="print-zona-liq" style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px 22px;border:2px solid #4e342e;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #4e342e;padding-bottom:8px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:11px;font-weight:800;color:#4e342e;letter-spacing:0.5px;">LIQUIDACIÓN DE PROCESO</div>
+      </div>
+      <div style="width:40px;"></div>
+    </div>
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:18px;font-weight:900;color:#4e342e;">${l.codigo}</div>
+      <div style="font-size:10px;color:#666;">${fechaDisplay(l.fecha)}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
+      <tr><td style="width:46%;color:#444;">N° Liquidación</td><td style="font-weight:800;">: ${l.n_liquidacion||'—'}</td></tr>
+      <tr><td style="color:#444;">Certificación</td><td style="font-weight:700;">: ${l.certificacion||'—'}</td></tr>
+      <tr><td style="color:#444;">Planta</td><td style="font-weight:700;">: ${l.planta||'—'}</td></tr>
+      <tr><td style="color:#444;">Contrato</td><td style="font-weight:700;">: ${l.contrato||'—'}</td></tr>
+    </table>
+    <div style="margin-top:10px;font-size:11px;font-weight:800;color:#4e342e;">DESGLOSE POR CALIDAD</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:1.8;">
+      ${filasDesglose}
+    </table>
+    <div style="border:2px solid #4e342e;border-radius:8px;padding:10px;text-align:center;margin:14px 0;background:#fbf8f6;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div>
+        <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">TOTAL PROCESADO</div>
+        <div style="font-size:18px;font-weight:900;color:#4e342e;">${fmt(totalKg)} kg</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">TOTAL QQ (÷46)</div>
+        <div style="font-size:18px;font-weight:900;color:#1b5e20;">${fmt(totalQq)}</div>
+      </div>
+    </div>
+    ${l.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${l.observaciones}</div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px;">
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Elabora (Planta)</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Revisa (APARCH)</div>
+    </div>
+  </div>`;
+  abrirModal('modal-print-liq');
+}
+
+function imprimirLiquidacion(){
+  const c = document.getElementById('print-zona-liq').outerHTML;
+  abrirVentanaImpresion(c, 'Liquidación de Proceso APARCH', 'body{padding:12px;}');
+}
+
+// ── EXPORTAR EXCEL ──
+function exportarLiquidaciones(){
+  if(!DB.liquidacionesProceso || !DB.liquidacionesProceso.length){ alert('No hay liquidaciones de proceso para exportar.'); return; }
+  const headers = ['Código','Fecha','N° Liquidación','Contrato','Certificación','Planta',
+    ...DESGLOSE_CALIDADES.map(cal=>DESGLOSE_LABELS[cal]+' (Kg)'),
+    'Total Kg','Total QQ (÷46)','% Exportación','Observaciones','Usuario'];
+  const filas = DB.liquidacionesProceso.map(l=>{
+    const totalKg = totalKgLiquidacion(l);
+    const totalQq = totalKg/QQ_EXPORTABLE_KG;
+    const expKg = parseFloat(l.desglose?.exportacion)||0;
+    const pctExp = totalKg>0 ? (expKg/totalKg*100) : 0;
+    return [
+      l.codigo, l.fecha, l.n_liquidacion, l.contrato||'', l.certificacion||'', l.planta||'',
+      ...DESGLOSE_CALIDADES.map(cal=>parseFloat(l.desglose?.[cal])||0),
+      totalKg, totalQq, pctExp.toFixed(2), l.observaciones||'', l.usuario||''
+    ];
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...filas]);
+  ws['!cols'] = headers.map(()=>({wch:14}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Liquidaciones');
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `APARCH_LiquidacionesProceso_${fecha}.xlsx`);
+}
+
+// ── IMPORTAR EXCEL (hoja tipo EXP-YANAPAMPA: grupos de 3 columnas KG/QQ/% por calidad) ──
+function importarLiquidacionesExcel(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      if(rows.length < 2){ alert('El Excel no tiene datos.'); return; }
+
+      const { headers, dataStartIdx } = leerEncabezadoFlexible(rows);
+      const find = (keys) => { for(const k of keys){ const i=headers.findIndex(h=>h.includes(k)); if(i>=0) return i; } return -1; };
+      // Para el Kg de cada calidad primero buscamos una columna que tenga el nombre de la calidad
+      // Y "kg" — así no se confunde con su columna hermana de QQ o de %, que traen el mismo nombre
+      // de grupo (caso de Excel con encabezado de 2 filas, ej. "Segunda" + "Kg"/"QQ"/"%").
+      const findKG = (keys) => { for(const k of keys){ const i=headers.findIndex(h=>h.includes(k) && h.includes('kg')); if(i>=0) return i; } return -1; };
+
+      const cols = {
+        fecha:    find(['fecha']),
+        nliq:     find(['n° liq','n liq','liquidacion','liquidación','n° proc','n proc']),
+        contrato: find(['contrato']),
+        certif:   find(['certificacion','certificación','certif']),
+        planta:   find(['planta']),
+      };
+
+      const desgloseKeys = {
+        exportacion:['exportacion','exportación','grado 1'],
+        limpieza_purga:['limpieza','purga'],
+        segunda:['segunda'], escojo:['escojo'], menudo:['menudo'], tercera:['tercera'],
+        barrido:['barrido'], bola:['bola'], una:['uña','una'], piedra:['piedra'],
+        cascara:['cascara','cáscara'],
+      };
+      const desgloseCols = {};
+      DESGLOSE_CALIDADES.forEach(cal=>{ desgloseCols[cal] = findKG(desgloseKeys[cal]); });
+
+      // Caso real observado: en el Excel de la asociación la celda combinada "CASCARA" a veces
+      // queda corrida una columna respecto a su propio Kg (defecto de combinar celdas en Excel),
+      // así que si no se encontró por palabra clave, se asume que ocupa las 3 columnas
+      // inmediatamente después del grupo "Piedra" (mismo patrón de ancho fijo que el resto).
+      if(desgloseCols.cascara<0 && desgloseCols.piedra>=0){
+        desgloseCols.cascara = desgloseCols.piedra + 3;
+      }
+
+      // Respaldo por palabra clave simple (sin exigir "kg" en el encabezado) SOLO para las
+      // calidades que sigan sin encontrarse — cubre Excel más sencillos con una sola columna por
+      // calidad (ya en Kg, sin desglosar también QQ/%). Se hace DESPUÉS del caso especial de
+      // cáscara para no pisarlo con un match de su columna de QQ/%.
+      DESGLOSE_CALIDADES.forEach(cal=>{
+        if(desgloseCols[cal] < 0) desgloseCols[cal] = find(desgloseKeys[cal]);
+      });
+
+      // Respaldo general: si por nombre de columna no se pudo ubicar la mayoría de las calidades
+      // (encabezados demasiado distintos a los esperados), se usa la posición fija: cada calidad
+      // ocupa 3 columnas (Kg,QQ,%) empezando justo después de la columna "Contrato", en el mismo
+      // orden que trae el Excel real de la asociación.
+      const encontradas = Object.values(desgloseCols).filter(v=>v>=0).length;
+      if(encontradas < 6 && cols.contrato>=0){
+        let base = cols.contrato + 1;
+        DESGLOSE_CALIDADES.forEach((cal,i)=>{ desgloseCols[cal] = base + i*3; });
+      }
+
+      const faltantes = [];
+      if(cols.nliq<0) faltantes.push('N° Liquidación');
+      if(cols.fecha<0) faltantes.push('Fecha');
+      if(faltantes.length){
+        alert('❌ El Excel debe tener al menos las columnas: '+faltantes.join(', ')+'.');
+        input.value=''; return;
+      }
+
+      const dataRowsCrudo = rows.slice(dataStartIdx).filter(r=>r.length && r[cols.nliq]);
+      if(!dataRowsCrudo.length){ alert('No se encontraron filas con datos.'); input.value=''; return; }
+
+      const dataRows = [];
+      const filasFechaInvalida = [];
+      dataRowsCrudo.forEach(row=>{
+        if(parseFechaImportacion(row[cols.fecha])) dataRows.push(row);
+        else filasFechaInvalida.push(String(row[cols.nliq]||'—'));
+      });
+      if(!dataRows.length){ alert('Ninguna fila tiene una fecha válida — no se puede continuar.'); input.value=''; return; }
+
+      let mensajeConfirm = `Vas a importar ${dataRows.length} liquidación(es) de proceso del Excel.`;
+      if(filasFechaInvalida.length) mensajeConfirm += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se van a OMITIR: ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
+      mensajeConfirm += `\n\n¿Continuar?`;
+      if(!confirm(mensajeConfirm)) { input.value=''; return; }
+
+      if(!DB.liquidacionesProceso) DB.liquidacionesProceso=[];
+      let creadas = 0;
+      dataRows.forEach(row=>{
+        const fechaVal = parseFechaImportacion(row[cols.fecha]);
+        const desglose = {};
+        DESGLOSE_CALIDADES.forEach(cal=>{
+          const idx = desgloseCols[cal];
+          desglose[cal] = idx>=0 ? (parseFloat(row[idx])||0) : 0;
+        });
+        DB.liquidacionesProceso.push({
+          codigo: nextCodigo(DB.liquidacionesProceso, 'LIQ-'),
+          fecha: fechaVal,
+          n_liquidacion: String(row[cols.nliq]||'').trim(),
+          contrato: cols.contrato>=0 ? String(row[cols.contrato]||'').trim() : '',
+          certificacion: cols.certif>=0 ? String(row[cols.certif]||'').trim() : '',
+          planta: cols.planta>=0 ? String(row[cols.planta]||'').trim() : '',
+          desglose,
+          observaciones: 'Importado desde Excel',
+          usuario: SESSION.user||'admin'
+        });
+        creadas++;
+      });
+
+      guardarDB();
+      renderLiquidaciones();
+      input.value = '';
+
+      let msg = `✅ Importación completada: ${creadas} liquidación(es) de proceso creada(s).`;
+      if(filasFechaInvalida.length) msg += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se OMITIERON: ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
+      alert(msg);
+    }catch(err){
+      alert('❌ Error al leer el Excel: '+err.message);
+      input.value='';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════
+// MÓDULO FACTURAS DE VENTA (Exportación, en USD — sin integración con Caja)
+// ══════════════════════════════════════════
+let editandoFacturaIdx = -1;
+
+function abrirModalFactura(idx){
+  editandoFacturaIdx = (idx !== undefined) ? idx : -1;
+  const f = idx !== undefined ? DB.facturasVenta[idx] : null;
+
+  document.getElementById('modal-fact-titulo').textContent = f ? '✏️ Editar Factura de Venta' : '💵 Nueva Factura de Venta';
+  document.getElementById('fact-codigo').value = f ? f.codigo : nextCodigo(DB.facturasVenta||[], 'FACT-');
+  document.getElementById('fact-fecha').value = f ? f.fecha : hoy();
+  document.getElementById('fact-factura').value = f ? f.factura : '';
+  document.getElementById('fact-cliente').value = f ? (f.cliente||'') : '';
+  document.getElementById('fact-contrato').value = f ? (f.contrato||'') : '';
+  document.getElementById('fact-lote').value = f ? (f.lote||'') : '';
+  document.getElementById('fact-referencia').value = f ? (f.referencia||'') : '';
+  document.getElementById('fact-tipocontrato').value = f ? (f.tipo_contrato||'') : '';
+  document.getElementById('fact-planta').value = f ? (f.planta||'') : '';
+  document.getElementById('fact-kg').value = f ? f.kg : '';
+  document.getElementById('fact-preciounit').value = f ? f.precio_unit : '';
+  document.getElementById('fact-prima').value = f ? f.prima : '';
+  document.getElementById('fact-observaciones').value = f ? (f.observaciones||'') : '';
+  document.getElementById('fact-form-alert').innerHTML = '';
+
+  abrirModal('modal-factura');
+  calcFactura();
+  // Si es edición, respeta el valor total ya guardado (puede venir de un Excel importado que no
+  // siempre calza exacto con kg×precio+prima por redondeos reales) en vez de recalcularlo.
+  if(f) document.getElementById('fact-valortotal').value = f.valor_total;
+}
+
+function calcFactura(){
+  const kg = parseFloat(document.getElementById('fact-kg').value)||0;
+  const preciounit = parseFloat(document.getElementById('fact-preciounit').value)||0;
+  const prima = parseFloat(document.getElementById('fact-prima').value)||0;
+  const qq = kg / QQ_EXPORTABLE_KG;
+  const valorTotal = (kg*preciounit) + prima;
+
+  document.getElementById('fact-qq').value = qq.toFixed(2);
+  document.getElementById('fact-valortotal').value = valorTotal.toFixed(2);
+}
+
+function guardarFactura(){
+  const fecha = document.getElementById('fact-fecha').value;
+  const factura = document.getElementById('fact-factura').value.trim();
+  const kg = parseFloat(document.getElementById('fact-kg').value)||0;
+
+  if(!fecha){ showAlert('fact-form-alert','error','Ingrese la fecha.'); return; }
+  if(!factura){ showAlert('fact-form-alert','error','Ingrese el N° de factura.'); return; }
+  if(kg <= 0){ showAlert('fact-form-alert','error','Ingrese los Kg vendidos.'); return; }
+
+  const registro = {
+    codigo: document.getElementById('fact-codigo').value,
+    fecha, factura,
+    cliente: document.getElementById('fact-cliente').value.trim(),
+    contrato: document.getElementById('fact-contrato').value.trim(),
+    lote: document.getElementById('fact-lote').value.trim(),
+    referencia: document.getElementById('fact-referencia').value.trim(),
+    tipo_contrato: document.getElementById('fact-tipocontrato').value,
+    planta: document.getElementById('fact-planta').value.trim(),
+    kg: document.getElementById('fact-kg').value,
+    qq: document.getElementById('fact-qq').value,
+    precio_unit: document.getElementById('fact-preciounit').value,
+    prima: document.getElementById('fact-prima').value || '0',
+    valor_total: document.getElementById('fact-valortotal').value,
+    moneda: 'USD',
+    observaciones: document.getElementById('fact-observaciones').value,
+    usuario: SESSION.user
+  };
+
+  if(!DB.facturasVenta) DB.facturasVenta=[];
+  if(editandoFacturaIdx >= 0) DB.facturasVenta[editandoFacturaIdx] = registro;
+  else DB.facturasVenta.push(registro);
+
+  guardarDB(); cerrarModal('modal-factura'); renderFacturasVenta(); showSection('facturasventa');
+}
+
+function eliminarFactura(idx){
+  if(!confirm('¿Eliminar esta factura de venta?')) return;
+  DB.facturasVenta.splice(idx,1); guardarDB(); renderFacturasVenta();
+}
+
+function renderFacturasVenta(filtro){
+  if(!DB.facturasVenta) DB.facturasVenta=[];
+  const lista = (filtro
+    ? DB.facturasVenta.filter(f=>(f.codigo||'').toLowerCase().includes(filtro)||(f.factura||'').toLowerCase().includes(filtro)||(f.cliente||'').toLowerCase().includes(filtro)||(f.contrato||'').toLowerCase().includes(filtro))
+    : [...DB.facturasVenta]);
+
+  // Stats
+  const totalKg = DB.facturasVenta.reduce((a,f)=>a+(parseFloat(f.kg)||0),0);
+  const totalUsd = DB.facturasVenta.reduce((a,f)=>a+(parseFloat(f.valor_total)||0),0);
+  document.getElementById('fact-stat-total').textContent = DB.facturasVenta.length;
+  document.getElementById('fact-stat-kg').textContent = fmt(totalKg);
+  document.getElementById('fact-stat-qq').textContent = fmt(totalKg/QQ_EXPORTABLE_KG);
+  document.getElementById('fact-stat-usd').textContent = 'US$ '+fmt(totalUsd);
+
+  const tb = document.getElementById('facturasventa-body');
+  if(!lista.length){
+    tb.innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="ico">💵</span>No hay facturas de venta registradas.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = [...lista].reverse().map(f=>{
+    const ri = DB.facturasVenta.indexOf(f);
+    return `<tr>
+      <td class="td-codigo">${f.codigo}</td>
+      <td>${fechaDisplay(f.fecha)}</td>
+      <td style="font-family:monospace;font-size:0.78rem;">${f.factura||'—'}</td>
+      <td><strong>${f.cliente||'—'}</strong></td>
+      <td style="font-size:0.78rem;max-width:130px;">${f.contrato||'—'}</td>
+      <td>${f.tipo_contrato||'—'}</td>
+      <td style="text-align:right;">${fmt(f.kg)}</td>
+      <td style="text-align:right;color:#0d47a1;font-weight:700;">${fmt(f.qq)}</td>
+      <td style="text-align:right;">US$ ${parseFloat(f.precio_unit||0).toFixed(4)}</td>
+      <td style="text-align:right;font-weight:800;color:#e65100;">US$ ${fmt(f.valor_total)}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-secondary btn-sm" onclick="abrirModalFactura(${ri})">✏️</button>
+        <button class="btn btn-dorado btn-sm" onclick="verPrintFactura(${ri})">🖨️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarFactura(${ri})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function filtrarFacturasVenta(){
+  renderFacturasVenta(document.getElementById('search-fact').value.toLowerCase());
+}
+
+// ── IMPRESIÓN DE FACTURA INDIVIDUAL ──
+function verPrintFactura(idx){
+  const f = DB.facturasVenta[idx];
+  document.getElementById('print-fact-content').innerHTML = `
+  <div id="print-zona-fact" style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px 22px;border:2px solid #e65100;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #e65100;padding-bottom:8px;margin-bottom:12px;">
+      <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:11px;font-weight:800;color:#e65100;letter-spacing:0.5px;">FACTURA DE VENTA — EXPORTACIÓN</div>
+      </div>
+      <div style="width:40px;"></div>
+    </div>
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:18px;font-weight:900;color:#e65100;">${f.codigo}</div>
+      <div style="font-size:10px;color:#666;">${fechaDisplay(f.fecha)}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
+      <tr><td style="width:46%;color:#444;">N° Factura</td><td style="font-weight:800;">: ${f.factura||'—'}</td></tr>
+      <tr><td style="color:#444;">Cliente</td><td style="font-weight:700;">: ${f.cliente||'—'}</td></tr>
+      <tr><td style="color:#444;">Contrato</td><td style="font-weight:700;">: ${f.contrato||'—'}</td></tr>
+      <tr><td style="color:#444;">Lote</td><td style="font-weight:700;">: ${f.lote||'—'}</td></tr>
+      <tr><td style="color:#444;">Tipo de Contrato</td><td style="font-weight:700;">: ${f.tipo_contrato||'—'}</td></tr>
+      <tr><td style="color:#444;">Kg / QQ</td><td style="font-weight:700;">: ${fmt(f.kg)} kg / ${fmt(f.qq)} QQ</td></tr>
+      <tr><td style="color:#444;">Precio Unitario</td><td style="font-weight:700;">: US$ ${parseFloat(f.precio_unit||0).toFixed(4)}</td></tr>
+      <tr><td style="color:#444;">Prima</td><td style="font-weight:700;">: US$ ${fmt(f.prima)}</td></tr>
+    </table>
+    <div style="border:2px solid #e65100;border-radius:8px;padding:12px;text-align:center;margin:14px 0;background:#fff3e0;">
+      <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">VALOR TOTAL</div>
+      <div style="font-size:26px;font-weight:900;color:#e65100;">US$ ${fmt(f.valor_total)}</div>
+    </div>
+    ${f.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${f.observaciones}</div>` : ''}
+  </div>`;
+  abrirModal('modal-print-fact');
+}
+
+function imprimirFactura(){
+  const c = document.getElementById('print-zona-fact').outerHTML;
+  abrirVentanaImpresion(c, 'Factura de Venta APARCH', 'body{padding:12px;}');
+}
+
+// ── EXPORTAR EXCEL ──
+function exportarFacturasVenta(){
+  if(!DB.facturasVenta || !DB.facturasVenta.length){ alert('No hay facturas de venta para exportar.'); return; }
+  const headers = ['Código','Fecha','N° Factura','Cliente','Contrato','Lote','Referencia','Tipo de Contrato','Planta',
+    'Kg','QQ (÷46)','Precio Unit. (US$)','Prima (US$)','Valor Total (US$)','Observaciones','Usuario'];
+  const filas = DB.facturasVenta.map(f=>[
+    f.codigo, f.fecha, f.factura, f.cliente||'', f.contrato||'', f.lote||'', f.referencia||'',
+    f.tipo_contrato||'', f.planta||'',
+    parseFloat(f.kg||0)||0, parseFloat(f.qq||0)||0, parseFloat(f.precio_unit||0)||0, parseFloat(f.prima||0)||0, parseFloat(f.valor_total||0)||0,
+    f.observaciones||'', f.usuario||''
+  ]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...filas]);
+  ws['!cols'] = headers.map(()=>({wch:14}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Facturas Venta');
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `APARCH_FacturasVenta_${fecha}.xlsx`);
+}
+
+// ── IMPORTAR EXCEL (hoja tipo VENTAS: encabezado simple de 1 sola fila) ──
+function importarFacturasVentaExcel(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      if(rows.length < 2){ alert('El Excel no tiene datos.'); return; }
+
+      const { headers, dataStartIdx } = leerEncabezadoFlexible(rows);
+      const find = (keys) => { for(const k of keys){ const i=headers.findIndex(h=>h.includes(k)); if(i>=0) return i; } return -1; };
+
+      const cols = {
+        fecha:      find(['fecha']),
+        factura:    find(['factura']),
+        cliente:    find(['cliente']),
+        contrato:   find(['contrato']),
+        lote:       find(['lote']),
+        referencia: find(['referencia']),
+        kg:         find(['kg']),
+        preciounit: find(['precio unit','precio unitario']),
+        prima:      find(['prima']),
+        valortotal: find(['valor total','monto total']),
+        tipocontrato: find(['tipo de contrato','tipo contrato']),
+        planta:     find(['planta']),
+      };
+
+      const faltantes = [];
+      if(cols.fecha<0) faltantes.push('Fecha');
+      if(cols.factura<0) faltantes.push('N° Factura');
+      if(cols.kg<0) faltantes.push('Kg');
+      if(faltantes.length){
+        alert('❌ El Excel debe tener al menos las columnas: '+faltantes.join(', ')+'.');
+        input.value=''; return;
+      }
+
+      const dataRowsCrudo = rows.slice(dataStartIdx).filter(r=>r.length && r[cols.factura]);
+      if(!dataRowsCrudo.length){ alert('No se encontraron filas con datos.'); input.value=''; return; }
+
+      const dataRows = [];
+      const filasFechaInvalida = [];
+      dataRowsCrudo.forEach(row=>{
+        if(parseFechaImportacion(row[cols.fecha])) dataRows.push(row);
+        else filasFechaInvalida.push(String(row[cols.factura]||'—'));
+      });
+      if(!dataRows.length){ alert('Ninguna fila tiene una fecha válida — no se puede continuar.'); input.value=''; return; }
+
+      let mensajeConfirm = `Vas a importar ${dataRows.length} factura(s) de venta del Excel (montos en USD).`;
+      if(filasFechaInvalida.length) mensajeConfirm += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se van a OMITIR: ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
+      mensajeConfirm += `\n\n¿Continuar?`;
+      if(!confirm(mensajeConfirm)) { input.value=''; return; }
+
+      if(!DB.facturasVenta) DB.facturasVenta=[];
+      let creadas = 0;
+      dataRows.forEach(row=>{
+        const fechaVal = parseFechaImportacion(row[cols.fecha]);
+        const kg = parseFloat(row[cols.kg])||0;
+        const preciounit = cols.preciounit>=0 ? (parseFloat(row[cols.preciounit])||0) : 0;
+        const prima = cols.prima>=0 ? (parseFloat(row[cols.prima])||0) : 0;
+        // El valor total se toma TAL CUAL viene en el Excel si la columna existe (puede traer
+        // pequeños ajustes/redondeos reales que no calzan exacto con kg×precio+prima); si no
+        // viene, se calcula con la fórmula estándar.
+        const valorTotal = cols.valortotal>=0 ? (parseFloat(row[cols.valortotal])||0) : ((kg*preciounit)+prima);
+        const qq = kg / QQ_EXPORTABLE_KG;
+
+        DB.facturasVenta.push({
+          codigo: nextCodigo(DB.facturasVenta, 'FACT-'),
+          fecha: fechaVal,
+          factura: String(row[cols.factura]||'').trim(),
+          cliente: cols.cliente>=0 ? String(row[cols.cliente]||'').trim() : '',
+          contrato: cols.contrato>=0 ? String(row[cols.contrato]||'').trim() : '',
+          lote: cols.lote>=0 ? String(row[cols.lote]||'').trim() : '',
+          referencia: cols.referencia>=0 ? String(row[cols.referencia]||'').trim() : '',
+          tipo_contrato: cols.tipocontrato>=0 ? String(row[cols.tipocontrato]||'').trim() : '',
+          planta: cols.planta>=0 ? String(row[cols.planta]||'').trim() : '',
+          kg: kg.toFixed(2),
+          qq: qq.toFixed(2),
+          precio_unit: preciounit.toFixed(6),
+          prima: prima.toFixed(2),
+          valor_total: valorTotal.toFixed(2),
+          moneda: 'USD',
+          observaciones: 'Importado desde Excel',
+          usuario: SESSION.user||'admin'
+        });
+        creadas++;
+      });
+
+      guardarDB();
+      renderFacturasVenta();
+      input.value = '';
+
+      const totalUsdImport = dataRows.reduce((a,r)=>{
+        const kg = parseFloat(r[cols.kg])||0;
+        const preciounit = cols.preciounit>=0 ? (parseFloat(r[cols.preciounit])||0) : 0;
+        const prima = cols.prima>=0 ? (parseFloat(r[cols.prima])||0) : 0;
+        return a + (cols.valortotal>=0 ? (parseFloat(r[cols.valortotal])||0) : ((kg*preciounit)+prima));
+      }, 0);
+      let msg = `✅ Importación completada: ${creadas} factura(s) de venta creada(s).\n💰 Valor total importado: US$ ${totalUsdImport.toFixed(2)}`;
+      if(filasFechaInvalida.length) msg += `\n\n⚠️ ${filasFechaInvalida.length} fila(s) con fecha inválida se OMITIERON: ${filasFechaInvalida.slice(0,8).join(', ')}${filasFechaInvalida.length>8?'…':''}`;
+      alert(msg);
+    }catch(err){
+      alert('❌ Error al leer el Excel: '+err.message);
+      input.value='';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════
+// RESUMEN GENERAL DE CAMPAÑA — dashboard de solo lectura, todo calculado al vuelo a partir de
+// Acopio (guías) + Guías de Remisión + Liquidaciones de Proceso + Facturas de Venta, para que se
+// actualice solo con cada alta nueva (nunca se guarda un total "congelado").
+// ══════════════════════════════════════════
+
+function calcularResumenCampana(){
+  const certifFiltro = (document.getElementById('rc-certificacion')||{}).value || '';
+  const soloCampanaActiva = !!(document.getElementById('rc-solo-campana')||{}).checked;
+
+  // ── Acopio ──
+  const acopio = calcularTotalesAcopio({ certificacion: certifFiltro, soloCampanaActiva });
+
+  // ── Remitido a planta (Guías de Remisión) ──
+  const remisionesFiltradas = (DB.guiasRemision||[]).filter(r=> !certifFiltro || (r.certificacion||'')===certifFiltro);
+  const remitidoKg = remisionesFiltradas.reduce((a,r)=>a+(parseFloat(r.recepcion?.kg_netos)||0),0);
+
+  // ── Procesado / liquidado, desglosado por calidad (Liquidaciones de Proceso) ──
+  const liquidacionesFiltradas = (DB.liquidacionesProceso||[]).filter(l=> !certifFiltro || (l.certificacion||'')===certifFiltro);
+  const desgloseTotales = {};
+  DESGLOSE_CALIDADES.forEach(cal=>{ desgloseTotales[cal] = 0; });
+  liquidacionesFiltradas.forEach(l=>{
+    DESGLOSE_CALIDADES.forEach(cal=>{ desgloseTotales[cal] += parseFloat(l.desglose?.[cal])||0; });
+  });
+  const procesadoKg = DESGLOSE_CALIDADES.reduce((a,cal)=>a+desgloseTotales[cal],0);
+  const pctExportacion = procesadoKg>0 ? (desgloseTotales.exportacion/procesadoKg) : 0;
+
+  // ── Vendido (Facturas de Venta) — no tiene campo de certificación propio (va en USD, es venta
+  // de exportación); no se filtra por certificación, solo se muestra el total global.
+  const vendidoKg = (DB.facturasVenta||[]).reduce((a,f)=>a+(parseFloat(f.kg)||0),0);
+  const vendidoUsd = (DB.facturasVenta||[]).reduce((a,f)=>a+(parseFloat(f.valor_total)||0),0);
+
+  // ── Saldos vivos ──
+  const saldoAlmacen = acopio.kgNeto - remitidoKg;
+  const saldoPlanta = remitidoKg - procesadoKg;
+  const saldoExportable = (procesadoKg*pctExportacion) - vendidoKg;
+
+  return { acopio, remitidoKg, procesadoKg, desgloseTotales, pctExportacion, vendidoKg, vendidoUsd, saldoAlmacen, saldoPlanta, saldoExportable, certifFiltro, soloCampanaActiva };
+}
+
+function renderResumenCampana(){
+  const r = calcularResumenCampana();
+
+  document.getElementById('rc-acopio-kg').textContent = fmt(r.acopio.kgNeto)+' kg';
+  document.getElementById('rc-acopio-sub').textContent = fmt(r.acopio.qq)+' QQ — S/. '+fmt(r.acopio.montoPagado);
+
+  document.getElementById('rc-remitido-kg').textContent = fmt(r.remitidoKg)+' kg';
+  document.getElementById('rc-remitido-sub').textContent = fmt(r.remitidoKg/55.2)+' QQ (÷55.2)';
+
+  document.getElementById('rc-procesado-kg').textContent = fmt(r.procesadoKg)+' kg';
+  document.getElementById('rc-procesado-sub').textContent = fmt(r.procesadoKg/QQ_EXPORTABLE_KG)+' QQ (÷46)';
+
+  document.getElementById('rc-vendido-kg').textContent = fmt(r.vendidoKg)+' kg';
+  document.getElementById('rc-vendido-sub').textContent = 'US$ '+fmt(r.vendidoUsd);
+
+  const tb = document.getElementById('rc-desglose-body');
+  if(r.procesadoKg<=0){
+    tb.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span class="ico">⚖️</span>Aún no hay liquidaciones de proceso registradas.</div></td></tr>`;
+  } else {
+    tb.innerHTML = DESGLOSE_CALIDADES.map(cal=>{
+      const kg = r.desgloseTotales[cal];
+      const qq = kg/QQ_EXPORTABLE_KG;
+      const pct = r.procesadoKg>0 ? (kg/r.procesadoKg*100) : 0;
+      return `<tr><td>${DESGLOSE_LABELS[cal]}</td><td style="text-align:right;">${fmt(kg)}</td><td style="text-align:right;">${fmt(qq)}</td><td style="text-align:right;">${pct.toFixed(1)}%</td></tr>`;
+    }).join('');
+  }
+
+  document.getElementById('rc-saldo-almacen').textContent = fmt(r.saldoAlmacen)+' kg';
+  document.getElementById('rc-saldo-planta').textContent = fmt(r.saldoPlanta)+' kg';
+  document.getElementById('rc-saldo-exportable').textContent = fmt(r.saldoExportable)+' kg';
+}
+
+// ── EXPORTAR EXCEL (Resumen + las 3 colecciones nuevas) ──
+function exportarResumenCampana(){
+  const r = calcularResumenCampana();
+  const wb = XLSX.utils.book_new();
+
+  // Hoja Resumen
+  const filasResumen = [
+    ['RESUMEN GENERAL DE CAMPAÑA — APARCH'],
+    ['Generado', new Date().toISOString().slice(0,19).replace('T',' ')],
+    ['Filtro Certificación', r.certifFiltro || 'Todas'],
+    ['Solo campaña activa (Acopio)', r.soloCampanaActiva ? 'Sí' : 'No'],
+    [],
+    ['TOTALES POR ETAPA', 'Kg', 'QQ', 'S/. o US$'],
+    ['Total Acopio', r.acopio.kgNeto, r.acopio.qq, r.acopio.montoPagado],
+    ['Total Remitido a Planta', r.remitidoKg, r.remitidoKg/55.2, ''],
+    ['Total Procesado / Liquidado', r.procesadoKg, r.procesadoKg/QQ_EXPORTABLE_KG, ''],
+    ['Total Vendido', r.vendidoKg, r.vendidoKg/QQ_EXPORTABLE_KG, r.vendidoUsd],
+    [],
+    ['DESGLOSE POR CALIDAD (de lo procesado)', 'Kg', 'QQ (÷46)', '% del Total Procesado'],
+    ...DESGLOSE_CALIDADES.map(cal=>[DESGLOSE_LABELS[cal], r.desgloseTotales[cal], r.desgloseTotales[cal]/QQ_EXPORTABLE_KG, r.procesadoKg>0?(r.desgloseTotales[cal]/r.procesadoKg*100).toFixed(2)+'%':'0%']),
+    [],
+    ['SALDOS VIVOS', 'Kg'],
+    ['En Almacén sin Remitir', r.saldoAlmacen],
+    ['En Planta sin Procesar', r.saldoPlanta],
+    ['Exportable en Stock sin Vender', r.saldoExportable],
+  ];
+  const wsResumen = XLSX.utils.aoa_to_sheet(filasResumen);
+  wsResumen['!cols'] = [{wch:32},{wch:16},{wch:16},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+  // Hoja Liquidaciones
+  const hLiq = ['Código','Fecha','N° Liquidación','Contrato','Certificación','Planta',
+    ...DESGLOSE_CALIDADES.map(cal=>DESGLOSE_LABELS[cal]+' (Kg)'), 'Total Kg','Total QQ (÷46)'];
+  const fLiq = (DB.liquidacionesProceso||[]).map(l=>{
+    const totalKg = totalKgLiquidacion(l);
+    return [l.codigo,l.fecha,l.n_liquidacion,l.contrato||'',l.certificacion||'',l.planta||'',
+      ...DESGLOSE_CALIDADES.map(cal=>parseFloat(l.desglose?.[cal])||0), totalKg, totalKg/QQ_EXPORTABLE_KG];
+  });
+  const wsLiq = XLSX.utils.aoa_to_sheet([hLiq, ...fLiq]);
+  XLSX.utils.book_append_sheet(wb, wsLiq, 'Liquidaciones');
+
+  // Hoja Guías de Remisión
+  const hRem = ['Código','Fecha','N° Guía Remisión','Certificación','Contrato','Sacos Salida','Kg Neto Salida','Sacos Recepción','Kg Neto Recepción','Merma (Kg)'];
+  const fRem = (DB.guiasRemision||[]).map(r2=>[r2.codigo,r2.fecha,r2.guia_remision_n,r2.certificacion||'',r2.contrato||'',
+    parseFloat(r2.salida?.sacos)||0, parseFloat(r2.salida?.kg_netos)||0, parseFloat(r2.recepcion?.sacos)||0, parseFloat(r2.recepcion?.kg_netos)||0, parseFloat(r2.merma_secado_kg)||0]);
+  const wsRem = XLSX.utils.aoa_to_sheet([hRem, ...fRem]);
+  XLSX.utils.book_append_sheet(wb, wsRem, 'Guías de Remisión');
+
+  // Hoja Facturas de Venta
+  const hFact = ['Código','Fecha','Factura','Cliente','Contrato','Tipo Contrato','Kg','QQ (÷46)','Precio Unit US$','Valor Total US$'];
+  const fFact = (DB.facturasVenta||[]).map(f=>[f.codigo,f.fecha,f.factura,f.cliente||'',f.contrato||'',f.tipo_contrato||'',
+    parseFloat(f.kg)||0, parseFloat(f.qq)||0, parseFloat(f.precio_unit)||0, parseFloat(f.valor_total)||0]);
+  const wsFact = XLSX.utils.aoa_to_sheet([hFact, ...fFact]);
+  XLSX.utils.book_append_sheet(wb, wsFact, 'Facturas de Venta');
+
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `APARCH_ResumenCampana_${fecha}.xlsx`);
+}
 
 
 
