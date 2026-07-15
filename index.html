@@ -12,6 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{
   --verde:#1a5c2e;--verde-m:#2d7a45;--verde-c:#4caf72;
@@ -1381,6 +1382,10 @@ tr:hover td{background:#f4f8f4;}
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasRemisionExcel(this)">
         </label>
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar directamente desde PDF (guía de remisión SUNAT y/o guía de ingreso a planta)">
+          📄 Importar PDF
+          <input type="file" accept="application/pdf" multiple style="display:none" onchange="importarGuiasRemisionPDF(this)">
+        </label>
         <button class="btn btn-export" onclick="exportarGuiasRemision()">📥 Exportar Excel</button>
         <button class="btn btn-primary" onclick="abrirModalRemision()">+ Nueva Guía de Remisión</button>
       </div>
@@ -1432,6 +1437,10 @@ tr:hover td{background:#f4f8f4;}
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarLiquidacionesExcel(this)">
         </label>
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar directamente desde PDF (liquidación de proceso)">
+          📄 Importar PDF
+          <input type="file" accept="application/pdf" multiple style="display:none" onchange="importarLiquidacionesPDF(this)">
+        </label>
         <button class="btn btn-export" onclick="exportarLiquidaciones()">📥 Exportar Excel</button>
         <button class="btn btn-primary" onclick="abrirModalLiquidacion()">+ Nueva Liquidación</button>
       </div>
@@ -1481,6 +1490,10 @@ tr:hover td{background:#f4f8f4;}
         <label class="btn btn-secondary" style="cursor:pointer;" title="Importar facturas de venta desde Excel">
           📂 Importar Excel
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarFacturasVentaExcel(this)">
+        </label>
+        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar directamente desde PDF (factura electrónica SUNAT)">
+          📄 Importar PDF
+          <input type="file" accept="application/pdf" multiple style="display:none" onchange="importarFacturasVentaPDF(this)">
         </label>
         <button class="btn btn-export" onclick="exportarFacturasVenta()">📥 Exportar Excel</button>
         <button class="btn btn-primary" onclick="abrirModalFactura()">+ Nueva Factura</button>
@@ -11576,6 +11589,245 @@ function exportarCafeCoco(){
 }
 
 // ══════════════════════════════════════════
+// IMPORTACIÓN DESDE PDF (pdf.js) — Guías de Remisión / Liquidaciones de Proceso / Facturas de Venta
+// Permite subir los documentos reales (guía de remisión electrónica SUNAT, guía de ingreso a
+// planta, liquidación de proceso, factura electrónica SUNAT) directamente, sin pasar por un Excel
+// intermedio. Todo se extrae por palabra clave/regex tolerante (misma filosofía que ya usan los
+// importadores de Excel con find(keys)) — nunca por posición fija, porque pdf.js no garantiza que
+// el texto salga en orden visual izquierda-derecha/arriba-abajo. Los datos extraídos SIEMPRE se
+// muestran en el modal de siempre para que el usuario revise/corrija antes de guardar — nunca se
+// guardan solos.
+// ══════════════════════════════════════════
+
+// pdf.js worker — necesario una sola vez, antes de la primera llamada a getDocument().
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// Lee un File (PDF) y devuelve un array de strings, uno por página, con el texto extraído.
+async function extraerTextoPDF(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const paginas = [];
+  for(let i=1; i<=pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const texto = content.items.map(it=>it.str).join(' ').replace(/\s+/g,' ').trim();
+    paginas.push(texto);
+  }
+  return paginas;
+}
+
+// Busca el primer patrón que matchee en el texto y devuelve su grupo capturado (o null).
+function _extraerCampo(texto, patrones){
+  for(const p of patrones){
+    const m = texto.match(p);
+    if(m && m[1]) return m[1].trim();
+  }
+  return null;
+}
+// Primera fecha DD/MM/YYYY o DD-MM-YYYY que aparezca en el texto, normalizada a YYYY-MM-DD.
+// Nota: en los PDF reales el texto que entrega pdf.js NO respeta el orden visual (las etiquetas
+// "Fecha:"/"Fecha de emisión:" muchas veces aparecen SIN su valor al lado, porque el valor ya
+// salió antes en otro bloque del documento) — por eso, en vez de anclar por etiqueta, se toma la
+// primera fecha DD/MM/YYYY del texto completo, que en los 4 tipos de documento reales verificados
+// esta sesión siempre corresponde a la fecha de emisión/proceso.
+function _primeraFechaDMY(texto){
+  const m = texto.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
+  if(!m) return null;
+  return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+}
+// La "Guía de Ingreso" de Yanapampa usa formato M/D/YYYY (americano), a diferencia de los otros 3
+// tipos de documento (D/M/YYYY) — se extrae con su propia etiqueta porque aquí sí viene inline.
+function _fechaUS(texto, regexEtiqueta){
+  const m = texto.match(regexEtiqueta);
+  if(!m) return null;
+  const [, mo, d, y] = m[0].match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
+// ── A) Guía de Remisión Electrónica (SUNAT), página REMITENTE ──
+// Las páginas TRANSPORTISTA son copias duplicadas del mismo envío — se ignoran a propósito.
+function parsearPaginaGuiaRemision(texto){
+  const cabecera = texto.match(/GU[ÍI]A DE REMISI[ÓO]N ELECTR[ÓO]NICA\s*\/?\s*(REMITENTE|TRANSPORTISTA)/i);
+  if(!cabecera) return null;
+  if(cabecera[1].toUpperCase() === 'TRANSPORTISTA') return null;
+
+  const nGuiaRaw = _extraerCampo(texto, [/N[°ºo]\s*([A-Z]{2}\d{2}\s*-\s*\d+)/i]);
+  const nGuia = nGuiaRaw ? nGuiaRaw.replace(/\s*-\s*/, '-').toUpperCase() : '';
+
+  const fecha = _primeraFechaDMY(texto);
+  const certificacion = /ORG[ÁA]NICO/i.test(texto) ? 'ORGANICO' : 'CONVENCIONAL';
+  // Se corta antes de ",LOTE"/"CERTIFICADO" si aparecen, o antes del primer número con 4+
+  // decimales (marca el inicio de una columna numérica, ej. precio unitario en otros documentos).
+  const contrato = _extraerCampo(texto, [/CONTRATO\s*:\s*(.+?)(?:,\s*LOTE|CERTIFICADO|\s+\d+\.\d{4,}|$)/i]);
+
+  const sacos = _extraerCampo(texto, [/(\d+)\s*SACOS/i]);
+  // "Peso Bruto total de la carga:" casi nunca tiene su valor inmediatamente al lado en el texto
+  // real (queda "NO" de otro campo pegado ahí) — el valor real aparece siempre justo después de
+  // "KGM" (la unidad de medida), que es un ancla mucho más confiable.
+  const kgBrutoRaw = _extraerCampo(texto, [/KGM\s+([\d,]+\.?\d*)/i]);
+  const kgBruto = kgBrutoRaw ? kgBrutoRaw.replace(/,/g,'') : '';
+
+  return {
+    _tipo: 'guia_remision_A',
+    guia_remision_n: nGuia,
+    fecha: fecha || '',
+    certificacion,
+    contrato: contrato || '',
+    sal_sacos: sacos || '',
+    sal_kgbruto: kgBruto
+  };
+}
+
+// ── B) Guía de Ingreso (documento interno de Yanapampa) — datos de recepción en planta ──
+function parsearPaginaGuiaIngreso(texto){
+  if(!/GUIA DE INGRESO/i.test(texto)) return null;
+
+  const fecha = _fechaUS(texto, /Fecha\s*:?\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  // "GUIA DE REMISIÓN:" casi nunca tiene su valor al lado en el texto real (el valor "EG07-1" ya
+  // salió antes, junto al nombre del cliente) — se busca directamente el patrón de la referencia
+  // abreviada (2 letras + 2 dígitos + guion + dígitos) en cualquier parte del texto.
+  const guiaRefAbrev = _extraerCampo(texto, [/\b([A-Z]{2}\d{2}-\d+)\b/]);
+  const kgBrutoRaw = _extraerCampo(texto, [/PESO BRUTO\s*:?\s*([\d,]+\.?\d*)/i]);
+  const sacos = _extraerCampo(texto, [/TOTAL\s+(\d+)\s+[\d,]+\.?\d*/i]);
+
+  // Sufijo numérico para cruzar con la Guía de Remisión: "EG07-1" -> "1", "EG07-00000001" -> "1"
+  const sufijo = guiaRefAbrev ? guiaRefAbrev.replace(/^[A-Z0-9]*?-0*/i, '') : null;
+
+  return {
+    _tipo: 'guia_ingreso_B',
+    fecha: fecha || '',
+    guia_ref_abrev: guiaRefAbrev || '',
+    guia_ref_sufijo: sufijo,
+    rec_sacos: sacos || '',
+    rec_kgbruto: kgBrutoRaw ? kgBrutoRaw.replace(/,/g,'') : ''
+  };
+}
+
+// Empareja candidatos A (guía remisión) con B (guía ingreso) por sufijo numérico del N° de guía.
+// Si no hay match, recepción se rellena igual a salida (así son todos los casos reales verificados,
+// sin pérdida en tránsito). Páginas B sin match en A se encolan igual, como candidato parcial.
+function _cruzarGuiaRemisionEIngreso(candidatosA, candidatosB){
+  const usadosB = new Set();
+  const combinados = candidatosA.map(a=>{
+    const sufijoA = a.guia_remision_n ? a.guia_remision_n.replace(/^[A-Z0-9]*?-0*/i, '') : '';
+    const bIdx = candidatosB.findIndex((b,i)=> !usadosB.has(i) && b.guia_ref_sufijo && b.guia_ref_sufijo === sufijoA);
+    if(bIdx >= 0){
+      usadosB.add(bIdx);
+      const b = candidatosB[bIdx];
+      return { ...a, rec_sacos: b.rec_sacos, rec_kgbruto: b.rec_kgbruto };
+    }
+    return { ...a, rec_sacos: a.sal_sacos, rec_kgbruto: a.sal_kgbruto };
+  });
+
+  candidatosB.forEach((b,i)=>{
+    if(usadosB.has(i)) return;
+    combinados.push({
+      _tipo: 'guia_remision_A', _archivo: b._archivo, _pagina: b._pagina,
+      guia_remision_n: b.guia_ref_abrev || '',
+      fecha: b.fecha || '', certificacion: '', contrato: '',
+      sal_sacos: '', sal_kgbruto: '',
+      rec_sacos: b.rec_sacos, rec_kgbruto: b.rec_kgbruto
+    });
+  });
+
+  return combinados;
+}
+
+// ── C) Liquidación de Proceso (documento interno de Yanapampa) ──
+// Nota: en el texto real, la fecha/contrato/referencia/certificación aparecen TODOS antes que sus
+// propias etiquetas (bloque de valores al inicio del documento, etiquetas después) — por eso no se
+// anclan por etiqueta sino por la forma del propio valor (fecha DD-MM-YYYY, contrato que empieza
+// con "FCH", referencia que empieza con "REF", certificación = "Organico"/"Convencional").
+function parsearPaginaLiquidacion(texto){
+  if(!/LIQUIDACION DE PROCESO/i.test(texto)) return null;
+
+  const nLiq = _extraerCampo(texto, [/N[°ºo]\s*([\d]+-[\d]{4})/i]);
+  const fecha = _primeraFechaDMY(texto);
+  const contrato = _extraerCampo(texto, [/\b(FCH[A-Z0-9\-]*)\b/i]);
+  const referencia = _extraerCampo(texto, [/\b(REF\s*[A-Z0-9]+[\s\-]*[A-Z0-9]*)\b/i]);
+  const esOrganico = /\bOrg[áa]nico\b/i.test(texto);
+
+  // Valor "KG" de cada fila de la tabla RESULTADOS DE PROCESO. Cada fila trae, en orden, hasta 3
+  // números (KG, KN, QQ ORO) — salvo la fila "CAFE ORO STOCK LOT" (exportación), que trae un
+  // número extra al inicio (el N° de lote de café oro) y por eso hay que tomar el 2° número, no
+  // el 1°. Verificado exacto contra el PDF real de esta sesión.
+  const filaKg = (etiquetas, skipPrimero)=>{
+    for(const etq of etiquetas){
+      const re = new RegExp(etq + '\\s+([\\d.,]+)(?:\\s+([\\d.,]+))?(?:\\s+([\\d.,]+))?', 'i');
+      const m = texto.match(re);
+      if(!m) continue;
+      const nums = [m[1], m[2], m[3]].filter(Boolean).map(n=>parseFloat(n.replace(/,/g,'')));
+      if(!nums.length) continue;
+      if(skipPrimero && nums.length >= 2) return nums[1];
+      return nums[0];
+    }
+    return 0;
+  };
+
+  const desglose = {
+    limpieza_purga: filaKg(['PURGA']),
+    exportacion: filaKg(['CAFE ORO STOCK LOT', 'EXPORTACI[ÓO]N'], true),
+    segunda: filaKg(['SEGUNDA']),
+    escojo: filaKg(['ESCOJO']),
+    menudo: filaKg(['MENUDO']),
+    tercera: filaKg(['TERCERA']),
+    barrido: filaKg(['BARRIDO']),
+    bola: filaKg(['BOLA']),
+    una: filaKg(['U\\s*N\\s*A', 'U[ÑN]A']), // la Ñ a veces se extrae como "U N  A" (glyph roto)
+    piedra: filaKg(['PIEDRA']),
+    cascara: filaKg(['CASCARA\\/?IMPUREZAS', 'CASCARILLA'])
+  };
+
+  return {
+    _tipo: 'liquidacion_C',
+    n_liquidacion: nLiq || '',
+    fecha: fecha || '',
+    contrato: [contrato, referencia].filter(Boolean).join(' / '),
+    certificacion: esOrganico ? 'ORGANICO' : '',
+    planta: 'YANAPAMPA',
+    desglose
+  };
+}
+
+// ── D) Factura Electrónica (SUNAT) ──
+function parsearPaginaFactura(texto){
+  if(!/FACTURA ELECTRONICA/i.test(texto)) return null;
+
+  const factura = _extraerCampo(texto, [/\b([A-Z]\d{3}\s*-\s*\d+)\b/]);
+  const fechaRaw = _extraerCampo(texto, [/Fecha de Emisi[óo]n\s*:?\s*(\d{1,2}\/\d{1,2}\/\d{4})/i]);
+  const fecha = fechaRaw ? _primeraFechaDMY(fechaRaw) : null;
+  const cliente = _extraerCampo(texto, [/Se[ñn]or\(es\)\s*:?\s*([^\n]+?)\s+RUC\s*:/i]);
+
+  // Se corta antes de ",LOTE" o antes del primer número con 4+ decimales (el precio unitario que
+  // viene justo después en la misma línea de la tabla de ítems — el n° de decimales varía según
+  // la factura, ej. "5.847826087" vs "5.54348", por eso 4+ y no un largo fijo).
+  const contrato = _extraerCampo(texto, [/CONTRATO\s*:\s*(.+?)(?:,\s*LOTE|\s+\d+\.\d{4,}|$)/i]);
+  const lote = _extraerCampo(texto, [/LOTE\s*N\.?\s*([\d\-]+)/i]);
+  const referenciaRaw = _extraerCampo(texto, [/REF\s*([A-Z0-9]+\s*-?\s*[A-Z0-9]+)/i]);
+  const esOrganico = /ORG[ÁA]NICO/i.test(texto);
+
+  const kgRaw = _extraerCampo(texto, [/([\d,]+\.\d{2})\s+KILOGRAMO/i]);
+  const precioUnit = _extraerCampo(texto, [/KILOGRAMO\s+CAFE.+?(\d+\.\d{4,})/i]);
+  const subtotalRaw = _extraerCampo(texto, [/Sub Total Ventas\s*:?\s*\$?\s*([\d,]+\.\d{2})/i]);
+
+  return {
+    _tipo: 'factura_D',
+    factura: factura ? factura.replace(/\s*-\s*/,'-').toUpperCase() : '',
+    fecha: fecha || '',
+    cliente: cliente || '',
+    contrato: contrato || '',
+    lote: lote || '',
+    referencia: referenciaRaw ? referenciaRaw.replace(/\s+/g,'') : '',
+    tipo_contrato: esOrganico ? 'ORG' : '',
+    kg: kgRaw ? kgRaw.replace(/,/g,'') : '',
+    precio_unit: precioUnit || '',
+    _valor_total_sunat: subtotalRaw ? subtotalRaw.replace(/,/g,'') : ''
+  };
+}
+
+// ══════════════════════════════════════════
 // MÓDULO GUÍAS DE REMISIÓN (Almacén → Planta)
 // ══════════════════════════════════════════
 let editandoRemisionIdx = -1;
@@ -11657,6 +11909,14 @@ function guardarRemision(){
   else DB.guiasRemision.push(registro);
 
   guardarDB(); cerrarModal('modal-remision'); renderGuiasRemision(); showSection('remision');
+
+  // ── Hook de cola de importación PDF (no afecta el guardado manual normal) ──
+  if(window._pdfReviewActivoRemision){
+    window._pdfReviewActivoRemision = false;
+    _pdfQueueRemision.guardadas++;
+    _pdfQueueRemision.idx++;
+    _abrirSiguientePdfRemision();
+  }
 }
 
 function eliminarRemision(idx){
@@ -11898,6 +12158,79 @@ function importarGuiasRemisionExcel(input){
   reader.readAsArrayBuffer(file);
 }
 
+// ── Importar Guías de Remisión desde PDF (SUNAT y/o Guía de Ingreso de Yanapampa) ──
+let _pdfQueueRemision = { items: [], idx: 0, guardadas: 0 };
+
+async function importarGuiasRemisionPDF(input){
+  const files = Array.from(input.files||[]);
+  if(!files.length) return;
+
+  let candidatosA = [], candidatosB = [], noReconocidas = 0;
+
+  for(const file of files){
+    let paginas;
+    try{ paginas = await extraerTextoPDF(file); }
+    catch(err){ alert(`❌ No se pudo leer "${file.name}": ${err.message}`); continue; }
+
+    paginas.forEach((texto, i)=>{
+      const a = parsearPaginaGuiaRemision(texto);
+      if(a){ candidatosA.push({...a, _archivo:file.name, _pagina:i+1}); return; }
+      const b = parsearPaginaGuiaIngreso(texto);
+      if(b){ candidatosB.push({...b, _archivo:file.name, _pagina:i+1}); return; }
+      if(!/TRANSPORTISTA/i.test(texto)) noReconocidas++;
+    });
+  }
+
+  input.value = '';
+
+  if(!candidatosA.length && !candidatosB.length){
+    alert('No se reconoció ningún dato en los PDF seleccionados.' + (noReconocidas ? ` (${noReconocidas} página(s) de tipo desconocido)` : ''));
+    return;
+  }
+
+  const combinados = _cruzarGuiaRemisionEIngreso(candidatosA, candidatosB);
+  _pdfQueueRemision = { items: combinados, idx: 0, guardadas: 0 };
+  if(noReconocidas) alert(`⚠️ ${noReconocidas} página(s) no reconocida(s) — puede que sean de otro tipo de documento y no se importaron.`);
+  _abrirSiguientePdfRemision();
+}
+
+function _abrirSiguientePdfRemision(){
+  const q = _pdfQueueRemision;
+  if(q.idx >= q.items.length){
+    if(q.items.length) alert(`✅ ${q.guardadas} de ${q.items.length} guía(s) de remisión guardada(s).`);
+    _pdfQueueRemision = { items: [], idx:0, guardadas:0 };
+    return;
+  }
+  const cand = q.items[q.idx];
+
+  const existenteIdx = DB.guiasRemision.findIndex(r => r.guia_remision_n && cand.guia_remision_n
+      && r.guia_remision_n.toUpperCase() === cand.guia_remision_n.toUpperCase());
+
+  let banner;
+  if(existenteIdx >= 0){
+    abrirModalRemision(existenteIdx);
+    banner = `📄 Datos extraídos de <b>${cand._archivo}</b> (pág. ${cand._pagina}).<br>⚠️ Ya existe un registro con este N° de guía (${DB.guiasRemision[existenteIdx].codigo}) — estás viendo/editando el existente en vez de crear uno nuevo.<br>El PDF traía: sacos salida=${cand.sal_sacos||'—'}, kg bruto salida=${cand.sal_kgbruto||'—'}, sacos recepción=${cand.rec_sacos||'—'}, kg bruto recepción=${cand.rec_kgbruto||'—'}.`;
+  } else {
+    abrirModalRemision();
+    document.getElementById('rem-guian').value = cand.guia_remision_n || '';
+    if(cand.fecha) document.getElementById('rem-fecha').value = cand.fecha;
+    document.getElementById('rem-certificacion').value = cand.certificacion || '';
+    document.getElementById('rem-contrato').value = cand.contrato || '';
+    document.getElementById('rem-sal-sacos').value = cand.sal_sacos || '';
+    document.getElementById('rem-sal-kgbruto').value = cand.sal_kgbruto || '';
+    document.getElementById('rem-rec-sacos').value = cand.rec_sacos || cand.sal_sacos || '';
+    document.getElementById('rem-rec-kgbruto').value = cand.rec_kgbruto || cand.sal_kgbruto || '';
+    calcRemision();
+    banner = `📄 Datos extraídos automáticamente de <b>${cand._archivo}</b> (pág. ${cand._pagina}) — revisa antes de guardar.`;
+  }
+
+  const restantes = q.items.length - q.idx - 1;
+  if(restantes > 0) banner += `<br>Quedan ${restantes} más en la cola tras guardar esta.`;
+  showAlert('rem-form-alert', existenteIdx>=0 ? 'warning' : 'info', banner);
+
+  window._pdfReviewActivoRemision = true;
+}
+
 // ══════════════════════════════════════════
 // MÓDULO LIQUIDACIONES DE PROCESO (Planta → Calidad)
 // ══════════════════════════════════════════
@@ -11977,6 +12310,14 @@ function guardarLiquidacion(){
   else DB.liquidacionesProceso.push(registro);
 
   guardarDB(); cerrarModal('modal-liquidacion'); renderLiquidaciones(); showSection('liquidacion');
+
+  // ── Hook de cola de importación PDF (no afecta el guardado manual normal) ──
+  if(window._pdfReviewActivoLiquidacion){
+    window._pdfReviewActivoLiquidacion = false;
+    _pdfQueueLiquidacion.guardadas++;
+    _pdfQueueLiquidacion.idx++;
+    _abrirSiguientePdfLiquidacion();
+  }
 }
 
 function eliminarLiquidacion(idx){
@@ -12250,6 +12591,77 @@ function importarLiquidacionesExcel(input){
   reader.readAsArrayBuffer(file);
 }
 
+// ── Importar Liquidaciones de Proceso desde PDF ──
+let _pdfQueueLiquidacion = { items: [], idx: 0, guardadas: 0 };
+
+async function importarLiquidacionesPDF(input){
+  const files = Array.from(input.files||[]);
+  if(!files.length) return;
+
+  let candidatos = [], noReconocidas = 0;
+
+  for(const file of files){
+    let paginas;
+    try{ paginas = await extraerTextoPDF(file); }
+    catch(err){ alert(`❌ No se pudo leer "${file.name}": ${err.message}`); continue; }
+
+    paginas.forEach((texto, i)=>{
+      const c = parsearPaginaLiquidacion(texto);
+      if(c){ candidatos.push({...c, _archivo:file.name, _pagina:i+1}); return; }
+      noReconocidas++;
+    });
+  }
+
+  input.value = '';
+
+  if(!candidatos.length){
+    alert('No se reconoció ningún dato en los PDF seleccionados.' + (noReconocidas ? ` (${noReconocidas} página(s) de tipo desconocido)` : ''));
+    return;
+  }
+
+  _pdfQueueLiquidacion = { items: candidatos, idx: 0, guardadas: 0 };
+  if(noReconocidas) alert(`⚠️ ${noReconocidas} página(s) no reconocida(s) — puede que sean de otro tipo de documento y no se importaron.`);
+  _abrirSiguientePdfLiquidacion();
+}
+
+function _abrirSiguientePdfLiquidacion(){
+  const q = _pdfQueueLiquidacion;
+  if(q.idx >= q.items.length){
+    if(q.items.length) alert(`✅ ${q.guardadas} de ${q.items.length} liquidación(es) guardada(s).`);
+    _pdfQueueLiquidacion = { items: [], idx:0, guardadas:0 };
+    return;
+  }
+  const cand = q.items[q.idx];
+
+  const existenteIdx = DB.liquidacionesProceso.findIndex(l => l.n_liquidacion && cand.n_liquidacion
+      && l.n_liquidacion.toUpperCase() === cand.n_liquidacion.toUpperCase());
+
+  let banner;
+  if(existenteIdx >= 0){
+    abrirModalLiquidacion(existenteIdx);
+    const resumenPdf = DESGLOSE_CALIDADES.map(cal=>`${DESGLOSE_LABELS[cal]}=${cand.desglose[cal]||0}`).join(', ');
+    banner = `📄 Datos extraídos de <b>${cand._archivo}</b> (pág. ${cand._pagina}).<br>⚠️ Ya existe un registro con este N° de liquidación (${DB.liquidacionesProceso[existenteIdx].codigo}) — estás viendo/editando el existente en vez de crear uno nuevo.<br>El PDF traía: ${resumenPdf}.`;
+  } else {
+    abrirModalLiquidacion();
+    document.getElementById('liq-nliq').value = cand.n_liquidacion || '';
+    if(cand.fecha) document.getElementById('liq-fecha').value = cand.fecha;
+    document.getElementById('liq-certificacion').value = cand.certificacion || '';
+    document.getElementById('liq-planta').value = cand.planta || '';
+    document.getElementById('liq-contrato').value = cand.contrato || '';
+    DESGLOSE_CALIDADES.forEach(cal=>{
+      document.getElementById(DESGLOSE_IDS[cal]).value = cand.desglose[cal] || '';
+    });
+    calcLiquidacion();
+    banner = `📄 Datos extraídos automáticamente de <b>${cand._archivo}</b> (pág. ${cand._pagina}) — revisa antes de guardar.`;
+  }
+
+  const restantes = q.items.length - q.idx - 1;
+  if(restantes > 0) banner += `<br>Quedan ${restantes} más en la cola tras guardar esta.`;
+  showAlert('liq-form-alert', existenteIdx>=0 ? 'warning' : 'info', banner);
+
+  window._pdfReviewActivoLiquidacion = true;
+}
+
 // ══════════════════════════════════════════
 // MÓDULO FACTURAS DE VENTA (Exportación, en USD — sin integración con Caja)
 // ══════════════════════════════════════════
@@ -12326,6 +12738,14 @@ function guardarFactura(){
   else DB.facturasVenta.push(registro);
 
   guardarDB(); cerrarModal('modal-factura'); renderFacturasVenta(); showSection('facturasventa');
+
+  // ── Hook de cola de importación PDF (no afecta el guardado manual normal) ──
+  if(window._pdfReviewActivoFactura){
+    window._pdfReviewActivoFactura = false;
+    _pdfQueueFactura.guardadas++;
+    _pdfQueueFactura.idx++;
+    _abrirSiguientePdfFactura();
+  }
 }
 
 function eliminarFactura(idx){
@@ -12547,6 +12967,87 @@ function importarFacturasVentaExcel(input){
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ── Importar Facturas de Venta desde PDF (factura electrónica SUNAT) ──
+let _pdfQueueFactura = { items: [], idx: 0, guardadas: 0 };
+
+async function importarFacturasVentaPDF(input){
+  const files = Array.from(input.files||[]);
+  if(!files.length) return;
+
+  let candidatos = [], noReconocidas = 0;
+
+  for(const file of files){
+    let paginas;
+    try{ paginas = await extraerTextoPDF(file); }
+    catch(err){ alert(`❌ No se pudo leer "${file.name}": ${err.message}`); continue; }
+
+    paginas.forEach((texto, i)=>{
+      const c = parsearPaginaFactura(texto);
+      if(c){ candidatos.push({...c, _archivo:file.name, _pagina:i+1}); return; }
+      noReconocidas++;
+    });
+  }
+
+  input.value = '';
+
+  if(!candidatos.length){
+    alert('No se reconoció ningún dato en los PDF seleccionados.' + (noReconocidas ? ` (${noReconocidas} página(s) de tipo desconocido)` : ''));
+    return;
+  }
+
+  _pdfQueueFactura = { items: candidatos, idx: 0, guardadas: 0 };
+  if(noReconocidas) alert(`⚠️ ${noReconocidas} página(s) no reconocida(s) — puede que sean de otro tipo de documento y no se importaron.`);
+  _abrirSiguientePdfFactura();
+}
+
+function _abrirSiguientePdfFactura(){
+  const q = _pdfQueueFactura;
+  if(q.idx >= q.items.length){
+    if(q.items.length) alert(`✅ ${q.guardadas} de ${q.items.length} factura(s) guardada(s).`);
+    _pdfQueueFactura = { items: [], idx:0, guardadas:0 };
+    return;
+  }
+  const cand = q.items[q.idx];
+
+  const existenteIdx = DB.facturasVenta.findIndex(f => f.factura && cand.factura
+      && f.factura.toUpperCase() === cand.factura.toUpperCase());
+
+  let banner;
+  if(existenteIdx >= 0){
+    abrirModalFactura(existenteIdx);
+    banner = `📄 Datos extraídos de <b>${cand._archivo}</b> (pág. ${cand._pagina}).<br>⚠️ Ya existe un registro con este N° de factura (${DB.facturasVenta[existenteIdx].codigo}) — estás viendo/editando el existente en vez de crear uno nuevo.<br>El PDF traía: kg=${cand.kg||'—'}, precio unit=${cand.precio_unit||'—'}, cliente=${cand.cliente||'—'}.`;
+  } else {
+    abrirModalFactura();
+    document.getElementById('fact-factura').value = cand.factura || '';
+    if(cand.fecha) document.getElementById('fact-fecha').value = cand.fecha;
+    document.getElementById('fact-cliente').value = cand.cliente || '';
+    document.getElementById('fact-contrato').value = cand.contrato || '';
+    document.getElementById('fact-lote').value = cand.lote || '';
+    document.getElementById('fact-referencia').value = cand.referencia || '';
+    document.getElementById('fact-tipocontrato').value = cand.tipo_contrato || '';
+    document.getElementById('fact-kg').value = cand.kg || '';
+    document.getElementById('fact-preciounit').value = cand.precio_unit || '';
+    calcFactura();
+    banner = `📄 Datos extraídos automáticamente de <b>${cand._archivo}</b> (pág. ${cand._pagina}) — revisa antes de guardar.`;
+    // El PDF trae "Sub Total Ventas" como referencia — nunca se copia directo a Valor Total (ese
+    // campo se calcula siempre con kg×precio+prima, igual que si se tipeara a mano). Si difieren
+    // en más de un centavo, se avisa para que el usuario revise si falta una prima.
+    if(cand._valor_total_sunat){
+      const calc = parseFloat(document.getElementById('fact-valortotal').value)||0;
+      const sunat = parseFloat(cand._valor_total_sunat)||0;
+      if(Math.abs(calc-sunat) > 0.01){
+        banner += `<br>ℹ️ El PDF indica "Sub Total Ventas" = $${sunat.toFixed(2)}, pero kg×precio da $${calc.toFixed(2)} — revisa si falta una prima.`;
+      }
+    }
+  }
+
+  const restantes = q.items.length - q.idx - 1;
+  if(restantes > 0) banner += `<br>Quedan ${restantes} más en la cola tras guardar esta.`;
+  showAlert('fact-form-alert', existenteIdx>=0 ? 'warning' : 'info', banner);
+
+  window._pdfReviewActivoFactura = true;
 }
 
 // ══════════════════════════════════════════
