@@ -5136,7 +5136,8 @@ function importarGuiasCompletasExcel(input){
         preciokg: find(['precio unit. kg','precio unit kg','precio kg','preciokg']),
         precioqq: find(['precio unit. qq','precio unit qq','precio qq','precioqq']),
         total:    find(['total']),
-        humedad:  find(['humedad'])
+        humedad:  find(['humedad']),
+        certif:   find(['certificacion','certificación','certif'])
       };
       const faltantes = [];
       if(cols.productor<0) faltantes.push('Productor');
@@ -5180,12 +5181,16 @@ function importarGuiasCompletasExcel(input){
       // que causó que una importación orgánica se pagara por error desde una caja convencional.
       let countOrg=0, countConv=0;
       dataRows.forEach(row=>{
-        const dniChk = row[cols.dni]!==undefined && row[cols.dni]!==null ? String(row[cols.dni]).trim() : '';
-        const prodChk = String(row[cols.productor]||'').trim();
-        let sChk = null;
-        if(dniChk) sChk = DB.socios.find(x=>String(x.dni||'').trim()===dniChk);
-        if(!sChk) sChk = DB.socios.find(x=>(x.nombre||'').trim().toUpperCase()===prodChk.toUpperCase());
-        const certifChk = (sChk && sChk.certificacion) ? sChk.certificacion : 'ORGANICO';
+        const certifExcelChk = cols.certif>=0 ? String(row[cols.certif]||'').trim() : '';
+        let certifChk = certifExcelChk;
+        if(!certifChk){
+          const dniChk = row[cols.dni]!==undefined && row[cols.dni]!==null ? String(row[cols.dni]).trim() : '';
+          const prodChk = String(row[cols.productor]||'').trim();
+          let sChk = null;
+          if(dniChk) sChk = DB.socios.find(x=>String(x.dni||'').trim()===dniChk);
+          if(!sChk) sChk = DB.socios.find(x=>(x.nombre||'').trim().toUpperCase()===prodChk.toUpperCase());
+          certifChk = (sChk && sChk.certificacion) || 'ORGANICO';
+        }
         if(/organic|fair ?trade|\bft\b/i.test(certifChk)) countOrg++; else countConv++;
       });
       const tipoCajaLote = countOrg >= countConv ? 'ORGANICO' : 'CONVENCIONAL';
@@ -5247,10 +5252,13 @@ function importarGuiasCompletasExcel(input){
           const estKg = estQq>0 ? estQq*55.2 : parseFloat(socio.estimado_kg||socio.estimado||0);
           if(estKg>0) productoresParaRevisarEstimado.set(productor, estKg);
         }
-        // Certificación: se toma del propio socio si ya la tiene registrada; si no, se asume
-        // ORGANICO (con lo que el usuario indicó sobre este lote), así el código sale con la
-        // serie -ORG- correcta.
-        const certificacion = (socio && socio.certificacion) ? socio.certificacion : 'ORGANICO';
+        // Certificación: prioridad 1) la propia columna CERTIFICACION del Excel si existe y trae
+        // dato en esta fila (es el dato más confiable, ya que viene fila por fila del lote real,
+        // p.ej. distingue "ORGANICO" de "ORGANICO-FAIRTRADE USA"); 2) si la fila no trae nada, se
+        // usa la del socio si ya la tiene registrada; 3) si no hay ninguna de las dos, se asume
+        // ORGANICO por defecto, así el código sale con la serie -ORG- correcta.
+        const certifExcel = cols.certif>=0 ? String(row[cols.certif]||'').trim() : '';
+        const certificacion = certifExcel || (socio && socio.certificacion) || 'ORGANICO';
 
         const nroGuiaOriginal = row[cols.nroguia]!==undefined ? String(row[cols.nroguia]).trim() : '';
         const sacos    = parseFloat(row[cols.sacos])||0;
