@@ -166,6 +166,12 @@ tr:hover td{background:#f4f8f4;}
 .badge-rojo{background:#ffebee;color:#c62828;}
 .badge-gris{background:#f5f5f5;color:#616161;}
 
+/* ── MINI PROGRESS BAR (Resumen de Campaña — avance por etapa / por socio) ── */
+.mini-progress{width:100%;height:7px;background:#eef0ea;border-radius:6px;overflow:hidden;}
+.mini-progress-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--verde-c),var(--verde));transition:width .25s;}
+.mini-progress-fill.dorado{background:linear-gradient(90deg,var(--dorado-c),var(--dorado));}
+.mini-progress-fill.rojo{background:linear-gradient(90deg,#ef9a9a,#c62828);}
+
 /* ── SECTION ── */
 .section{display:none;}.section.active{display:block;}
 .subsection-title{font-size:0.74rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--cafe-c);margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--borde);}
@@ -1516,15 +1522,18 @@ tr:hover td{background:#f4f8f4;}
 
   <div class="card" style="margin-bottom:16px;">
     <div class="card-header">
-      <div class="card-title">📊 Resumen General de Campaña</div>
+      <div>
+        <div class="card-title">📊 Resumen General de Campaña</div>
+        <div style="font-size:0.74rem;color:var(--txts);margin-top:3px;">☕ Café Pergamino <strong>Orgánico</strong> y <strong>Orgánico Fairtrade USA</strong> — el convencional se sigue viendo en 🗂️ Kárdex de Ventas.</div>
+      </div>
       <button class="btn btn-export" onclick="exportarResumenCampana()">📥 Exportar Excel</button>
     </div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:end;padding:6px 4px;">
-      <div class="form-group" style="min-width:220px;margin:0;">
-        <label>Certificación (Acopio / Remisión / Liquidación)</label>
+      <div class="form-group" style="min-width:260px;margin:0;">
+        <label>Certificación (Acopio / Remisión / Liquidación / Kárdex / Socios)</label>
         <select id="rc-certificacion" onchange="renderResumenCampana()">
-          <option value="">Todas</option>
-          <option>ORGANICO - FAIRTRADE USA</option><option>ORGANICO</option><option>CONVENCIONAL</option>
+          <option value="">Todas (Orgánico + Fairtrade USA)</option>
+          <option>ORGANICO</option><option>ORGANICO - FAIRTRADE USA</option>
         </select>
       </div>
       <div class="form-group" style="margin:0;">
@@ -1574,16 +1583,22 @@ tr:hover td{background:#f4f8f4;}
         <div class="stat-label">🏬 En Almacén sin Remitir</div>
         <div class="stat-val" id="rc-saldo-almacen">0 kg</div>
         <div class="stat-sub">Acopiado − Remitido</div>
+        <div class="mini-progress" style="margin-top:10px;"><div class="mini-progress-fill" id="rc-bar-almacen" style="width:0%;"></div></div>
+        <div class="stat-sub" id="rc-avance-almacen" style="margin-top:4px;">0% ya remitido a planta</div>
       </div>
       <div class="stat-card cafe">
         <div class="stat-label">🏭 En Planta sin Procesar</div>
         <div class="stat-val" id="rc-saldo-planta">0 kg</div>
         <div class="stat-sub">Remitido − Procesado</div>
+        <div class="mini-progress" style="margin-top:10px;"><div class="mini-progress-fill dorado" id="rc-bar-planta" style="width:0%;"></div></div>
+        <div class="stat-sub" id="rc-avance-planta" style="margin-top:4px;">0% ya procesado</div>
       </div>
       <div class="stat-card dorado">
         <div class="stat-label">📦 Exportable en Stock sin Vender</div>
         <div class="stat-val" id="rc-saldo-exportable">0 kg</div>
         <div class="stat-sub">(Procesado × % Exportación) − Vendido</div>
+        <div class="mini-progress" style="margin-top:10px;"><div class="mini-progress-fill" id="rc-bar-exportable" style="width:0%;"></div></div>
+        <div class="stat-sub" id="rc-avance-exportable" style="margin-top:4px;">0% ya vendido</div>
       </div>
     </div>
   </div>
@@ -1596,6 +1611,7 @@ tr:hover td{background:#f4f8f4;}
       <button id="rck-tab-kardexexportable" class="btn btn-secondary btn-sm" onclick="switchKardexCampanaTab('kardexexportable')">📦 Exportable</button>
       <button id="rck-tab-kardexdescarte" class="btn btn-secondary btn-sm" onclick="switchKardexCampanaTab('kardexdescarte')">🗑️ Descarte</button>
       <button id="rck-tab-resumendescarte" class="btn btn-secondary btn-sm" onclick="switchKardexCampanaTab('resumendescarte')">⚖️ Resumen Descarte</button>
+      <button id="rck-tab-socios" class="btn btn-secondary btn-sm" onclick="switchKardexCampanaTab('socios')">👥 Lista de Socios</button>
     </div>
     <div class="table-wrap" id="rck-tabla-wrap"></div>
     <div id="rck-pager"></div>
@@ -5055,8 +5071,8 @@ function switchCompTab(tab){
 // PAGINACIÓN VIRTUAL — máx 50 filas por página
 // ══════════════════════════════════════════
 const PAGE_SIZE = 50;
-const _paginas = { tickets:0, guias:0, comprobantes:0, recibos:0, inspecciones:0, kardexperg:0, kardexplanta:0, kardexexportable:0, kardexdescarte:0 };
-let   _listasFiltradas = { tickets:[], guias:[], comprobantes:[], recibos:[], inspecciones:[], kardexperg:[], kardexplanta:[], kardexexportable:[], kardexdescarte:[] };
+const _paginas = { tickets:0, guias:0, comprobantes:0, recibos:0, inspecciones:0, kardexperg:0, kardexplanta:0, kardexexportable:0, kardexdescarte:0, socios:0 };
+let   _listasFiltradas = { tickets:[], guias:[], comprobantes:[], recibos:[], inspecciones:[], kardexperg:[], kardexplanta:[], kardexexportable:[], kardexdescarte:[], socios:[] };
 
 function renderPager(modulo, total, containerId){
   const pag = _paginas[modulo];
@@ -5085,7 +5101,7 @@ function _irPag(modulo, pag){
   if(modulo==='comprobantes') filtrarComprobantes();
   if(modulo==='recibos')      filtrarRecibos();
   if(modulo==='inspecciones') filtrarInspecciones();
-  if(modulo==='kardexperg' || modulo==='kardexplanta' || modulo==='kardexexportable' || modulo==='kardexdescarte') renderKardexCampana();
+  if(modulo==='kardexperg' || modulo==='kardexplanta' || modulo==='kardexexportable' || modulo==='kardexdescarte' || modulo==='socios') renderKardexCampana();
 }
 
 function _paginaSlice(modulo, lista){
@@ -8050,7 +8066,9 @@ function calcularTotalesAcopio(filtros){
   let kgNeto=0, montoPagado=0, count=0;
   DB.guias.forEach(g=>{
     if(filtros.soloCampanaActiva && DB.campana && g.campana!==DB.campana.nombre) return;
-    if(filtros.certificacion && (g.certificacion||'')!==filtros.certificacion) return;
+    // 'certificacion' en filtros marca que este cálculo es para el Resumen de Campaña (solo café
+    // orgánico + orgánico Fairtrade USA, nunca convencional) — ver _matchCertifCampana().
+    if('certificacion' in filtros && !_matchCertifCampana(g.certificacion, filtros.certificacion)) return;
     kgNeto += getKgNetosAcopioGuia(g);
     montoPagado += parseFloat(g.valorrecibido||0)||0;
     count++;
@@ -13058,6 +13076,21 @@ function _abrirSiguientePdfFactura(){
 // DESCARTE del Excel real del usuario.
 // ══════════════════════════════════════════
 
+// El Resumen/Kárdex de Campaña es exclusivamente para café pergamino ORGÁNICO — incluye tanto
+// "ORGANICO" como "ORGANICO - FAIRTRADE USA" (son dos programas de certificación distintos pero
+// ambos orgánicos); el convencional NUNCA entra aquí (se sigue viendo aparte, en 🗂️ Kárdex de
+// Ventas). "Todas" (filtro vacío) = toda la familia orgánica junta, no solo "ORGANICO" a secas —
+// antes se comparaba con "===" y eso dejaba afuera a los socios Fairtrade USA por accidente.
+function _esCertifOrganicaCampana(certif){
+  const c = (certif||'').toUpperCase();
+  return c.includes('CONVENCIONAL') ? false : true;
+}
+function _matchCertifCampana(certif, filtro){
+  if(!_esCertifOrganicaCampana(certif)) return false;
+  if(!filtro) return true; // "Todas" = toda la familia orgánica (Orgánico + Orgánico Fairtrade USA)
+  return (certif||'') === filtro;
+}
+
 function _kardexOrdenar(filas){
   // Orden cronológico; en empate de fecha los ingresos van antes que las salidas (igual que en
   // el Excel real).
@@ -13074,13 +13107,13 @@ function _kardexOrdenar(filas){
 function calcularKardexPergamino(certifFiltro){
   const filas = [];
   (DB.tickets||[]).forEach(t=>{
-    if(certifFiltro && (t.certificacion||'')!==certifFiltro) return;
+    if(!_matchCertifCampana(t.certificacion, certifFiltro)) return;
     const kg = parseFloat(t.pesoneto)||0;
     filas.push({ tipo:'ingreso', fecha:t.fecha||'', doc:t.codigo||'', detalle:(t.productor||'')+(t.dni?' (DNI '+t.dni+')':''),
       guia:t.lote||t.codigo||'', sacos:parseFloat(t.sacos)||0, kg, certificacion:t.certificacion||'' });
   });
   (DB.guiasRemision||[]).forEach(r=>{
-    if(certifFiltro && (r.certificacion||'')!==certifFiltro) return;
+    if(!_matchCertifCampana(r.certificacion, certifFiltro)) return;
     const kg = parseFloat(r.salida?.kg_netos)||0;
     filas.push({ tipo:'salida', fecha:r.fecha||'', doc:r.codigo||'', detalle:'ENVÍO A PLANTA'+(r.contrato?' (CONTRATO-'+r.contrato+')':''),
       guia:r.guia_remision_n||'', sacos:parseFloat(r.salida?.sacos)||0, kg, certificacion:r.certificacion||'' });
@@ -13096,13 +13129,13 @@ function calcularKardexPergamino(certifFiltro){
 function calcularKardexPlanta(certifFiltro){
   const filas = [];
   (DB.guiasRemision||[]).forEach(r=>{
-    if(certifFiltro && (r.certificacion||'')!==certifFiltro) return;
+    if(!_matchCertifCampana(r.certificacion, certifFiltro)) return;
     const kg = parseFloat(r.recepcion?.kg_netos)||0;
     filas.push({ tipo:'ingreso', fecha:r.fecha||'', doc:r.codigo||'', detalle:'INGRESO A PLANTA',
       guia:'GR-'+(r.guia_remision_n||''), sacos:parseFloat(r.recepcion?.sacos)||0, kg, certificacion:r.certificacion||'' });
   });
   (DB.liquidacionesProceso||[]).forEach(l=>{
-    if(certifFiltro && (l.certificacion||'')!==certifFiltro) return;
+    if(!_matchCertifCampana(l.certificacion, certifFiltro)) return;
     const kg = totalKgLiquidacion(l);
     filas.push({ tipo:'salida', fecha:l.fecha||'', doc:l.codigo||'', detalle:'SALIDA A PRODUCCIÓN'+(l.contrato?' — CONTRATO: '+l.contrato:''),
       guia:l.n_liquidacion||'', sacos:'', kg, certificacion:l.certificacion||'' });
@@ -13118,7 +13151,7 @@ function calcularKardexPlanta(certifFiltro){
 function calcularKardexExportable(certifFiltro){
   const filas = [];
   (DB.liquidacionesProceso||[]).forEach(l=>{
-    if(certifFiltro && (l.certificacion||'')!==certifFiltro) return;
+    if(!_matchCertifCampana(l.certificacion, certifFiltro)) return;
     const kg = parseFloat(l.desglose?.exportacion)||0;
     filas.push({ tipo:'ingreso', fecha:l.fecha||'', doc:l.codigo||'', detalle:'PROCESO'+(l.contrato?' — '+l.contrato:''),
       guia:l.n_liquidacion||'', sacos:'', kg, certificacion:l.certificacion||'' });
@@ -13143,7 +13176,7 @@ function calcularKardexExportable(certifFiltro){
 function calcularKardexDescarte(certifFiltro){
   const filas = [];
   (DB.liquidacionesProceso||[]).forEach(l=>{
-    if(certifFiltro && (l.certificacion||'')!==certifFiltro) return;
+    if(!_matchCertifCampana(l.certificacion, certifFiltro)) return;
     const kg = (parseFloat(l.desglose?.limpieza_purga)||0) + (parseFloat(l.desglose?.segunda)||0) +
                (parseFloat(l.desglose?.escojo)||0) + (parseFloat(l.desglose?.menudo)||0) + (parseFloat(l.desglose?.tercera)||0);
     filas.push({ tipo:'ingreso', fecha:l.fecha||'', doc:l.codigo||'', detalle:'DESCARTE'+(l.contrato?' — '+l.contrato:''),
@@ -13156,13 +13189,36 @@ function calcularKardexDescarte(certifFiltro){
   return filas;
 }
 
-const KARDEX_CAMPANA_LABELS = { kardexperg:'Kárdex Pergamino', kardexplanta:'Kárdex Planta', kardexexportable:'Kárdex Exportable', kardexdescarte:'Kárdex Descarte' };
+// 5) Lista de Socios — estimado vs. acopiado por socio (solo café orgánico + orgánico Fairtrade
+//    USA, replicando el formato "LISTA DE SOCIOS - ORGÁNICO / FTO USA" del Excel real del usuario).
+//    KG Acopiados = suma de guías de acopio (DB.guias) del socio, por DNI o, si no tiene DNI, por
+//    nombre — mismo criterio de kg neto que ya usa getKgNetosAcopioGuia() en el resto del dashboard.
+function calcularListaSocios(certifFiltro){
+  const socios = (DB.socios||[]).filter(s=>_matchCertifCampana(s.certificacion, certifFiltro));
+  const filas = socios.map(s=>{
+    const estQq = parseFloat(s.estimado_qq||0)||0;
+    const estKg = estQq>0 ? estQq*55.2 : parseFloat(s.estimado_kg||s.estimado||0)||0;
+    const guiasSocio = (DB.guias||[]).filter(g=>{
+      if(s.dni && g.dni && String(g.dni).trim()===String(s.dni).trim()) return true;
+      return (g.productor||'').trim().toUpperCase() === (s.nombre||'').trim().toUpperCase();
+    });
+    const kgAcopiados = guiasSocio.reduce((a,g)=>a+getKgNetosAcopioGuia(g),0);
+    const qqAcopiados = kgAcopiados/55.2;
+    const saldoKg = estKg - kgAcopiados;
+    const avancePct = estKg>0 ? Math.min(100, kgAcopiados/estKg*100) : (kgAcopiados>0 ? 100 : 0);
+    return { dni:s.dni||'', nombre:s.nombre||'', certificacion:s.certificacion||'', estQq, estKg, kgAcopiados, qqAcopiados, saldoKg, avancePct };
+  });
+  filas.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  return filas;
+}
+
+const KARDEX_CAMPANA_LABELS = { kardexperg:'Kárdex Pergamino', kardexplanta:'Kárdex Planta', kardexexportable:'Kárdex Exportable', kardexdescarte:'Kárdex Descarte', socios:'Lista de Socios' };
 const KARDEX_CAMPANA_FACTOR = { kardexperg:55.2, kardexplanta:55.2, kardexexportable:QQ_EXPORTABLE_KG, kardexdescarte:QQ_EXPORTABLE_KG };
 let _rcKardexTab = 'kardexperg';
 
 function switchKardexCampanaTab(tab){
   _rcKardexTab = tab;
-  ['kardexperg','kardexplanta','kardexexportable','kardexdescarte','resumendescarte'].forEach(t=>{
+  ['kardexperg','kardexplanta','kardexexportable','kardexdescarte','resumendescarte','socios'].forEach(t=>{
     const b = document.getElementById('rck-tab-'+t);
     if(b) b.className = t===tab ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
   });
@@ -13193,6 +13249,53 @@ function renderKardexCampana(){
       <tr style="font-weight:800;background:#f5f5f5;"><td>TOTAL</td><td style="text-align:right;">${fmt(totalDescarte)}</td><td style="text-align:right;">${fmt(totalDescarte/QQ_EXPORTABLE_KG)}</td></tr>
       </tbody></table>`;
     document.getElementById('rck-pager').innerHTML = '';
+    return;
+  }
+
+  if(_rcKardexTab === 'socios'){
+    const listaSociosCompleta = calcularListaSocios(certifFiltro);
+    if(!listaSociosCompleta.length){
+      cont.innerHTML = `<div class="empty-state"><span class="ico">👥</span>Aún no hay socios orgánicos registrados (o el filtro de certificación no encuentra ninguno). Ve a 👥 Socios y carga el archivo LPA.</div>`;
+      document.getElementById('rck-pager').innerHTML = '';
+      return;
+    }
+    const listaSocios = _paginaSlice('socios', listaSociosCompleta);
+    const totEst = listaSociosCompleta.reduce((a,s)=>a+s.estKg,0);
+    const totAcop = listaSociosCompleta.reduce((a,s)=>a+s.kgAcopiados,0);
+    const totSaldo = totEst - totAcop;
+    cont.innerHTML = `
+      <table><thead><tr>
+        <th>N°</th><th>Código (DNI)</th><th>Nombres y Apellidos</th><th>Certificación</th>
+        <th style="text-align:right;">QQ Estimado</th><th style="text-align:right;">Kg Estimado</th>
+        <th style="text-align:right;">Kg Acopiados</th><th style="text-align:right;">QQ Acopiados</th>
+        <th style="text-align:right;">Saldo Kg</th><th style="min-width:110px;">Avance</th>
+      </tr></thead>
+      <tbody>${listaSocios.map((s,i)=>`
+        <tr>
+          <td>${_paginas.socios*PAGE_SIZE+i+1}</td>
+          <td class="td-codigo">${s.dni||'—'}</td>
+          <td style="font-size:0.8rem;font-weight:600;">${s.nombre}</td>
+          <td><span class="badge ${s.certificacion.includes('FAIRTRADE')?'badge-dorado':'badge-verde'}" style="font-size:0.65rem;">${s.certificacion.replace('ORGANICO - FAIRTRADE USA','ORG-FT USA').replace('ORGANICO','ORGÁNICO')}</span></td>
+          <td style="text-align:right;">${fmt(s.estQq)}</td>
+          <td style="text-align:right;">${fmt(s.estKg)}</td>
+          <td style="text-align:right;color:#1b5e20;font-weight:700;">${fmt(s.kgAcopiados)}</td>
+          <td style="text-align:right;">${fmt(s.qqAcopiados)}</td>
+          <td style="text-align:right;font-weight:800;color:${s.saldoKg<0?'#c62828':'inherit'};">${fmt(s.saldoKg)}</td>
+          <td>
+            <div class="mini-progress"><div class="mini-progress-fill ${s.avancePct>=100?'dorado':''}" style="width:${s.avancePct.toFixed(1)}%;"></div></div>
+            <div style="font-size:0.68rem;color:#888;margin-top:2px;">${s.avancePct.toFixed(1)}%</div>
+          </td>
+        </tr>`).join('')}
+      <tr style="font-weight:800;background:#f5f5f5;">
+        <td colspan="5">TOTAL (${listaSociosCompleta.length} socios)</td>
+        <td style="text-align:right;">${fmt(totEst)}</td>
+        <td style="text-align:right;">${fmt(totAcop)}</td>
+        <td style="text-align:right;">${fmt(totAcop/55.2)}</td>
+        <td style="text-align:right;">${fmt(totSaldo)}</td>
+        <td style="text-align:right;">${(totEst>0?Math.min(100,totAcop/totEst*100):0).toFixed(1)}%</td>
+      </tr>
+      </tbody></table>`;
+    renderPager('socios', listaSociosCompleta.length, 'rck-pager');
     return;
   }
 
@@ -13240,11 +13343,11 @@ function calcularResumenCampana(){
   const acopio = calcularTotalesAcopio({ certificacion: certifFiltro, soloCampanaActiva });
 
   // ── Remitido a planta (Guías de Remisión) ──
-  const remisionesFiltradas = (DB.guiasRemision||[]).filter(r=> !certifFiltro || (r.certificacion||'')===certifFiltro);
+  const remisionesFiltradas = (DB.guiasRemision||[]).filter(r=> _matchCertifCampana(r.certificacion, certifFiltro));
   const remitidoKg = remisionesFiltradas.reduce((a,r)=>a+(parseFloat(r.recepcion?.kg_netos)||0),0);
 
   // ── Procesado / liquidado, desglosado por calidad (Liquidaciones de Proceso) ──
-  const liquidacionesFiltradas = (DB.liquidacionesProceso||[]).filter(l=> !certifFiltro || (l.certificacion||'')===certifFiltro);
+  const liquidacionesFiltradas = (DB.liquidacionesProceso||[]).filter(l=> _matchCertifCampana(l.certificacion, certifFiltro));
   const desgloseTotales = {};
   DESGLOSE_CALIDADES.forEach(cal=>{ desgloseTotales[cal] = 0; });
   liquidacionesFiltradas.forEach(l=>{
@@ -13297,7 +13400,19 @@ function renderResumenCampana(){
   document.getElementById('rc-saldo-planta').textContent = fmt(r.saldoPlanta)+' kg';
   document.getElementById('rc-saldo-exportable').textContent = fmt(r.saldoExportable)+' kg';
 
-  ['kardexperg','kardexplanta','kardexexportable','kardexdescarte'].forEach(m=>_resetPag(m));
+  // Barras de avance por etapa: cuánto de la etapa anterior ya pasó a la siguiente.
+  const exportableTotal = r.procesadoKg*r.pctExportacion;
+  const pctAlmacen = r.acopio.kgNeto>0 ? Math.min(100, r.remitidoKg/r.acopio.kgNeto*100) : 0;
+  const pctPlanta = r.remitidoKg>0 ? Math.min(100, r.procesadoKg/r.remitidoKg*100) : 0;
+  const pctExportableVendido = exportableTotal>0 ? Math.min(100, r.vendidoKg/exportableTotal*100) : 0;
+  const barAlmacen = document.getElementById('rc-bar-almacen'); if(barAlmacen) barAlmacen.style.width = pctAlmacen.toFixed(1)+'%';
+  const barPlanta = document.getElementById('rc-bar-planta'); if(barPlanta) barPlanta.style.width = pctPlanta.toFixed(1)+'%';
+  const barExportable = document.getElementById('rc-bar-exportable'); if(barExportable) barExportable.style.width = pctExportableVendido.toFixed(1)+'%';
+  const avAlmacen = document.getElementById('rc-avance-almacen'); if(avAlmacen) avAlmacen.textContent = pctAlmacen.toFixed(1)+'% ya remitido a planta';
+  const avPlanta = document.getElementById('rc-avance-planta'); if(avPlanta) avPlanta.textContent = pctPlanta.toFixed(1)+'% ya procesado';
+  const avExportable = document.getElementById('rc-avance-exportable'); if(avExportable) avExportable.textContent = pctExportableVendido.toFixed(1)+'% ya vendido';
+
+  ['kardexperg','kardexplanta','kardexexportable','kardexdescarte','socios'].forEach(m=>_resetPag(m));
   renderKardexCampana();
 }
 
@@ -13380,6 +13495,23 @@ function exportarResumenCampana(){
   ];
   const wsResumenDescarte = XLSX.utils.aoa_to_sheet(filasResumenDescarte);
   XLSX.utils.book_append_sheet(wb, wsResumenDescarte, 'Resumen Descarte');
+
+  // Hoja Lista de Socios — estimado vs. acopiado por socio, solo Orgánico + Orgánico Fairtrade USA
+  // (replica el formato "LISTA DE SOCIOS" del Excel real del usuario, con Certificación como
+  // columna para poder ver ambos programas juntos cuando el filtro de arriba está en "Todas").
+  const listaSocios = calcularListaSocios(r.certifFiltro);
+  const hSoc = ['N°','Código (DNI)','Nombres y Apellidos','Certificación','QQ Estimado','Kg Estimado','Kg Acopiados','QQ Acopiados','Saldo Kg','Avance %'];
+  const fSoc = listaSocios.map((s,i)=>[i+1, s.dni, s.nombre, s.certificacion,
+    parseFloat(s.estQq.toFixed(2)), parseFloat(s.estKg.toFixed(2)), parseFloat(s.kgAcopiados.toFixed(2)), parseFloat(s.qqAcopiados.toFixed(2)),
+    parseFloat(s.saldoKg.toFixed(2)), parseFloat(s.avancePct.toFixed(1))]);
+  const totEstSoc = listaSocios.reduce((a,s)=>a+s.estKg,0);
+  const totAcopSoc = listaSocios.reduce((a,s)=>a+s.kgAcopiados,0);
+  fSoc.push(['','TOTAL',`(${listaSocios.length} socios)`,'',
+    parseFloat((totEstSoc/55.2).toFixed(2)), parseFloat(totEstSoc.toFixed(2)), parseFloat(totAcopSoc.toFixed(2)), parseFloat((totAcopSoc/55.2).toFixed(2)),
+    parseFloat((totEstSoc-totAcopSoc).toFixed(2)), totEstSoc>0?parseFloat(Math.min(100,totAcopSoc/totEstSoc*100).toFixed(1)):0]);
+  const wsSoc = XLSX.utils.aoa_to_sheet([hSoc, ...fSoc]);
+  wsSoc['!cols'] = [{wch:5},{wch:14},{wch:32},{wch:24},{wch:13},{wch:13},{wch:14},{wch:14},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsSoc, 'Lista de Socios');
 
   const fecha = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `APARCH_ResumenCampana_${fecha}.xlsx`);
