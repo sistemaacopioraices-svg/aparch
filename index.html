@@ -1574,6 +1574,19 @@ tr:hover td{background:#f4f8f4;}
       </div>
     </div>
   </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header"><div class="card-title">📒 Kárdex de Campaña (entradas y salidas por etapa)</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 4px 14px;">
+      <button id="rck-tab-kardexperg" class="btn btn-primary btn-sm" onclick="switchKardexCampanaTab('kardexperg')">🌾 Pergamino</button>
+      <button id="rck-tab-kardexplanta" class="btn btn-secondary btn-sm" onclick="switchKardexCampanaTab('kardexplanta')">🏭 Planta</button>
+      <button id="rck-tab-kardexexportable" class="btn btn-secondary btn-sm" onclick="switchKardexCampanaTab('kardexexportable')">📦 Exportable</button>
+      <button id="rck-tab-kardexdescarte" class="btn btn-secondary btn-sm" onclick="switchKardexCampanaTab('kardexdescarte')">🗑️ Descarte</button>
+      <button id="rck-tab-resumendescarte" class="btn btn-secondary btn-sm" onclick="switchKardexCampanaTab('resumendescarte')">⚖️ Resumen Descarte</button>
+    </div>
+    <div class="table-wrap" id="rck-tabla-wrap"></div>
+    <div id="rck-pager"></div>
+  </div>
 </div>
 
 <!-- KÁRDEX DE VENTAS -->
@@ -4372,7 +4385,7 @@ function showSection(id){
   if(id==='remision') renderGuiasRemision();
   if(id==='liquidacion') renderLiquidaciones();
   if(id==='facturasventa') renderFacturasVenta();
-  if(id==='resumencampana') renderResumenCampana();
+  if(id==='resumencampana'){ renderResumenCampana(); renderKardexCampana(); }
 }
 
 // ══════════════════════════════════════════
@@ -5029,8 +5042,8 @@ function switchCompTab(tab){
 // PAGINACIÓN VIRTUAL — máx 50 filas por página
 // ══════════════════════════════════════════
 const PAGE_SIZE = 50;
-const _paginas = { tickets:0, guias:0, comprobantes:0, recibos:0, inspecciones:0 };
-let   _listasFiltradas = { tickets:[], guias:[], comprobantes:[], recibos:[], inspecciones:[] };
+const _paginas = { tickets:0, guias:0, comprobantes:0, recibos:0, inspecciones:0, kardexperg:0, kardexplanta:0, kardexexportable:0, kardexdescarte:0 };
+let   _listasFiltradas = { tickets:[], guias:[], comprobantes:[], recibos:[], inspecciones:[], kardexperg:[], kardexplanta:[], kardexexportable:[], kardexdescarte:[] };
 
 function renderPager(modulo, total, containerId){
   const pag = _paginas[modulo];
@@ -5059,6 +5072,7 @@ function _irPag(modulo, pag){
   if(modulo==='comprobantes') filtrarComprobantes();
   if(modulo==='recibos')      filtrarRecibos();
   if(modulo==='inspecciones') filtrarInspecciones();
+  if(modulo==='kardexperg' || modulo==='kardexplanta' || modulo==='kardexexportable' || modulo==='kardexdescarte') renderKardexCampana();
 }
 
 function _paginaSlice(modulo, lista){
@@ -12536,6 +12550,182 @@ function importarFacturasVentaExcel(input){
 }
 
 // ══════════════════════════════════════════
+// KÁRDEX DE CAMPAÑA — vistas de movimiento (entradas y salidas con saldo corriente), 100%
+// calculadas al vuelo a partir de DB.tickets / DB.guiasRemision / DB.liquidacionesProceso /
+// DB.facturasVenta (las mismas 4 colecciones del Resumen de Campaña). No se guarda ninguna
+// colección nueva — replican el estilo de las hojas KARDEX PERG ORG / PLANTA / EXPORTABLE /
+// DESCARTE del Excel real del usuario.
+// ══════════════════════════════════════════
+
+function _kardexOrdenar(filas){
+  // Orden cronológico; en empate de fecha los ingresos van antes que las salidas (igual que en
+  // el Excel real).
+  return filas.sort((a,b)=>{
+    const fa = a.fecha||'', fb = b.fecha||'';
+    if(fa !== fb) return fa.localeCompare(fb);
+    if(a.tipo !== b.tipo) return a.tipo==='ingreso' ? -1 : 1;
+    return 0;
+  });
+}
+
+// 1) Kárdex Pergamino — saldo de café pergamino en almacén (Chirinos), antes de ir a planta.
+//    Ingreso = tickets de acopio. Salida = guías de remisión (envío a planta).
+function calcularKardexPergamino(certifFiltro){
+  const filas = [];
+  (DB.tickets||[]).forEach(t=>{
+    if(certifFiltro && (t.certificacion||'')!==certifFiltro) return;
+    const kg = parseFloat(t.pesoneto)||0;
+    filas.push({ tipo:'ingreso', fecha:t.fecha||'', doc:t.codigo||'', detalle:(t.productor||'')+(t.dni?' (DNI '+t.dni+')':''),
+      guia:t.lote||t.codigo||'', sacos:parseFloat(t.sacos)||0, kg, certificacion:t.certificacion||'' });
+  });
+  (DB.guiasRemision||[]).forEach(r=>{
+    if(certifFiltro && (r.certificacion||'')!==certifFiltro) return;
+    const kg = parseFloat(r.salida?.kg_netos)||0;
+    filas.push({ tipo:'salida', fecha:r.fecha||'', doc:r.codigo||'', detalle:'ENVÍO A PLANTA'+(r.contrato?' (CONTRATO-'+r.contrato+')':''),
+      guia:r.guia_remision_n||'', sacos:parseFloat(r.salida?.sacos)||0, kg, certificacion:r.certificacion||'' });
+  });
+  _kardexOrdenar(filas);
+  let saldo = 0;
+  filas.forEach(f=>{ saldo += f.tipo==='ingreso' ? f.kg : -f.kg; f.saldoKg = saldo; f.saldoQq = saldo/55.2; f.qq = f.kg/55.2; });
+  return filas;
+}
+
+// 2) Kárdex Planta — saldo de café pergamino YA EN planta, antes de liquidarse.
+//    Ingreso = guías de remisión (recepción en planta). Salida = liquidaciones de proceso (total desglose).
+function calcularKardexPlanta(certifFiltro){
+  const filas = [];
+  (DB.guiasRemision||[]).forEach(r=>{
+    if(certifFiltro && (r.certificacion||'')!==certifFiltro) return;
+    const kg = parseFloat(r.recepcion?.kg_netos)||0;
+    filas.push({ tipo:'ingreso', fecha:r.fecha||'', doc:r.codigo||'', detalle:'INGRESO A PLANTA',
+      guia:'GR-'+(r.guia_remision_n||''), sacos:parseFloat(r.recepcion?.sacos)||0, kg, certificacion:r.certificacion||'' });
+  });
+  (DB.liquidacionesProceso||[]).forEach(l=>{
+    if(certifFiltro && (l.certificacion||'')!==certifFiltro) return;
+    const kg = totalKgLiquidacion(l);
+    filas.push({ tipo:'salida', fecha:l.fecha||'', doc:l.codigo||'', detalle:'SALIDA A PRODUCCIÓN'+(l.contrato?' — CONTRATO: '+l.contrato:''),
+      guia:l.n_liquidacion||'', sacos:'', kg, certificacion:l.certificacion||'' });
+  });
+  _kardexOrdenar(filas);
+  let saldo = 0;
+  filas.forEach(f=>{ saldo += f.tipo==='ingreso' ? f.kg : -f.kg; f.saldoKg = saldo; f.saldoQq = saldo/55.2; f.qq = f.kg/55.2; });
+  return filas;
+}
+
+// 3) Kárdex Exportable — saldo de café ya exportable (grado 1), disponible para vender.
+//    Ingreso = liquidaciones de proceso (kg exportación). Salida = facturas de venta.
+function calcularKardexExportable(certifFiltro){
+  const filas = [];
+  (DB.liquidacionesProceso||[]).forEach(l=>{
+    if(certifFiltro && (l.certificacion||'')!==certifFiltro) return;
+    const kg = parseFloat(l.desglose?.exportacion)||0;
+    filas.push({ tipo:'ingreso', fecha:l.fecha||'', doc:l.codigo||'', detalle:'PROCESO'+(l.contrato?' — '+l.contrato:''),
+      guia:l.n_liquidacion||'', sacos:'', kg, certificacion:l.certificacion||'' });
+  });
+  // Las facturas de venta no llevan campo de certificación propio (venta de exportación en USD);
+  // no se filtran por certificación, igual que ya se decidió en el Resumen de Campaña (Fase 1).
+  (DB.facturasVenta||[]).forEach(f=>{
+    const kg = parseFloat(f.kg)||0;
+    filas.push({ tipo:'salida', fecha:f.fecha||'', doc:f.codigo||'', detalle:'VENTA'+(f.contrato?' — CONTRATO: '+f.contrato:''),
+      guia:f.factura||'', sacos:'', kg, certificacion:'' });
+  });
+  _kardexOrdenar(filas);
+  let saldo = 0;
+  filas.forEach(f=>{ saldo += f.tipo==='ingreso' ? f.kg : -f.kg; f.saldoKg = saldo; f.saldoQq = saldo/QQ_EXPORTABLE_KG; f.qq = f.kg/QQ_EXPORTABLE_KG; });
+  return filas;
+}
+
+// 4) Kárdex Descarte — saldo de subproductos (limpieza-purga + segunda + escojo + menudo + tercera,
+//    SIN cáscara ni exportación). La "salida" existe en el Excel real como columna pero siempre
+//    vacía — no hay todavía módulo de venta de descarte en la app ni en el Excel del usuario, así
+//    que se deja en 0 hasta que exista esa fuente de datos (no se inventa).
+function calcularKardexDescarte(certifFiltro){
+  const filas = [];
+  (DB.liquidacionesProceso||[]).forEach(l=>{
+    if(certifFiltro && (l.certificacion||'')!==certifFiltro) return;
+    const kg = (parseFloat(l.desglose?.limpieza_purga)||0) + (parseFloat(l.desglose?.segunda)||0) +
+               (parseFloat(l.desglose?.escojo)||0) + (parseFloat(l.desglose?.menudo)||0) + (parseFloat(l.desglose?.tercera)||0);
+    filas.push({ tipo:'ingreso', fecha:l.fecha||'', doc:l.codigo||'', detalle:'DESCARTE'+(l.contrato?' — '+l.contrato:''),
+      guia:l.n_liquidacion||'', sacos:'', kg, certificacion:l.certificacion||'' });
+  });
+  // Sin fuente de "salida" de descarte todavía — se deja el array de salidas vacío a propósito.
+  _kardexOrdenar(filas);
+  let saldo = 0;
+  filas.forEach(f=>{ saldo += f.tipo==='ingreso' ? f.kg : -f.kg; f.saldoKg = saldo; f.saldoQq = saldo/QQ_EXPORTABLE_KG; f.qq = f.kg/QQ_EXPORTABLE_KG; });
+  return filas;
+}
+
+const KARDEX_CAMPANA_LABELS = { kardexperg:'Kárdex Pergamino', kardexplanta:'Kárdex Planta', kardexexportable:'Kárdex Exportable', kardexdescarte:'Kárdex Descarte' };
+const KARDEX_CAMPANA_FACTOR = { kardexperg:55.2, kardexplanta:55.2, kardexexportable:QQ_EXPORTABLE_KG, kardexdescarte:QQ_EXPORTABLE_KG };
+let _rcKardexTab = 'kardexperg';
+
+function switchKardexCampanaTab(tab){
+  _rcKardexTab = tab;
+  ['kardexperg','kardexplanta','kardexexportable','kardexdescarte','resumendescarte'].forEach(t=>{
+    const b = document.getElementById('rck-tab-'+t);
+    if(b) b.className = t===tab ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  });
+  _resetPag(tab==='resumendescarte' ? 'kardexperg' : tab);
+  renderKardexCampana();
+}
+
+function _calcularKardexPorClave(clave, certifFiltro){
+  if(clave==='kardexperg') return calcularKardexPergamino(certifFiltro);
+  if(clave==='kardexplanta') return calcularKardexPlanta(certifFiltro);
+  if(clave==='kardexexportable') return calcularKardexExportable(certifFiltro);
+  if(clave==='kardexdescarte') return calcularKardexDescarte(certifFiltro);
+  return [];
+}
+
+function renderKardexCampana(){
+  const cont = document.getElementById('rck-tabla-wrap');
+  if(!cont) return;
+  const certifFiltro = (document.getElementById('rc-certificacion')||{}).value || '';
+
+  if(_rcKardexTab === 'resumendescarte'){
+    const r = calcularResumenCampana();
+    const CALIDADES_DESCARTE = ['limpieza_purga','segunda','escojo','menudo','tercera'];
+    const totalDescarte = CALIDADES_DESCARTE.reduce((a,cal)=>a+r.desgloseTotales[cal],0);
+    cont.innerHTML = `
+      <table><thead><tr><th>Calidad</th><th style="text-align:right;">Kg</th><th style="text-align:right;">QQ (÷46)</th></tr></thead>
+      <tbody>${CALIDADES_DESCARTE.map(cal=>`<tr><td>${DESGLOSE_LABELS[cal]}</td><td style="text-align:right;">${fmt(r.desgloseTotales[cal])}</td><td style="text-align:right;">${fmt(r.desgloseTotales[cal]/QQ_EXPORTABLE_KG)}</td></tr>`).join('')}
+      <tr style="font-weight:800;background:#f5f5f5;"><td>TOTAL</td><td style="text-align:right;">${fmt(totalDescarte)}</td><td style="text-align:right;">${fmt(totalDescarte/QQ_EXPORTABLE_KG)}</td></tr>
+      </tbody></table>`;
+    document.getElementById('rck-pager').innerHTML = '';
+    return;
+  }
+
+  const listaCompleta = _calcularKardexPorClave(_rcKardexTab, certifFiltro);
+  const factor = KARDEX_CAMPANA_FACTOR[_rcKardexTab];
+  if(!listaCompleta.length){
+    cont.innerHTML = `<div class="empty-state"><span class="ico">📒</span>Aún no hay movimientos para ${KARDEX_CAMPANA_LABELS[_rcKardexTab]}.</div>`;
+    document.getElementById('rck-pager').innerHTML = '';
+    return;
+  }
+  const lista = _paginaSlice(_rcKardexTab, listaCompleta);
+  cont.innerHTML = `
+    <table><thead><tr>
+      <th>Fecha</th><th>Tipo</th><th>Documento</th><th>Detalle</th><th>Guía/N°</th>
+      <th style="text-align:right;">Kg</th><th style="text-align:right;">QQ (÷${factor})</th>
+      <th style="text-align:right;">Saldo Kg</th><th style="text-align:right;">Saldo QQ</th>
+    </tr></thead>
+    <tbody>${lista.map(f=>`
+      <tr>
+        <td>${fechaDisplay(f.fecha)}</td>
+        <td><span class="badge ${f.tipo==='ingreso'?'badge-verde':'badge-rojo'}">${f.tipo==='ingreso'?'▲ Ingreso':'▼ Salida'}</span></td>
+        <td class="td-codigo">${f.doc}</td>
+        <td style="font-size:0.78rem;">${f.detalle}</td>
+        <td>${f.guia}</td>
+        <td style="text-align:right;color:${f.tipo==='ingreso'?'#1b5e20':'#c62828'};font-weight:700;">${f.tipo==='ingreso'?'+':'−'}${fmt(f.kg)}</td>
+        <td style="text-align:right;">${fmt(f.qq)}</td>
+        <td style="text-align:right;font-weight:800;">${fmt(f.saldoKg)}</td>
+        <td style="text-align:right;">${fmt(f.saldoQq)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  renderPager(_rcKardexTab, listaCompleta.length, 'rck-pager');
+}
+
+// ══════════════════════════════════════════
 // RESUMEN GENERAL DE CAMPAÑA — dashboard de solo lectura, todo calculado al vuelo a partir de
 // Acopio (guías) + Guías de Remisión + Liquidaciones de Proceso + Facturas de Venta, para que se
 // actualice solo con cada alta nueva (nunca se guarda un total "congelado").
@@ -12605,6 +12795,9 @@ function renderResumenCampana(){
   document.getElementById('rc-saldo-almacen').textContent = fmt(r.saldoAlmacen)+' kg';
   document.getElementById('rc-saldo-planta').textContent = fmt(r.saldoPlanta)+' kg';
   document.getElementById('rc-saldo-exportable').textContent = fmt(r.saldoExportable)+' kg';
+
+  ['kardexperg','kardexplanta','kardexexportable','kardexdescarte'].forEach(m=>_resetPag(m));
+  renderKardexCampana();
 }
 
 // ── EXPORTAR EXCEL (Resumen + las 3 colecciones nuevas) ──
@@ -12661,6 +12854,31 @@ function exportarResumenCampana(){
     parseFloat(f.kg)||0, parseFloat(f.qq)||0, parseFloat(f.precio_unit)||0, parseFloat(f.valor_total)||0]);
   const wsFact = XLSX.utils.aoa_to_sheet([hFact, ...fFact]);
   XLSX.utils.book_append_sheet(wb, wsFact, 'Facturas de Venta');
+
+  // Hojas Kárdex (Pergamino / Planta / Exportable / Descarte) — entradas y salidas con saldo corriente
+  const hojasKardex = [
+    ['Kardex Pergamino', calcularKardexPergamino(r.certifFiltro), 55.2],
+    ['Kardex Planta', calcularKardexPlanta(r.certifFiltro), 55.2],
+    ['Kardex Exportable', calcularKardexExportable(r.certifFiltro), QQ_EXPORTABLE_KG],
+    ['Kardex Descarte', calcularKardexDescarte(r.certifFiltro), QQ_EXPORTABLE_KG],
+  ];
+  hojasKardex.forEach(([nombreHoja, filas, factor])=>{
+    const hK = ['Fecha','Tipo','Documento','Detalle','Guía/N°','Sacos','Kg','QQ (÷'+factor+')','Saldo Kg','Saldo QQ'];
+    const fK = filas.map(f=>[f.fecha, f.tipo==='ingreso'?'Ingreso':'Salida', f.doc, f.detalle, f.guia, f.sacos, f.kg, f.qq, f.saldoKg, f.saldoQq]);
+    const wsK = XLSX.utils.aoa_to_sheet([hK, ...fK]);
+    XLSX.utils.book_append_sheet(wb, wsK, nombreHoja);
+  });
+
+  // Hoja Resumen Descarte — pivote simple por calidad (mismos totales que ya calcula calcularResumenCampana)
+  const CALIDADES_DESCARTE = ['limpieza_purga','segunda','escojo','menudo','tercera'];
+  const totalDescarteExport = CALIDADES_DESCARTE.reduce((a,cal)=>a+r.desgloseTotales[cal],0);
+  const filasResumenDescarte = [
+    ['RESUMEN DESCARTE', 'Kg', 'QQ (÷46)'],
+    ...CALIDADES_DESCARTE.map(cal=>[DESGLOSE_LABELS[cal], r.desgloseTotales[cal], r.desgloseTotales[cal]/QQ_EXPORTABLE_KG]),
+    ['TOTAL', totalDescarteExport, totalDescarteExport/QQ_EXPORTABLE_KG],
+  ];
+  const wsResumenDescarte = XLSX.utils.aoa_to_sheet(filasResumenDescarte);
+  XLSX.utils.book_append_sheet(wb, wsResumenDescarte, 'Resumen Descarte');
 
   const fecha = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `APARCH_ResumenCampana_${fecha}.xlsx`);
