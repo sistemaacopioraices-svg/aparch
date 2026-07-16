@@ -12793,8 +12793,21 @@ function _abrirSiguientePdfLiquidacion(){
   let banner;
   if(existenteIdx >= 0){
     abrirModalLiquidacion(existenteIdx);
+    const existente = DB.liquidacionesProceso[existenteIdx];
     const resumenPdf = DESGLOSE_CALIDADES.map(cal=>`${DESGLOSE_LABELS[cal]}=${cand.desglose[cal]||0}`).join(', ');
-    banner = `📄 Datos extraídos de <b>${cand._archivo}</b> (pág. ${cand._pagina}).<br>⚠️ Ya existe un registro con este N° de liquidación (${DB.liquidacionesProceso[existenteIdx].codigo}) — estás viendo/editando el existente en vez de crear uno nuevo.<br>El PDF traía: ${resumenPdf}.`;
+    banner = `📄 Datos extraídos de <b>${cand._archivo}</b> (pág. ${cand._pagina}).<br>⚠️ Ya existe un registro con este N° de liquidación (${existente.codigo}) — estás viendo/editando el existente en vez de crear uno nuevo.<br>El PDF traía: ${resumenPdf}.`;
+    // Registros guardados ANTES de que existiera el campo Kg Netos (o Sacos/Kg Brutos) quedaron en
+    // 0 — no hace falta borrarlos y volver a importar: si el campo del registro existente sigue en
+    // 0/vacío, se completa aquí mismo con lo que trae el PDF (nunca se pisa un valor ya cargado).
+    if(cand.kg_netos){
+      let actualizado = [];
+      if(!(parseFloat(existente.sacos)>0)){ document.getElementById('liq-sacos').value = cand.sacos || ''; actualizado.push('Sacos'); }
+      if(!(parseFloat(existente.kg_brutos)>0)){ document.getElementById('liq-kgbruto').value = cand.kg_brutos || ''; actualizado.push('Kg Brutos'); }
+      if(!(parseFloat(existente.kg_netos)>0)){ document.getElementById('liq-kgneto').value = cand.kg_netos || ''; actualizado.push('Kg Netos'); }
+      if(actualizado.length){
+        banner += `<br>✅ Se completaron los campos ${actualizado.join(', ')} (estaban vacíos en el registro guardado) — solo falta que le des "Guardar Liquidación" para que quede.`;
+      }
+    }
   } else {
     abrirModalLiquidacion();
     document.getElementById('liq-nliq').value = cand.n_liquidacion || '';
