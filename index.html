@@ -1456,7 +1456,7 @@ tr:hover td{background:#f4f8f4;}
     </div>
     <div class="table-wrap">
       <table><thead><tr>
-        <th>Código</th><th>Fecha</th><th>N° Liquidación</th><th>Certif.</th><th>Planta</th><th>N° GI</th><th>Sacos</th><th>Kg Brutos</th><th>Contrato</th>
+        <th>Código</th><th>Fecha</th><th>N° Liquidación</th><th>Certif.</th><th>Planta</th><th>N° GI</th><th>Sacos</th><th>Kg Brutos</th><th>Kg Netos</th><th>Contrato</th>
         <th>Exportación Kg</th><th>Total Kg</th><th>Total QQ</th><th>% Export.</th><th>Acciones</th>
       </tr></thead><tbody id="liquidacion-body"></tbody></table>
     </div>
@@ -2849,6 +2849,7 @@ tr:hover td{background:#f4f8f4;}
     </div>
     <div class="form-group"><label>Sacos</label><input type="number" id="liq-sacos" min="0" step="1"></div>
     <div class="form-group"><label>Kg Brutos</label><input type="number" id="liq-kgbruto" min="0" step="0.01"></div>
+    <div class="form-group"><label>Kg Netos</label><input type="number" id="liq-kgneto" min="0" step="0.01"></div>
     <div class="form-group form-full"><label>Contrato</label><input type="text" id="liq-contrato" placeholder="Se puede completar después, si aún no se sabe"></div>
   </div>
 
@@ -11823,6 +11824,18 @@ function parsearPaginaLiquidacion(texto){
     cascara: filaKg(['CASCARA\\/?IMPUREZAS', 'CASCARILLA'])
   };
 
+  // Fila TOTAL de la tabla "ENTRADA DE CAFÉ" — trae, en orden, Sacos, K BRUTOS, K NETOS, QQ (los
+  // totales de TODAS las guías/GI que entraron a esta liquidación, sumados por Yanapampa — una
+  // liquidación puede agrupar varias guías bajo el mismo contrato). Se ancla a "TAZA TOTAL" (última
+  // columna del encabezado + la etiqueta de fila), literal único confirmado contra el PDF real —
+  // evita los otros "TOTAL ..." que aparecen antes (títulos de columna) y después (tabla de
+  // catación, con otro formato de números). Esto es más confiable que enlazar con una sola Guía de
+  // Remisión, que puede fallar cuando el contrato es ambiguo entre varias guías del mismo embarque.
+  const totalEntrada = texto.match(/TAZA\s+TOTAL\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/i);
+  const sacos = totalEntrada ? parseFloat(totalEntrada[1].replace(/,/g,'')) : 0;
+  const kgBrutos = totalEntrada ? parseFloat(totalEntrada[2].replace(/,/g,'')) : 0;
+  const kgNetos = totalEntrada ? parseFloat(totalEntrada[3].replace(/,/g,'')) : 0;
+
   return {
     _tipo: 'liquidacion_C',
     n_liquidacion: nLiq || '',
@@ -11830,6 +11843,7 @@ function parsearPaginaLiquidacion(texto){
     contrato: [contrato, referencia].filter(Boolean).join(' / '),
     certificacion: esOrganico ? 'ORGANICO' : '',
     planta: 'YANAPAMPA',
+    sacos, kg_brutos: kgBrutos, kg_netos: kgNetos,
     desglose
   };
 }
@@ -12351,8 +12365,10 @@ function liqPoblarSelectorGuias(codigoActual){
   sel.innerHTML = opciones.join('');
   sel.value = codigoActual || '';
 }
-// Al elegir una Guía de Remisión, autocompleta Sacos y Kg Brutos desde su recepción en planta
-// (el usuario puede corregirlos a mano después si hace falta).
+// Al elegir una Guía de Remisión, autocompleta Sacos, Kg Brutos y Kg Netos desde su recepción en
+// planta (el usuario puede corregirlos a mano después si hace falta — por ejemplo si la liquidación
+// agrupa varias guías, este selector solo referencia UNA; en ese caso conviene usar los valores que
+// ya trae el PDF de la liquidación, que suman TODAS las guías de ese lote).
 function liqAutoLlenarDesdeGuia(){
   const codigo = document.getElementById('liq-guia-ref').value;
   if(!codigo) return;
@@ -12360,6 +12376,7 @@ function liqAutoLlenarDesdeGuia(){
   if(!g) return;
   document.getElementById('liq-sacos').value = g.recepcion?.sacos || g.salida?.sacos || '';
   document.getElementById('liq-kgbruto').value = g.recepcion?.kg_brutos || g.salida?.kg_brutos || '';
+  document.getElementById('liq-kgneto').value = g.recepcion?.kg_netos || g.salida?.kg_netos || '';
 }
 
 function abrirModalLiquidacion(idx){
@@ -12376,6 +12393,7 @@ function abrirModalLiquidacion(idx){
   liqPoblarSelectorGuias(l ? (l.guia_remision_ref||'') : '');
   document.getElementById('liq-sacos').value = l ? (l.sacos||'') : '';
   document.getElementById('liq-kgbruto').value = l ? (l.kg_brutos||'') : '';
+  document.getElementById('liq-kgneto').value = l ? (l.kg_netos||'') : '';
   DESGLOSE_CALIDADES.forEach(cal=>{
     document.getElementById(DESGLOSE_IDS[cal]).value = l ? (l.desglose[cal]||'') : '';
   });
@@ -12428,6 +12446,7 @@ function guardarLiquidacion(){
     guia_remision_ref: document.getElementById('liq-guia-ref').value || '',
     sacos: document.getElementById('liq-sacos').value || '0',
     kg_brutos: document.getElementById('liq-kgbruto').value || '0',
+    kg_netos: document.getElementById('liq-kgneto').value || '0',
     desglose,
     observaciones: document.getElementById('liq-observaciones').value,
     usuario: SESSION.user
@@ -12477,7 +12496,7 @@ function renderLiquidaciones(filtro){
 
   const tb = document.getElementById('liquidacion-body');
   if(!lista.length){
-    tb.innerHTML = `<tr><td colspan="14"><div class="empty-state"><span class="ico">🏭</span>No hay liquidaciones de proceso registradas.</div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="15"><div class="empty-state"><span class="ico">🏭</span>No hay liquidaciones de proceso registradas.</div></td></tr>`;
     return;
   }
   tb.innerHTML = [...lista].reverse().map(l=>{
@@ -12496,6 +12515,7 @@ function renderLiquidaciones(filtro){
       <td style="font-family:monospace;font-size:0.75rem;">${guiaVinculada ? (guiaVinculada.guia_remision_n||guiaVinculada.codigo) : '—'}</td>
       <td style="text-align:right;">${fmt(l.sacos)||'—'}</td>
       <td style="text-align:right;">${fmt(l.kg_brutos)||'—'}</td>
+      <td style="text-align:right;">${fmt(l.kg_netos)||'—'}</td>
       <td style="font-size:0.78rem;max-width:130px;">${l.contrato||'—'}</td>
       <td style="text-align:right;color:#1b5e20;font-weight:700;">${fmt(expKg)}</td>
       <td style="text-align:right;font-weight:700;">${fmt(totalKg)}</td>
@@ -12576,7 +12596,7 @@ function imprimirLiquidacion(){
 // ── EXPORTAR EXCEL ──
 function exportarLiquidaciones(){
   if(!DB.liquidacionesProceso || !DB.liquidacionesProceso.length){ alert('No hay liquidaciones de proceso para exportar.'); return; }
-  const headers = ['Código','Fecha','N° Liquidación','Contrato','Certificación','Planta','N° GI (Guía de Remisión)','Sacos','Kg Brutos',
+  const headers = ['Código','Fecha','N° Liquidación','Contrato','Certificación','Planta','N° GI (Guía de Remisión)','Sacos','Kg Brutos','Kg Netos',
     ...DESGLOSE_CALIDADES.map(cal=>DESGLOSE_LABELS[cal]+' (Kg)'),
     'Total Kg','Total QQ (÷46)','% Exportación','Observaciones','Usuario'];
   const filas = DB.liquidacionesProceso.map(l=>{
@@ -12587,7 +12607,7 @@ function exportarLiquidaciones(){
     const guiaVinculada = (DB.guiasRemision||[]).find(g=>g.codigo===l.guia_remision_ref);
     return [
       l.codigo, l.fecha, l.n_liquidacion, l.contrato||'', l.certificacion||'', l.planta||'',
-      guiaVinculada ? (guiaVinculada.guia_remision_n||guiaVinculada.codigo) : '', parseFloat(l.sacos||0)||0, parseFloat(l.kg_brutos||0)||0,
+      guiaVinculada ? (guiaVinculada.guia_remision_n||guiaVinculada.codigo) : '', parseFloat(l.sacos||0)||0, parseFloat(l.kg_brutos||0)||0, parseFloat(l.kg_netos||0)||0,
       ...DESGLOSE_CALIDADES.map(cal=>parseFloat(l.desglose?.[cal])||0),
       totalKg, totalQq, pctExp.toFixed(2), l.observaciones||'', l.usuario||''
     ];
@@ -12782,18 +12802,30 @@ function _abrirSiguientePdfLiquidacion(){
     document.getElementById('liq-certificacion').value = cand.certificacion || '';
     document.getElementById('liq-planta').value = cand.planta || '';
     document.getElementById('liq-contrato').value = cand.contrato || '';
+    // Sacos/Kg Brutos/Kg Netos vienen directo de la fila TOTAL de la tabla "ENTRADA DE CAFÉ" del
+    // propio PDF de liquidación (suma de TODAS las guías/GI de ese lote) — más confiable que
+    // intentar enlazar con una sola Guía de Remisión, que puede ser ambigua si varias guías
+    // comparten el mismo contrato (caso normal en un mismo embarque).
+    if(cand.kg_netos){
+      document.getElementById('liq-sacos').value = cand.sacos || '';
+      document.getElementById('liq-kgbruto').value = cand.kg_brutos || '';
+      document.getElementById('liq-kgneto').value = cand.kg_netos || '';
+    }
     DESGLOSE_CALIDADES.forEach(cal=>{
       document.getElementById(DESGLOSE_IDS[cal]).value = cand.desglose[cal] || '';
     });
     calcLiquidacion();
     banner = `📄 Datos extraídos automáticamente de <b>${cand._archivo}</b> (pág. ${cand._pagina}) — revisa antes de guardar.`;
-    // El PDF de liquidación no trae el N° de GI — se intenta sugerir la Guía de Remisión vinculada
-    // por coincidencia de contrato, solo si hay exactamente una candidata (para no adivinar).
+    if(cand.kg_netos){
+      banner += `<br>✅ Sacos, Kg Brutos y Kg Netos tomados del total de "Entrada de Café" del PDF (${cand.sacos||0} sacos, ${cand.kg_netos} Kg Netos).`;
+    }
+    // Además se intenta sugerir la Guía de Remisión vinculada (N° de GI) por coincidencia de
+    // contrato, solo como referencia — solo si hay exactamente una candidata (para no adivinar).
     if(cand.contrato){
       const candidatasGuia = (DB.guiasRemision||[]).filter(g => g.contrato && cand.contrato.includes(g.contrato.split('/')[0].trim()));
       if(candidatasGuia.length === 1){
         document.getElementById('liq-guia-ref').value = candidatasGuia[0].codigo;
-        liqAutoLlenarDesdeGuia();
+        if(!cand.kg_netos) liqAutoLlenarDesdeGuia();
         banner += `<br>🔗 Se vinculó automáticamente con la Guía de Remisión ${candidatasGuia[0].guia_remision_n||candidatasGuia[0].codigo} (mismo contrato) — verifica que sea la correcta.`;
       } else {
         banner += `<br>ℹ️ No se pudo sugerir la Guía de Remisión (N° de GI) automáticamente — selecciónala a mano si corresponde.`;
@@ -13722,13 +13754,13 @@ function exportarResumenCampana(){
   XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
 
   // Hoja Liquidaciones
-  const hLiq = ['Código','Fecha','N° Liquidación','Contrato','Certificación','Planta','N° GI (Guía de Remisión)','Sacos','Kg Brutos',
+  const hLiq = ['Código','Fecha','N° Liquidación','Contrato','Certificación','Planta','N° GI (Guía de Remisión)','Sacos','Kg Brutos','Kg Netos',
     ...DESGLOSE_CALIDADES.map(cal=>DESGLOSE_LABELS[cal]+' (Kg)'), 'Total Kg','Total QQ (÷46)'];
   const fLiq = (DB.liquidacionesProceso||[]).map(l=>{
     const totalKg = totalKgLiquidacion(l);
     const guiaVinculada = (DB.guiasRemision||[]).find(g=>g.codigo===l.guia_remision_ref);
     return [l.codigo,l.fecha,l.n_liquidacion,l.contrato||'',l.certificacion||'',l.planta||'',
-      guiaVinculada ? (guiaVinculada.guia_remision_n||guiaVinculada.codigo) : '', parseFloat(l.sacos||0)||0, parseFloat(l.kg_brutos||0)||0,
+      guiaVinculada ? (guiaVinculada.guia_remision_n||guiaVinculada.codigo) : '', parseFloat(l.sacos||0)||0, parseFloat(l.kg_brutos||0)||0, parseFloat(l.kg_netos||0)||0,
       ...DESGLOSE_CALIDADES.map(cal=>parseFloat(l.desglose?.[cal])||0), totalKg, totalKg/QQ_EXPORTABLE_KG];
   });
   const wsLiq = XLSX.utils.aoa_to_sheet([hLiq, ...fLiq]);
