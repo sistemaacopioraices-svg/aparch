@@ -1456,7 +1456,7 @@ tr:hover td{background:#f4f8f4;}
     </div>
     <div class="table-wrap">
       <table><thead><tr>
-        <th>Código</th><th>Fecha</th><th>N° Liquidación</th><th>Certif.</th><th>Planta</th><th>N° GI</th><th>Sacos</th><th>Kg Brutos</th><th>Kg Netos</th><th>Contrato</th>
+        <th>Código</th><th>Fecha</th><th>N° Liquidación</th><th>Certif.</th><th>Planta</th><th>Sacos</th><th>Kg Brutos</th><th>Kg Netos</th><th>Contrato</th>
         <th>Exportación Kg</th><th>Total Kg</th><th>Total QQ</th><th>% Export.</th><th>Acciones</th>
       </tr></thead><tbody id="liquidacion-body"></tbody></table>
     </div>
@@ -11793,48 +11793,62 @@ function parsearPaginaLiquidacion(texto){
   const referencia = _extraerCampo(texto, [/\b(REF\s*[A-Z0-9]+[\s\-]*[A-Z0-9]*)\b/i]);
   const esOrganico = /\bOrg[áa]nico\b/i.test(texto);
 
-  // Valor "KG" de cada fila de la tabla RESULTADOS DE PROCESO. Cada fila trae, en orden, hasta 3
-  // números (KG, KN, QQ ORO) — salvo la fila "CAFE ORO STOCK LOT" (exportación), que trae un
-  // número extra al inicio (el N° de lote de café oro) y por eso hay que tomar el 2° número, no
-  // el 1°. Verificado exacto contra el PDF real de esta sesión.
-  const filaKg = (etiquetas, skipPrimero)=>{
+  // Fila TOTAL de la tabla "ENTRADA DE CAFÉ" — trae, en orden, Sacos, K BRUTOS, K NETOS, QQ (los
+  // totales de TODAS las guías/GI que entraron a esta liquidación, sumados por Yanapampa — una
+  // liquidación puede agrupar varias guías bajo el mismo contrato). Se ancla a "TOTAL" seguido de
+  // al menos 5 números consecutivos con formato de 2 decimales — NO se ancla a "TAZA TOTAL" porque
+  // el orden en que pdf.js extrae el encabezado de columnas varía entre documentos (en unos queda
+  // pegado justo antes de esta fila, en otros aparece antes de las filas de datos). Ningún otro
+  // "TOTAL ..." del documento (TOTAL CAFÉ, TOTAL 100.00, TOTAL SUBPRODUCTOS...) trae 5 números
+  // seguidos con ese formato, así que este ancla es único y estable entre documentos.
+  const totalEntrada = texto.match(/\bTOTAL\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(?=[\d,]+\.\d{2})/i);
+  const sacos = totalEntrada ? parseFloat(totalEntrada[1].replace(/,/g,'')) : 0;
+  const kgBrutos = totalEntrada ? parseFloat(totalEntrada[2].replace(/,/g,'')) : 0;
+  const kgNetos = totalEntrada ? parseFloat(totalEntrada[3].replace(/,/g,'')) : 0;
+
+  // Valor "KN" (Kg Netos) de cada fila de la tabla RESULTADOS DE PROCESO — el layout real es
+  // N° | PRODUCTO | BIG BAG/SACOS (a veces vacío) | KG (a veces vacío) | KN | QQ ORO | %RDTO (a
+  // veces ausente), y cuántas de esas columnas opcionales trae cada documento VARÍA — por eso ya
+  // no se adivina por posición fija ("el 2° número de la fila"), que se rompía apenas un documento
+  // traía una columna extra. En cambio se usa la relación fija QQ ORO = KN / 46 (conversión
+  // estándar a quintal oro, que SIEMPRE se cumple) para identificar cuál número de la fila es el
+  // KN real, sin importar cuántas columnas opcionales haya antes. Verificado exacto contra 2
+  // documentos reales con layouts distintos (033-2026 y 034-2026).
+  const filaKn = (etiquetas)=>{
     for(const etq of etiquetas){
-      const re = new RegExp(etq + '\\s+([\\d.,]+)(?:\\s+([\\d.,]+))?(?:\\s+([\\d.,]+))?', 'i');
+      const re = new RegExp(etq + '\\s+((?:[\\d.,]+\\s*){1,5})', 'i');
       const m = texto.match(re);
       if(!m) continue;
-      const nums = [m[1], m[2], m[3]].filter(Boolean).map(n=>parseFloat(n.replace(/,/g,'')));
+      const nums = m[1].trim().split(/\s+/).map(n=>parseFloat(n.replace(/,/g,''))).filter(n=>!isNaN(n));
       if(!nums.length) continue;
-      if(skipPrimero && nums.length >= 2) return nums[1];
-      return nums[0];
+      for(let i=0;i<nums.length-1;i++){
+        if(nums[i]>0 && Math.abs(nums[i]/QQ_EXPORTABLE_KG - nums[i+1]) < 0.02) return nums[i];
+      }
+      return nums[0]; // respaldo: documentos con una sola columna de valor (sin QQ ORO adjunto)
     }
     return 0;
   };
 
-  const desglose = {
-    limpieza_purga: filaKg(['PURGA']),
-    exportacion: filaKg(['CAFE ORO STOCK LOT', 'EXPORTACI[ÓO]N'], true),
-    segunda: filaKg(['SEGUNDA']),
-    escojo: filaKg(['ESCOJO']),
-    menudo: filaKg(['MENUDO']),
-    tercera: filaKg(['TERCERA']),
-    barrido: filaKg(['BARRIDO']),
-    bola: filaKg(['BOLA']),
-    una: filaKg(['U\\s*N\\s*A', 'U[ÑN]A']), // la Ñ a veces se extrae como "U N  A" (glyph roto)
-    piedra: filaKg(['PIEDRA']),
-    cascara: filaKg(['CASCARA\\/?IMPUREZAS', 'CASCARILLA'])
-  };
+  const limpieza_purga = filaKn(['PURGA']);
+  const exportacion = filaKn(['CAFE ORO STOCK LOT', 'EXPORTACI[ÓO]N']);
+  const segunda = filaKn(['SEGUNDA']);
+  const escojo = filaKn(['ESCOJO']);
+  const menudo = filaKn(['MENUDO']);
+  const tercera = filaKn(['TERCERA']);
+  const barrido = filaKn(['BARRIDO']);
+  const bola = filaKn(['BOLA']);
+  const una = filaKn(['U\\s*N\\s*A', 'U[ÑN]A']); // la Ñ a veces se extrae como "U N  A" (glyph roto)
+  const piedra = filaKn(['PIEDRA']);
 
-  // Fila TOTAL de la tabla "ENTRADA DE CAFÉ" — trae, en orden, Sacos, K BRUTOS, K NETOS, QQ (los
-  // totales de TODAS las guías/GI que entraron a esta liquidación, sumados por Yanapampa — una
-  // liquidación puede agrupar varias guías bajo el mismo contrato). Se ancla a "TAZA TOTAL" (última
-  // columna del encabezado + la etiqueta de fila), literal único confirmado contra el PDF real —
-  // evita los otros "TOTAL ..." que aparecen antes (títulos de columna) y después (tabla de
-  // catación, con otro formato de números). Esto es más confiable que enlazar con una sola Guía de
-  // Remisión, que puede fallar cuando el contrato es ambiguo entre varias guías del mismo embarque.
-  const totalEntrada = texto.match(/TAZA\s+TOTAL\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/i);
-  const sacos = totalEntrada ? parseFloat(totalEntrada[1].replace(/,/g,'')) : 0;
-  const kgBrutos = totalEntrada ? parseFloat(totalEntrada[2].replace(/,/g,'')) : 0;
-  const kgNetos = totalEntrada ? parseFloat(totalEntrada[3].replace(/,/g,'')) : 0;
+  // Cáscara: por resta contra el total de Kg Netos de "ENTRADA DE CAFÉ" — más robusto que parsear
+  // su propia fila, porque en algunos documentos la etiqueta "CASCARA/IMPUREZAS" queda separada de
+  // su valor por el orden en que pdf.js extrae el texto (confirmado en el PDF real 034-2026).
+  const sumaOtros = limpieza_purga+exportacion+segunda+escojo+menudo+tercera+barrido+bola+una+piedra;
+  const cascara = kgNetos > 0
+    ? Math.max(0, Math.round((kgNetos - sumaOtros)*100)/100)
+    : filaKn(['CASCARA\\/?IMPUREZAS', 'CASCARILLA']);
+
+  const desglose = { limpieza_purga, exportacion, segunda, escojo, menudo, tercera, barrido, bola, una, piedra, cascara };
 
   return {
     _tipo: 'liquidacion_C',
@@ -12496,7 +12510,7 @@ function renderLiquidaciones(filtro){
 
   const tb = document.getElementById('liquidacion-body');
   if(!lista.length){
-    tb.innerHTML = `<tr><td colspan="15"><div class="empty-state"><span class="ico">🏭</span>No hay liquidaciones de proceso registradas.</div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="14"><div class="empty-state"><span class="ico">🏭</span>No hay liquidaciones de proceso registradas.</div></td></tr>`;
     return;
   }
   tb.innerHTML = [...lista].reverse().map(l=>{
@@ -12505,14 +12519,12 @@ function renderLiquidaciones(filtro){
     const totalQq = totalKg/QQ_EXPORTABLE_KG;
     const expKg = parseFloat(l.desglose?.exportacion)||0;
     const pctExp = totalKg>0 ? (expKg/totalKg*100) : 0;
-    const guiaVinculada = (DB.guiasRemision||[]).find(g=>g.codigo===l.guia_remision_ref);
     return `<tr>
       <td class="td-codigo">${l.codigo}</td>
       <td>${fechaDisplay(l.fecha)}</td>
       <td style="font-family:monospace;font-size:0.78rem;">${l.n_liquidacion||'—'}</td>
       <td>${l.certificacion||'—'}</td>
       <td>${l.planta||'—'}</td>
-      <td style="font-family:monospace;font-size:0.75rem;">${guiaVinculada ? (guiaVinculada.guia_remision_n||guiaVinculada.codigo) : '—'}</td>
       <td style="text-align:right;">${fmt(l.sacos)||'—'}</td>
       <td style="text-align:right;">${fmt(l.kg_brutos)||'—'}</td>
       <td style="text-align:right;">${fmt(l.kg_netos)||'—'}</td>
