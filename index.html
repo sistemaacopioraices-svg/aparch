@@ -1457,7 +1457,7 @@ tr:hover td{background:#f4f8f4;}
     <div class="table-wrap">
       <table><thead><tr>
         <th>Código</th><th>Fecha</th><th>N° Liquidación</th><th>Certif.</th><th>Planta</th><th>Sacos</th><th>Kg Brutos</th><th>Kg Netos</th><th>Contrato</th>
-        <th>Exportación Kg</th><th>Total Kg</th><th>Total QQ</th><th>% Export.</th><th>Acciones</th>
+        <th>Exportación Kg</th><th>Total Kg</th><th>QQ Exportable</th><th>% Export.</th><th>Acciones</th>
       </tr></thead><tbody id="liquidacion-body"></tbody></table>
     </div>
   </div>
@@ -2872,7 +2872,7 @@ tr:hover td{background:#f4f8f4;}
 
   <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:10px;">
     <div class="form-group"><label>Total Kg Procesado</label><input type="number" id="liq-total-kg" readonly style="background:#e3f2fd;color:#0d47a1;font-weight:800;"></div>
-    <div class="form-group"><label>Total QQ (÷ 46 kg)</label><input type="number" id="liq-total-qq" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;"></div>
+    <div class="form-group"><label>QQ Exportable (÷ 46 kg)</label><input type="number" id="liq-total-qq" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;" title="Solo la calidad Exportación (café oro) — no incluye pergamino/subproductos"></div>
     <div class="form-group"><label>% Exportación</label><input type="text" id="liq-pct-export" readonly style="background:#fff8e1;color:#e65100;font-weight:800;"></div>
     <div class="form-group form-full"><label>Observaciones</label><textarea id="liq-observaciones" placeholder="Notas de la liquidación..."></textarea></div>
   </div>
@@ -12426,7 +12426,12 @@ function calcLiquidacion(){
     valores[cal] = v;
     totalKg += v;
   });
-  const totalQq = totalKg / QQ_EXPORTABLE_KG;
+  // "Total QQ (÷46)" es SOLO la calidad Exportación (café oro) convertida a quintales — el resto
+  // del kg procesado (purga, segunda, escojo, menudo, tercera, cáscara...) es café pergamino/
+  // subproducto, no se mide en quintales oro. Antes se dividía el KG TOTAL (todas las calidades)
+  // entre 46, lo cual mezclaba pergamino con oro e inflaba el QQ — el usuario lo confirmó con el
+  // PDF real: Exportación 37,975 kg ÷ 46 = 825.54 QQ, no 50,633.75 ÷ 46.
+  const totalQq = valores.exportacion / QQ_EXPORTABLE_KG;
   const pctExport = totalKg>0 ? (valores.exportacion/totalKg*100) : 0;
 
   document.getElementById('liq-total-kg').value = totalKg.toFixed(2);
@@ -12516,8 +12521,8 @@ function renderLiquidaciones(filtro){
   tb.innerHTML = [...lista].reverse().map(l=>{
     const ri = DB.liquidacionesProceso.indexOf(l);
     const totalKg = totalKgLiquidacion(l);
-    const totalQq = totalKg/QQ_EXPORTABLE_KG;
     const expKg = parseFloat(l.desglose?.exportacion)||0;
+    const totalQq = expKg/QQ_EXPORTABLE_KG; // solo la calidad Exportación (café oro) — no el kg total (pergamino+oro)
     const pctExp = totalKg>0 ? (expKg/totalKg*100) : 0;
     return `<tr>
       <td class="td-codigo">${l.codigo}</td>
@@ -12550,7 +12555,7 @@ function filtrarLiquidaciones(){
 function verPrintLiquidacion(idx){
   const l = DB.liquidacionesProceso[idx];
   const totalKg = totalKgLiquidacion(l);
-  const totalQq = totalKg/QQ_EXPORTABLE_KG;
+  const totalQq = (parseFloat(l.desglose?.exportacion)||0)/QQ_EXPORTABLE_KG; // solo Exportación (café oro), no el kg total
   const filasDesglose = DESGLOSE_CALIDADES.map(cal=>{
     const kg = parseFloat(l.desglose?.[cal])||0;
     if(kg<=0) return '';
@@ -12587,7 +12592,7 @@ function verPrintLiquidacion(idx){
         <div style="font-size:18px;font-weight:900;color:#4e342e;">${fmt(totalKg)} kg</div>
       </div>
       <div>
-        <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">TOTAL QQ (÷46)</div>
+        <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">QQ EXPORTABLE (÷46)</div>
         <div style="font-size:18px;font-weight:900;color:#1b5e20;">${fmt(totalQq)}</div>
       </div>
     </div>
@@ -12610,11 +12615,11 @@ function exportarLiquidaciones(){
   if(!DB.liquidacionesProceso || !DB.liquidacionesProceso.length){ alert('No hay liquidaciones de proceso para exportar.'); return; }
   const headers = ['Código','Fecha','N° Liquidación','Contrato','Certificación','Planta','N° GI (Guía de Remisión)','Sacos','Kg Brutos','Kg Netos',
     ...DESGLOSE_CALIDADES.map(cal=>DESGLOSE_LABELS[cal]+' (Kg)'),
-    'Total Kg','Total QQ (÷46)','% Exportación','Observaciones','Usuario'];
+    'Total Kg','QQ Exportable (÷46)','% Exportación','Observaciones','Usuario'];
   const filas = DB.liquidacionesProceso.map(l=>{
     const totalKg = totalKgLiquidacion(l);
-    const totalQq = totalKg/QQ_EXPORTABLE_KG;
     const expKg = parseFloat(l.desglose?.exportacion)||0;
+    const totalQq = expKg/QQ_EXPORTABLE_KG; // solo la calidad Exportación (café oro), no el kg total pergamino+oro
     const pctExp = totalKg>0 ? (expKg/totalKg*100) : 0;
     const guiaVinculada = (DB.guiasRemision||[]).find(g=>g.codigo===l.guia_remision_ref);
     return [
@@ -13780,13 +13785,14 @@ function exportarResumenCampana(){
 
   // Hoja Liquidaciones
   const hLiq = ['Código','Fecha','N° Liquidación','Contrato','Certificación','Planta','N° GI (Guía de Remisión)','Sacos','Kg Brutos','Kg Netos',
-    ...DESGLOSE_CALIDADES.map(cal=>DESGLOSE_LABELS[cal]+' (Kg)'), 'Total Kg','Total QQ (÷46)'];
+    ...DESGLOSE_CALIDADES.map(cal=>DESGLOSE_LABELS[cal]+' (Kg)'), 'Total Kg','QQ Exportable (÷46)'];
   const fLiq = (DB.liquidacionesProceso||[]).map(l=>{
     const totalKg = totalKgLiquidacion(l);
+    const expKg = parseFloat(l.desglose?.exportacion)||0;
     const guiaVinculada = (DB.guiasRemision||[]).find(g=>g.codigo===l.guia_remision_ref);
     return [l.codigo,l.fecha,l.n_liquidacion,l.contrato||'',l.certificacion||'',l.planta||'',
       guiaVinculada ? (guiaVinculada.guia_remision_n||guiaVinculada.codigo) : '', parseFloat(l.sacos||0)||0, parseFloat(l.kg_brutos||0)||0, parseFloat(l.kg_netos||0)||0,
-      ...DESGLOSE_CALIDADES.map(cal=>parseFloat(l.desglose?.[cal])||0), totalKg, totalKg/QQ_EXPORTABLE_KG];
+      ...DESGLOSE_CALIDADES.map(cal=>parseFloat(l.desglose?.[cal])||0), totalKg, expKg/QQ_EXPORTABLE_KG]; // QQ solo de Exportación (café oro), no el kg total pergamino+oro
   });
   const wsLiq = XLSX.utils.aoa_to_sheet([hLiq, ...fLiq]);
   XLSX.utils.book_append_sheet(wb, wsLiq, 'Liquidaciones');
