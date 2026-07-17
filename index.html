@@ -11789,8 +11789,16 @@ function parsearPaginaLiquidacion(texto){
 
   const nLiq = _extraerCampo(texto, [/N[°ºo]\s*([\d]+-[\d]{4})/i]);
   const fecha = _primeraFechaDMY(texto);
-  const contrato = _extraerCampo(texto, [/\b(FCH[A-Z0-9\-]*)\b/i]);
-  const referencia = _extraerCampo(texto, [/\b(REF\s*[A-Z0-9]+[\s\-]*[A-Z0-9]*)\b/i]);
+  // Contrato: algunos documentos traen un espacio suelto justo después del guion inicial
+  // ("FCH- APARAICESDECHIRINOS017-2026", en vez de "FCH-APARAICESDECHIRINOS017-2026") por cómo
+  // pdf.js separa los glyphs — se captura de forma perezosa hasta el año de 4 dígitos con el que
+  // siempre termina el código, y luego se quitan los espacios internos para normalizar.
+  const contratoM = texto.match(/\bFCH[A-Z0-9\- ]*?\d{4}\b/i);
+  const contrato = contratoM ? contratoM[0].replace(/\s+/g,'') : '';
+  // Referencia: en documentos donde "CONTRATO :" y "REFERENCIA :" aparecen como etiquetas pegadas
+  // justo antes de sus valores, la propia palabra "REFERENCIA" empieza con "REF" y calzaba con el
+  // patrón antes de llegar al valor real — se excluye explícitamente con un lookahead negativo.
+  const referencia = _extraerCampo(texto, [/\b(REF(?!ERENCIA)\s*[A-Z0-9]+[\s\-]*[A-Z0-9]*)\b/i]);
   const esOrganico = /\bOrg[áa]nico\b/i.test(texto);
 
   // Fila TOTAL de la tabla "ENTRADA DE CAFÉ" — trae, en orden, Sacos, K BRUTOS, K NETOS, QQ (los
