@@ -14426,13 +14426,16 @@ function switchKardexTab(tipo){
   renderKardex();
 }
 
-// Poblar el select de orígenes (guías convencional o compras coco)
+// Poblar el select de orígenes (guías convencional o compras coco). Excluye las que YA están
+// agregadas a esta venta (kardexOrigenesTemp) — así, cada vez que se le da "+ Agregar", esa guía
+// o compra desaparece de la lista (y si se quita con la ✕, vuelve a aparecer).
 function kardexPoblarOrigen(){
   const sel = document.getElementById('kd-origen-sel');
   sel.innerHTML = '<option value="">-- Seleccionar origen --</option>';
+  const yaAgregados = new Set(kardexOrigenesTemp.map(o=>o.ref));
 
   // ── GUÍAS CONVENCIONALES ──
-  const guiasConv = DB.guias.filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL'));
+  const guiasConv = DB.guias.filter(g=>(g.certificacion||'').toUpperCase().includes('CONVENCIONAL') && !yaAgregados.has(`guia:${g.codigo}`));
   if(guiasConv.length){
     sel.innerHTML += '<optgroup label="☕ Guías Café Convencional">';
     guiasConv.forEach(g=>{
@@ -14449,9 +14452,10 @@ function kardexPoblarOrigen(){
   // Kárdex de Ventas es solo para las ventas locales de café Convencional y Café Coco.
 
   // ── COMPRAS CAFÉ COCO ──
-  if(DB.cafecoco && DB.cafecoco.length){
+  const cocoDisponible = (DB.cafecoco||[]).filter(c=>!yaAgregados.has(`coco:${c.codigo}`));
+  if(cocoDisponible.length){
     sel.innerHTML += '<optgroup label="🌰 Compras Café Coco">';
-    DB.cafecoco.forEach(c=>{
+    cocoDisponible.forEach(c=>{
       const kgDisp = kardexKgDisponibleCoco(c.codigo);
       if(kgDisp < 0.01) return;
       const costoProm = parseFloat(c.kgneto||0)>0 ? parseFloat(c.total||0)/parseFloat(c.kgneto) : 0;
@@ -14462,7 +14466,7 @@ function kardexPoblarOrigen(){
   }
 
   // Si no hay nada
-  const total = (guiasConv.length + (DB.cafecoco||[]).length);
+  const total = (guiasConv.length + cocoDisponible.length);
   if(total === 0){
     sel.innerHTML += '<option disabled>Sin stock disponible</option>';
   }
@@ -14589,7 +14593,7 @@ function kardexAgregarOrigen(){
   }
 
   kardexOrigenesTemp.push({ ref:val, label, kgDisp:kg, costoProm:costo, kgAjustado:kg });
-  sel.value='';
+  kardexPoblarOrigen(); // saca la guía/compra recién agregada de la lista de selección
   kardexRenderOrigenes();
   kardexRecalcularTotales();
 }
@@ -14632,7 +14636,7 @@ function kardexRenderOrigenes(){
             <div style="font-weight:700;color:#c62828;font-size:0.82rem;" id="kd-subtotal-${i}">S/.${fmtMonto(o.kgAjustado*o.costoProm)}</div>
           </div>
         </div>
-        <button onclick="kardexOrigenesTemp.splice(${i},1);kardexRenderOrigenes();kardexRecalcularTotales();"
+        <button onclick="kardexOrigenesTemp.splice(${i},1);kardexPoblarOrigen();kardexRenderOrigenes();kardexRecalcularTotales();"
           style="background:#ffebee;border:1px solid #ef9a9a;border-radius:6px;padding:4px 10px;cursor:pointer;color:#c62828;font-weight:700;flex-shrink:0;">✕</button>
       </div>
     </div>`).join('');
@@ -14884,7 +14888,7 @@ function editarKardex(idx){
   // Ahora sí, fijar los valores reales de la venta (por si toggleVentaManual recalculó algo distinto)
   document.getElementById('kd-kg-acopiados').value = k.kg_acopiados||'';
   document.getElementById('kd-costo-prom').value   = k.costo_prom||'';
-  if(!k.venta_manual) kardexRenderOrigenes();
+  if(!k.venta_manual){ kardexPoblarOrigen(); kardexRenderOrigenes(); }
 
   document.getElementById('kd-kg-venta').value     = k.kg_venta||'';
   document.getElementById('kd-precio-venta').value = k.precio_venta||'';
