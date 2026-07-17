@@ -14444,21 +14444,9 @@ function kardexPoblarOrigen(){
     sel.innerHTML += '</optgroup>';
   }
 
-  // ── GUÍAS ORGÁNICAS (solo admin, para mezclas) ──
-  let guiasOrg = [];
-  if(SESSION.role === 'admin'){
-    guiasOrg = DB.guias.filter(g=>!(g.certificacion||'').toUpperCase().includes('CONVENCIONAL') && g.certificacion);
-    if(guiasOrg.length){
-      sel.innerHTML += '<optgroup label="🌿 Guías Café Orgánico/Fairtrade">';
-      guiasOrg.forEach(g=>{
-        const kgDisp = kardexKgDisponibleGuia(g.codigo);
-        if(kgDisp < 0.01) return;
-        const label = `${g.codigo} — ${g.productor} — ${kgDisp.toFixed(2)} kg disp.`;
-        sel.innerHTML += `<option value="guia:${g.codigo}" data-kg="${kgDisp}" data-costo="${g.precikg||0}" data-origen="guia-org">${label}</option>`;
-      });
-      sel.innerHTML += '</optgroup>';
-    }
-  }
+  // NOTA: las guías de café Orgánico/Fairtrade YA NO aparecen aquí — ese café se vende por el
+  // flujo de exportación (Guías de Remisión → Liquidaciones de Proceso → Facturas de Venta). El
+  // Kárdex de Ventas es solo para las ventas locales de café Convencional y Café Coco.
 
   // ── COMPRAS CAFÉ COCO ──
   if(DB.cafecoco && DB.cafecoco.length){
@@ -14474,7 +14462,7 @@ function kardexPoblarOrigen(){
   }
 
   // Si no hay nada
-  const total = (guiasConv.length + guiasOrg.length + (DB.cafecoco||[]).length);
+  const total = (guiasConv.length + (DB.cafecoco||[]).length);
   if(total === 0){
     sel.innerHTML += '<option disabled>Sin stock disponible</option>';
   }
