@@ -11798,7 +11798,11 @@ function parsearPaginaLiquidacion(texto){
   // Referencia: en documentos donde "CONTRATO :" y "REFERENCIA :" aparecen como etiquetas pegadas
   // justo antes de sus valores, la propia palabra "REFERENCIA" empieza con "REF" y calzaba con el
   // patrón antes de llegar al valor real — se excluye explícitamente con un lookahead negativo.
-  const referencia = _extraerCampo(texto, [/\b(REF(?!ERENCIA)\s*[A-Z0-9]+[\s\-]*[A-Z0-9]*)\b/i]);
+  // Cada "token" del código de referencia (p.ej. "P40560", "AG027", "BE091", "6") exige al menos un
+  // dígito — así, cuando la referencia es corta (solo "REF BE091") y el texto sigue con la palabra
+  // suelta del siguiente campo (p.ej. "Malla", de GRANULOMETRÍA), esa palabra sin dígitos NO se
+  // suma al valor, porque no cumple el patrón de token válido.
+  const referencia = _extraerCampo(texto, [/\b(REF(?!ERENCIA)\s*[A-Z0-9]*\d[A-Z0-9]*(?:[\s\-]+[A-Z0-9]*\d[A-Z0-9]*)*)\b/i]);
   const esOrganico = /\bOrg[áa]nico\b/i.test(texto);
 
   // Fila TOTAL de la tabla "ENTRADA DE CAFÉ" — trae, en orden, Sacos, K BRUTOS, K NETOS, QQ (los
@@ -11822,9 +11826,22 @@ function parsearPaginaLiquidacion(texto){
   // estándar a quintal oro, que SIEMPRE se cumple) para identificar cuál número de la fila es el
   // KN real, sin importar cuántas columnas opcionales haya antes. Verificado exacto contra 2
   // documentos reales con layouts distintos (033-2026 y 034-2026).
-  const filaKn = (etiquetas)=>{
+  // El conector entre la etiqueta y los números es, por defecto, estrictamente "\s+" (etiqueta
+  // seguida directo de espacio y el número) — esto es importante porque varios documentos repiten
+  // la etiqueta como palabra suelta en encabezados/resúmenes ANTES de la fila real de datos (p.ej.
+  // "TOTAL SEGUNDAS, TERCERA" aparece como texto de encabezado mucho antes de la fila real
+  // "SEGUNDA   905   905   19.67"), y un conector demasiado permisivo calzaría con esa palabra
+  // suelta primero y saltaría a números de otra parte del documento por error. Solo para "CAFE ORO"
+  // se admite un salto perezoso de hasta 40 caracteres que no sean dígitos (parámetro `maxSkip`),
+  // porque su descripción varía entre documentos con texto intermedio real antes de los números
+  // (p.ej. "CAFE ORO GRADO 01   18   18993   412.89" trae "GRADO 01" antes de los valores) — si ese
+  // texto intermedio trae algún número suelto (el "01" de "GRADO 01"), puede colarse al inicio de la
+  // lista de números, pero no afecta el resultado: el emparejamiento por la razón KN/46≈QQORO de
+  // todas formas encuentra el par correcto en cualquier posición de la lista.
+  const filaKn = (etiquetas, maxSkip)=>{
+    const conector = maxSkip ? `[^\\d]{0,${maxSkip}}?` : '\\s+';
     for(const etq of etiquetas){
-      const re = new RegExp(etq + '\\s+((?:[\\d.,]+\\s*){1,5})', 'i');
+      const re = new RegExp(etq + conector + '((?:[\\d.,]+\\s*){1,5})', 'i');
       const m = texto.match(re);
       if(!m) continue;
       const nums = m[1].trim().split(/\s+/).map(n=>parseFloat(n.replace(/,/g,''))).filter(n=>!isNaN(n));
@@ -11838,7 +11855,11 @@ function parsearPaginaLiquidacion(texto){
   };
 
   const limpieza_purga = filaKn(['PURGA']);
-  const exportacion = filaKn(['CAFE ORO STOCK LOT', 'EXPORTACI[ÓO]N']);
+  // "Café Oro" es la calidad Exportación — su etiqueta exacta varía entre documentos ("CAFE ORO
+  // STOCK LOT", "CAFE ORO GRADO 01", etc.), por eso se busca por el prefijo común "CAFE ORO", con
+  // el salto perezoso de hasta 40 caracteres (ver comentario arriba) para tolerar la descripción
+  // intermedia.
+  const exportacion = filaKn(['CAFE ORO', 'EXPORTACI[ÓO]N'], 40);
   const segunda = filaKn(['SEGUNDA']);
   const escojo = filaKn(['ESCOJO']);
   const menudo = filaKn(['MENUDO']);
