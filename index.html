@@ -11969,12 +11969,15 @@ function parsearPaginaFactura(texto){
     primaFairtrade = primaFtRaw ? primaFtRaw.replace(/,/g,'') : '';
   } else {
     // La unidad de medida casi siempre dice "KILOGRAMO", pero algunos documentos SUNAT reales traen
-    // "UNIDAD" en su lugar (typo/config del emisor) aunque la cantidad sigue siendo kilos de café —
-    // confirmado cruzando "EQUIV. A ... QQ" de esos documentos (siempre calza exacto con ÷46), así
-    // que se acepta cualquiera de las dos etiquetas.
-    const kgRaw = _extraerCampo(texto, [/([\d,]+\.\d{2})\s+(?:KILOGRAMO|UNIDAD)\s+CAFE/i]);
+    // "UNIDAD" o simplemente "KG" en su lugar (varía según cómo cada emisor configuró su sistema de
+    // facturación) aunque la cantidad sigue siendo kilos de café — confirmado cruzando "EQUIV. A ...
+    // QQ" de esos documentos (siempre calza exacto con ÷46), así que se acepta cualquiera de las tres
+    // etiquetas. Siempre se exige que la etiqueta venga PEGADA a "CAFE" (el inicio de la descripción
+    // del ítem) para no confundirla con otro "KG" suelto en el resto de la descripción (p.ej. "SACOS
+    // DE YUTE DE 69 KG,").
+    const kgRaw = _extraerCampo(texto, [/([\d,]+\.\d{2})\s+(?:KILOGRAMOS?|UNIDAD(?:ES)?|KG)\s+CAFE/i]);
     kg = kgRaw ? kgRaw.replace(/,/g,'') : '';
-    precioUnit = _extraerCampo(texto, [/(?:KILOGRAMO|UNIDAD)\s+CAFE.+?(\d+\.\d{4,})/i]) || '';
+    precioUnit = _extraerCampo(texto, [/(?:KILOGRAMOS?|UNIDAD(?:ES)?|KG)\s+CAFE.+?(\d+\.\d{4,})/i]) || '';
   }
 
   const subtotalRaw = _extraerCampo(texto, [/Sub Total Ventas\s*:?\s*\$?\s*([\d,]+\.\d{2})/i]);
@@ -13078,8 +13081,8 @@ function renderFacturasVenta(filtro){
       <td><strong>${f.cliente||'—'}</strong></td>
       <td style="font-family:monospace;font-size:0.76rem;">${f.flo_id_comprador||'—'}</td>
       <td>${f.lote||'—'}</td>
-      <td style="font-size:0.78rem;max-width:130px;">${f.contrato||'—'}</td>
-      <td>${f.tipo_contrato||'—'}</td>
+      <td style="font-size:0.78rem;max-width:150px;overflow-wrap:break-word;">${f.contrato||'—'}</td>
+      <td style="white-space:nowrap;padding-left:10px;padding-right:10px;">${f.tipo_contrato||'—'}</td>
       <td style="text-align:right;">${fmt(f.kg)}</td>
       <td style="text-align:right;">${f.unidad==='LIBRAS'?fmt(f.libras):'—'}</td>
       <td style="text-align:right;color:#0d47a1;font-weight:700;">${fmt(f.qq)}</td>
@@ -13488,6 +13491,7 @@ function calcularListaSocios(certifFiltro){
     const estQq = parseFloat(s.estimado_qq||0)||0;
     const estKg = estQq>0 ? estQq*55.2 : parseFloat(s.estimado_kg||s.estimado||0)||0;
     const guiasSocio = (DB.guias||[]).filter(g=>{
+      if(!_matchCertifCampana(g.certificacion, s.certificacion)) return false;
       if(s.dni && g.dni && String(g.dni).trim()===String(s.dni).trim()) return true;
       return (g.productor||'').trim().toUpperCase() === (s.nombre||'').trim().toUpperCase();
     });
