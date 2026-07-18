@@ -11904,17 +11904,41 @@ function parsearPaginaFactura(texto){
   const fecha = fechaRaw ? _primeraFechaDMY(fechaRaw) : null;
   const cliente = _extraerCampo(texto, [/Se[ñn]or\(es\)\s*:?\s*([^\n]+?)\s+RUC\s*:/i]);
 
-  // "CONTRATO:" (formato KILOGRAMO, dentro de la descripción del ítem) se corta antes de ",LOTE" o
-  // antes del primer número con 4+ decimales (precio unitario que viene justo después en la misma
-  // línea). "CTO:" (formato LIBRAS, dentro de la Observación, ANTES de la tabla de ítems) se corta
-  // antes de "-BIENES TRANSFERIDOS" o "Forma de pago" — de lo contrario el capturado se comería el
-  // resto del documento entero, porque ese bloque no trae LOTE ni un número de 4+ decimales.
-  const contrato = _extraerCampo(texto, [
-    /CONTRATO\s*:\s*(.+?)(?:,\s*LOTE|\s+\d+\.\d{4,}|$)/i,
+  // "CONTRATO:" (formato KILOGRAMO, dentro de la descripción del ítem) se corta antes de ",LOTE",
+  // antes de "/REF" o " REF" (el código de referencia va en su propio campo — si no se corta acá,
+  // se arrastra pegado al contrato, duplicando lo que ya captura `referenciaRaw` más abajo), o antes
+  // del primer número con 4+ decimales (precio unitario que viene justo después en la misma línea).
+  // "CTO:" (formato LIBRAS, dentro de la Observación, ANTES de la tabla de ítems) se corta antes de
+  // "-BIENES TRANSFERIDOS" o "Forma de pago" — de lo contrario el capturado se comería el resto del
+  // documento entero, porque ese bloque no trae LOTE ni un número de 4+ decimales. Ese bloque SÍ
+  // puede traer varios contratos/referencias concatenados legítimamente (una factura con 2 lotes de
+  // 2 contratos distintos), así que ahí NO se corta antes de "REF".
+  const contratoRaw = _extraerCampo(texto, [
+    /CONTRATO\s*:\s*(.+?)(?:\/?\s*REF\b|,\s*LOTE|\s+\d+\.\d{4,}|$)/i,
     /CTO\s*:\s*(.+?)(?:-?BIENES\s+TRANSFERIDOS|Forma de pago)/i
   ]);
-  const lote = _extraerCampo(texto, [/LOTE\s*N\.?\s*([\d\-]+)/i]);
-  const referenciaRaw = _extraerCampo(texto, [/REF\s*([A-Z0-9]+\s*-?\s*[A-Z0-9]+)/i]);
+  if(contratoRaw){
+    // Normaliza el espacio suelto que a veces trae el PDF justo después del guion de "FCH-" (ver
+    // mismo problema ya corregido en Liquidaciones de Proceso) — así el contrato calza igual entre
+    // módulos.
+    var contrato = contratoRaw.replace(/FCH-\s+/gi,'FCH-').trim();
+  } else {
+    // Respaldo: algún documento trae "CONTRATO" pegado al código SIN los ":" (p.ej. "SEGUN CONTRATO
+    // FCH- APARAICESDECHIRINOS037 2026/ REF..."), por lo que ninguno de los dos patrones de arriba
+    // calza. Se busca directo el código "FCH..." en cualquier parte del texto (siempre termina en un
+    // año de 4 dígitos) y se normaliza cualquier espacio interno a guion, ya que el propio código
+    // nunca trae espacios (p.ej. ese mismo documento también viene sin el guion antes del año:
+    // "...037 2026" en vez de "...037-2026").
+    const fchM = texto.match(/\bFCH[A-Z0-9\-\s]*?\d{4}\b/i);
+    var contrato = fchM ? fchM[0].replace(/\s+/g,'-').replace(/-+/g,'-').trim() : '';
+  }
+  const lote = _extraerCampo(texto, [/LOTE\s*N\.?\s*([\d\-]+)/i, /\bLT\s*(\d[\d\-]*)\b/i]);
+  // El código de referencia real es un solo token (a veces con guion bajo, p.ej. "SCS_179787") — se
+  // exige al menos un dígito y se admite un guion bajo como parte del token, para no cortarlo a la
+  // mitad. Solo se admite UN segmento adicional unido por guion (p.ej. "NPPE- 37377" → "NPPE-37377",
+  // con el espacio suelto que a veces separa el guion del resto) — nunca por espacio simple, para no
+  // arrastrar de más el número de precio unitario que viene inmediatamente después en la misma línea.
+  const referenciaRaw = _extraerCampo(texto, [/REF\s*([A-Z0-9_]+(?:\s*-\s*[A-Z0-9_]+)?)/i]);
   const esOrganico = /ORG[ÁA]NICO/i.test(texto);
   const esFairtradeUsa = /FAIR\s*TRADE\s*USA|FTUSA|FAIRTRADE/i.test(texto);
   const tipoContrato = esFairtradeUsa ? 'FTO USA' : (esOrganico ? 'ORG' : '');
@@ -11944,9 +11968,13 @@ function parsearPaginaFactura(texto){
     primaOrganico = primaOrgRaw ? primaOrgRaw.replace(/,/g,'') : '';
     primaFairtrade = primaFtRaw ? primaFtRaw.replace(/,/g,'') : '';
   } else {
-    const kgRaw = _extraerCampo(texto, [/([\d,]+\.\d{2})\s+KILOGRAMO/i]);
+    // La unidad de medida casi siempre dice "KILOGRAMO", pero algunos documentos SUNAT reales traen
+    // "UNIDAD" en su lugar (typo/config del emisor) aunque la cantidad sigue siendo kilos de café —
+    // confirmado cruzando "EQUIV. A ... QQ" de esos documentos (siempre calza exacto con ÷46), así
+    // que se acepta cualquiera de las dos etiquetas.
+    const kgRaw = _extraerCampo(texto, [/([\d,]+\.\d{2})\s+(?:KILOGRAMO|UNIDAD)\s+CAFE/i]);
     kg = kgRaw ? kgRaw.replace(/,/g,'') : '';
-    precioUnit = _extraerCampo(texto, [/KILOGRAMO\s+CAFE.+?(\d+\.\d{4,})/i]) || '';
+    precioUnit = _extraerCampo(texto, [/(?:KILOGRAMO|UNIDAD)\s+CAFE.+?(\d+\.\d{4,})/i]) || '';
   }
 
   const subtotalRaw = _extraerCampo(texto, [/Sub Total Ventas\s*:?\s*\$?\s*([\d,]+\.\d{2})/i]);
