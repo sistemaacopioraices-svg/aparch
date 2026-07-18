@@ -13707,6 +13707,14 @@ function renderKardexCampana(){
     return;
   }
   const lista = _paginaSlice(_rcKardexTab, listaCompleta);
+  // Totales de TODO el período (no solo la página visible), para poder distinguir de un vistazo
+  // cuánto entró vs. cuánto salió — igual que la columna de acumulado del Kárdex real en Excel del
+  // usuario, que resalta las filas de "ENVÍO A PLANTA" en rojo dentro de la misma lista cronológica.
+  const filasEntrada = listaCompleta.filter(f=>f.tipo==='ingreso');
+  const filasSalida = listaCompleta.filter(f=>f.tipo==='salida');
+  const totalEntradasKg = filasEntrada.reduce((a,f)=>a+f.kg,0);
+  const totalSalidasKg = filasSalida.reduce((a,f)=>a+f.kg,0);
+  const saldoFinal = listaCompleta[listaCompleta.length-1];
   cont.innerHTML = `
     <table><thead><tr>
       <th>Fecha</th><th>Tipo</th><th>Documento</th><th>Detalle</th><th>Guía/N°</th>
@@ -13714,7 +13722,7 @@ function renderKardexCampana(){
       <th style="text-align:right;">Saldo Kg</th><th style="text-align:right;">Saldo QQ</th>
     </tr></thead>
     <tbody>${lista.map(f=>`
-      <tr>
+      <tr style="background:${f.tipo==='salida'?'#fff6f6':'transparent'};">
         <td>${fechaDisplay(f.fecha)}</td>
         <td><span class="badge ${f.tipo==='ingreso'?'badge-verde':'badge-rojo'}">${f.tipo==='ingreso'?'▲ Ingreso':'▼ Salida'}</span></td>
         <td class="td-codigo">${f.doc}</td>
@@ -13725,6 +13733,23 @@ function renderKardexCampana(){
         <td style="text-align:right;font-weight:800;">${fmt(f.saldoKg)}</td>
         <td style="text-align:right;">${fmt(f.saldoQq)}</td>
       </tr>`).join('')}
+      <tr style="font-weight:800;background:#e8f5e9;">
+        <td colspan="5">▲ TOTAL ENTRADAS (${filasEntrada.length} movimiento${filasEntrada.length===1?'':'s'})</td>
+        <td style="text-align:right;color:#1b5e20;">+${fmt(totalEntradasKg)}</td>
+        <td style="text-align:right;color:#1b5e20;">${fmt(totalEntradasKg/factor)}</td>
+        <td colspan="2"></td>
+      </tr>
+      <tr style="font-weight:800;background:#ffebee;">
+        <td colspan="5">▼ TOTAL SALIDAS (${filasSalida.length} movimiento${filasSalida.length===1?'':'s'})</td>
+        <td style="text-align:right;color:#c62828;">−${fmt(totalSalidasKg)}</td>
+        <td style="text-align:right;color:#c62828;">${fmt(totalSalidasKg/factor)}</td>
+        <td colspan="2"></td>
+      </tr>
+      <tr style="font-weight:800;background:#f5f5f5;">
+        <td colspan="7">SALDO FINAL (${listaCompleta.length} movimientos en total)</td>
+        <td style="text-align:right;">${fmt(saldoFinal.saldoKg)}</td>
+        <td style="text-align:right;">${fmt(saldoFinal.saldoQq)}</td>
+      </tr>
     </tbody></table>`;
   renderPager(_rcKardexTab, listaCompleta.length, 'rck-pager');
 }
