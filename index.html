@@ -1024,7 +1024,7 @@ tr:hover td{background:#f4f8f4;}
     <div style="background:linear-gradient(135deg,#1a5c2e,#2d7a45);border-radius:10px;padding:20px 24px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
       <div>
         <div style="color:#f0b429;font-weight:800;font-size:1.05rem;margin-bottom:4px;">📊 REPORTE GENERAL DE ACOPIO</div>
-        <div style="color:rgba(255,255,255,0.8);font-size:0.8rem;">Cruza tickets + guías: Fecha, Lote, DNI, Productor, N° Guía, Sacos, KG Bruto, KG Neto, QQ Neto, Rendimiento, Precio KG, Precio QQ, Total a Pagar, Humedad, Desc. Humedad, Base</div>
+        <div style="color:rgba(255,255,255,0.8);font-size:0.8rem;">Solo café <strong>Orgánico</strong> y <strong>Orgánico Fairtrade USA</strong> (el convencional no entra aquí). Cruza tickets + guías: Fecha, Lote, DNI, Productor, N° Guía, Sacos, KG Bruto, KG Neto, QQ Neto, Rendimiento, Precio KG, Precio QQ, Total a Pagar, Humedad, Desc. Humedad, Base</div>
         <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;margin-top:4px;" id="exp-count-reporte">0 registros cruzados</div>
       </div>
       <button class="btn" onclick="exportarReporteGeneral()" style="background:#f0b429;color:#1a5c2e;font-weight:800;font-size:0.95rem;padding:12px 22px;white-space:nowrap;flex-shrink:0;">
@@ -8514,7 +8514,22 @@ function exportarReporteCaja(){
   XLSX.writeFile(wb, `APARCH_ReporteCaja_${fecha}.xlsx`);
 }
 
-function exportarReporteGeneral(){
+// Anchos de columna del Reporte General — compartidos entre el botón standalone (Exportar Datos)
+// y la hoja "Reporte General" que se agrega dentro del Excel de Resumen de Campaña.
+const REPORTE_GENERAL_COLS = [
+  {wch:12},{wch:13},{wch:11},{wch:30},{wch:15},{wch:15},{wch:18},
+  {wch:7},{wch:10},{wch:10},{wch:10},
+  {wch:13},{wch:13},{wch:13},
+  {wch:13},{wch:14},
+  {wch:15},{wch:16},
+  {wch:16},{wch:11},{wch:18},{wch:14},{wch:14},{wch:13}
+];
+
+// Arma las filas del Reporte General de Acopio (cruce tickets + guías), solo café Orgánico +
+// Orgánico Fairtrade USA (excluye Convencional) — extraído a función propia para que tanto el
+// botón standalone (exportarReporteGeneral) como la hoja nueva dentro de Resumen de Campaña
+// (exportarResumenCampana) usen exactamente la misma lógica, sin duplicarla.
+function _construirFilasReporteGeneral(){
   const headers = [
     'FECHA', 'N° LOTE', 'DNI', 'PRODUCTOR', 'N° GUÍA', 'N° TICKET', 'CERTIFICACIÓN',
     'SACOS', 'KG BRUTO', 'KG NETO', 'QQ NETO',
@@ -8567,8 +8582,12 @@ function exportarReporteGeneral(){
 
   const filas = [];
   const guiasIncompletas = []; // guías sin lote/sacos/kg bruto (datos de ticket faltantes)
+  // Solo café orgánico + orgánico Fairtrade USA (excluye Convencional) — mismo criterio que ya
+  // usa Resumen de Campaña vía _esCertifOrganicaCampana(), para que el acopio general del reporte
+  // no mezcle café convencional.
+  const guiasOrganicas = DB.guias.filter(g => _esCertifOrganicaCampana(g.certificacion));
   // Ordenar guías por fecha ASC + correlativo ASC
-  const guiasOrdenadas = [...DB.guias].sort((a,b)=>{
+  const guiasOrdenadas = [...guiasOrganicas].sort((a,b)=>{
     if((a.fecha||'')!==(b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
     const nA=parseInt((a.codigo||'').match(/(\d+)$/)?.[1]||0);
     const nB=parseInt((b.codigo||'').match(/(\d+)$/)?.[1]||0);
@@ -8664,6 +8683,12 @@ function exportarReporteGeneral(){
     }
   });
 
+  return { headers, filas, guiasIncompletas };
+}
+
+function exportarReporteGeneral(){
+  const { headers, filas, guiasIncompletas } = _construirFilasReporteGeneral();
+
   // ── Avisar si hay guías con datos de ticket incompletos antes de descargar ──
   if(guiasIncompletas.length){
     const listaUnica = [...new Set(guiasIncompletas)];
@@ -8685,16 +8710,7 @@ function exportarReporteGeneral(){
   const wb = XLSX.utils.book_new();
   const wsData = [headers, ...filas];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-  // Anchos de columna
-  ws['!cols'] = [
-    {wch:12},{wch:13},{wch:11},{wch:30},{wch:15},{wch:15},{wch:18},
-    {wch:7},{wch:10},{wch:10},{wch:10},
-    {wch:13},{wch:13},{wch:13},
-    {wch:13},{wch:14},
-    {wch:15},{wch:16},
-    {wch:16},{wch:11},{wch:18},{wch:14},{wch:14},{wch:13}
-  ];
+  ws['!cols'] = REPORTE_GENERAL_COLS;
 
   XLSX.utils.book_append_sheet(wb, ws, 'Reporte General');
 
@@ -8735,6 +8751,7 @@ function updateExportCounts(){
   }
   let countReporte = 0;
   DB.guias.forEach(g => {
+    if(!_esCertifOrganicaCampana(g.certificacion)) return; // solo Orgánico + Orgánico Fairtrade USA
     countReporte += (g.tickets_detalle && g.tickets_detalle.length > 0) ? g.tickets_detalle.length : 1;
   });
   const el = document.getElementById('exp-count-reporte');
@@ -13977,6 +13994,23 @@ function exportarResumenCampana(){
   const wsRp = XLSX.utils.aoa_to_sheet([hRp, ...fRp]);
   wsRp['!cols'] = [{wch:12},{wch:16},{wch:10},{wch:14},{wch:10},{wch:14},{wch:10},{wch:12},{wch:10},{wch:10},{wch:14},{wch:10},{wch:14},{wch:10},{wch:14},{wch:10},{wch:16},{wch:20},{wch:20}];
   XLSX.utils.book_append_sheet(wb, wsRp, 'Remision Proceso Comerc');
+
+  // Hoja Reporte General — mismo cruce tickets+guías del botón "📊 Reporte General de Acopio" de
+  // Exportar Datos (Fecha, Lote, DNI, Productor, N° Guía, N° Ticket, Certificación, Sacos, Kg
+  // Bruto, Kg Neto, QQ, Rendimiento, Precios, Prima/Descuento, Total a Pagar, Humedad, Base,
+  // Caserío), para no tener que descargar dos archivos separados. Ya viene solo Orgánico +
+  // Orgánico Fairtrade USA por construcción (_construirFilasReporteGeneral filtra convencional).
+  const { headers: hRG, filas: fRG } = _construirFilasReporteGeneral();
+  const wsRG = XLSX.utils.aoa_to_sheet([hRG, ...fRG]);
+  wsRG['!cols'] = REPORTE_GENERAL_COLS;
+  const rangoRG = fRG.length + 1;
+  for(let i = 2; i <= rangoRG; i++){
+    const cell = wsRG[`A${i}`];
+    if(cell && cell.t === 'n'){
+      cell.z = 'dd/mm/yyyy';
+    }
+  }
+  XLSX.utils.book_append_sheet(wb, wsRG, 'Reporte General');
 
   const fecha = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `APARCH_ResumenCampana_${fecha}.xlsx`);
