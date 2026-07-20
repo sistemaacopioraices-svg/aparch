@@ -2423,7 +2423,7 @@ tr:hover td{background:#f4f8f4;}
 
 <!-- ══════════ MODAL IMPRESIÓN COMPROBANTE DE ABONO ══════════ -->
 <div class="modal-overlay" id="modal-print-abono">
-<div class="modal" style="max-width:560px;">
+<div class="modal" style="max-width:680px;">
   <div class="modal-header">
     <div class="modal-title">🖨️ Vista Previa Comprobante de Abono</div>
     <div style="display:flex;gap:8px;">
@@ -2782,7 +2782,7 @@ tr:hover td{background:#f4f8f4;}
 
 <!-- ══════════ MODAL IMPRESIÓN COMPRA CAFÉ COCO ══════════ -->
 <div class="modal-overlay" id="modal-print-cc">
-<div class="modal" style="max-width:560px;">
+<div class="modal" style="max-width:680px;">
   <div class="modal-header">
     <div class="modal-title">🖨️ Vista Previa Compra Café Coco</div>
     <div style="display:flex;gap:8px;">
@@ -3490,6 +3490,12 @@ let SHEETS_URL = '';
 const EMPRESAS_REGISTRO_KEY = 'aparch_empresas_registro';
 const EMPRESA_ACTIVA_KEY = 'aparch_empresa_activa';
 
+// ═══ INICIO_DATOS_EMPRESA_INSTALACION ═══
+// Identidad de la empresa que este archivo trae por defecto la primera vez que se abre en un
+// navegador limpio (instalación nueva). El generador de copias por empresa (fuera de este archivo,
+// ver carpeta de despliegue) reemplaza ÚNICAMENTE el contenido entre estos dos marcadores para
+// producir una copia lista para publicar en el repositorio propio de cada cooperativa — el resto
+// del sistema es idéntico en todas las copias.
 function _empresaAparchPorDefecto(){
   return {
     id:'aparch', nombreCorto:'APARCH', nombreSub:'Raíces de Chirinos',
@@ -3498,6 +3504,7 @@ function _empresaAparchPorDefecto(){
     storageKey:'aparch_db', sheetsKey:'aparch_sheets_url', fechaCreacion: new Date().toISOString()
   };
 }
+// ═══ FIN_DATOS_EMPRESA_INSTALACION ═══
 // Trae el registro de empresas. La primera vez que corre esta versión del sistema (o en una
 // instalación existente de una sola empresa) no hay registro todavía — se crea uno con APARCH
 // apuntando a la clave de localStorage 'aparch_db' de siempre, así los datos ya guardados quedan
@@ -4521,7 +4528,10 @@ function abrirVentanaImpresion(bodyHtml, titulo, extraStyle, customScript){
   /* Evita que la firma/pie de página quede sola en una hoja aparte al imprimir un
      documento individual (ticket, recibo, arqueo, venta, etc.). */
   #print-zona-ticket, #print-zona-recibo, #print-zona-cierre, #print-zona-arqueo,
-  #print-zona-cc, #print-zona-kardex, #print-zona-tostado { page-break-inside: avoid; }
+  #print-zona-kardex, #print-zona-tostado { page-break-inside: avoid; }
+  /* print-zona-cc y print-zona-comp ahora envuelven 2 copias apiladas (Productor + Caja) — el que
+     no se corte a la mitad es cada .copia-guia individual, no el contenedor completo. */
+  .copia-guia { page-break-inside: avoid; }
   ${extraStyle||''}
 </style></head><body>
 ${bodyHtml}
@@ -10046,16 +10056,13 @@ function imprimirEstadoCuentaPrestamo(){
 }
 
 // ── IMPRESIÓN: COMPROBANTE DE ABONO (se genera automáticamente al registrar un pago) ──
-function verPrintAbono(prestamoIdx, abonoIdx){
-  const p = DB.prestamos[prestamoIdx];
-  if(!p) return;
-  const ab = (p.abonos||[])[abonoIdx];
-  if(!ab) return;
-  const sald = saldoPrestamo(prestamoIdx);
-  const cfg  = TIPOS_PRESTAMO[p.tipo]||{ico:'💰',nombre:p.tipo};
-
-  document.getElementById('print-abono-content').innerHTML = `
-  <div id="print-zona-abono" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:520px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;">
+// 2 copias en la misma hoja (Caja + Socio), mismo patrón que Comprobante de Pago / Café Coco.
+function generarCopiaAbono(p, ab, sald, cfg, etiqueta, colorEtiqueta){
+  return `
+  <div class="copia-guia" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:520px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;page-break-inside:avoid;">
+    <div style="text-align:right;margin-bottom:4px;">
+      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
+    </div>
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
@@ -10085,6 +10092,23 @@ function verPrintAbono(prestamoIdx, abonoIdx){
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Recibido por (${empresaActiva().nombreCorto})</div>
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:9px;">${p.socio||''}</span></div>
     </div>
+  </div>`;
+}
+function verPrintAbono(prestamoIdx, abonoIdx){
+  const p = DB.prestamos[prestamoIdx];
+  if(!p) return;
+  const ab = (p.abonos||[])[abonoIdx];
+  if(!ab) return;
+  const sald = saldoPrestamo(prestamoIdx);
+  const cfg  = TIPOS_PRESTAMO[p.tipo]||{ico:'💰',nombre:p.tipo};
+
+  const copiaCaja  = generarCopiaAbono(p, ab, sald, cfg, '🏦 Copia Caja',  '#c8951a');
+  const copiaSocio = generarCopiaAbono(p, ab, sald, cfg, '📄 Copia Socio', '#1a5c2e');
+  document.getElementById('print-abono-content').innerHTML = `
+  <div id="print-zona-abono" style="display:flex;flex-direction:column;gap:10px;">
+    ${copiaCaja}
+    <div style="border-top:2px dashed #aaa;margin:4px 0;"></div>
+    ${copiaSocio}
   </div>`;
   abrirModal('modal-print-abono');
 }
@@ -11782,11 +11806,13 @@ function filtrarCafeCoco(){
   renderCafeCoco(document.getElementById('search-cc').value.toLowerCase());
 }
 
-// ── IMPRESIÓN DE COMPRA INDIVIDUAL ──
-function verPrintCafeCoco(idx){
-  const c = DB.cafecoco[idx];
-  document.getElementById('print-cc-content').innerHTML = `
-  <div id="print-zona-cc" style="font-family:Arial,sans-serif;max-width:460px;margin:0 auto;padding:20px 22px;border:2px solid #6b3a2a;border-radius:8px;">
+// ── IMPRESIÓN DE COMPRA INDIVIDUAL (2 copias en la misma hoja: Productor + Caja) ──
+function generarCopiaCafeCoco(c, etiqueta, colorEtiqueta){
+  return `
+  <div class="copia-guia" style="font-family:Arial,sans-serif;max-width:460px;margin:0 auto;padding:20px 22px;border:2px solid #6b3a2a;border-radius:8px;page-break-inside:avoid;">
+    <div style="text-align:right;margin-bottom:4px;">
+      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
+    </div>
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #6b3a2a;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
@@ -11818,6 +11844,17 @@ function verPrintCafeCoco(idx){
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Entregado por (Productor)</div>
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Recibido por (${empresaActiva().nombreCorto})</div>
     </div>
+  </div>`;
+}
+function verPrintCafeCoco(idx){
+  const c = DB.cafecoco[idx];
+  const copiaProductor = generarCopiaCafeCoco(c, '📄 Copia Productor', '#1a5c2e');
+  const copiaCaja      = generarCopiaCafeCoco(c, '🏦 Copia Caja',      '#c8951a');
+  document.getElementById('print-cc-content').innerHTML = `
+  <div id="print-zona-cc" style="display:flex;flex-direction:column;gap:10px;">
+    ${copiaProductor}
+    <div style="border-top:2px dashed #aaa;margin:4px 0;"></div>
+    ${copiaCaja}
   </div>`;
   abrirModal('modal-print-cc');
 }
