@@ -249,6 +249,33 @@ tr:hover td{background:#f4f8f4;}
 </head>
 <body>
 
+<!-- ══════════ SELECTOR DE EMPRESA (multi-cooperativa, datos separados) ══════════ -->
+<div id="empresa-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a3a1f,#2e5c34);padding:20px;">
+  <div style="max-width:420px;width:100%;background:#fff;border-radius:14px;padding:28px 24px;box-shadow:0 12px 40px rgba(0,0,0,.25);">
+    <div style="text-align:center;margin-bottom:18px;">
+      <h2 style="margin:0;color:#1a5c2e;">Selecciona tu empresa</h2>
+      <p style="margin:4px 0 0;color:#666;font-size:0.85rem;">Cada empresa guarda su acopio, socios y reportes por separado.</p>
+    </div>
+    <div id="empresa-lista" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+</div>
+<div id="empresa-nueva-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a3a1f,#2e5c34);padding:20px;">
+  <div style="max-width:440px;width:100%;background:#fff;border-radius:14px;padding:28px 24px;box-shadow:0 12px 40px rgba(0,0,0,.25);max-height:94vh;overflow:auto;">
+    <h2 style="margin:0 0 4px;color:#1a5c2e;">Nueva empresa / cooperativa</h2>
+    <p style="margin:0 0 16px;color:#666;font-size:0.85rem;">Se crea con datos completamente separados — no toca lo que ya tienes guardado en tus otras empresas.</p>
+    <div class="form-group"><label>Nombre corto (se muestra en el panel)</label><input type="text" id="ne-corto" placeholder="Ej: COOPVIC"></div>
+    <div class="form-group"><label>Nombre descriptivo</label><input type="text" id="ne-sub" placeholder="Ej: Cooperativa La Victoria"></div>
+    <div class="form-group"><label>Razón Social completa (para tickets, guías y facturas)</label><input type="text" id="ne-razon" placeholder="Ej: COOPERATIVA AGRARIA CAFETALERA LA VICTORIA"></div>
+    <div class="form-group"><label>RUC</label><input type="text" id="ne-ruc" placeholder="20xxxxxxxxx"></div>
+    <div class="form-group"><label>Dirección</label><input type="text" id="ne-direccion" placeholder="Dirección del local / almacén"></div>
+    <div class="form-group"><label>Teléfono</label><input type="text" id="ne-telefono" placeholder="9xxxxxxxx"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="mostrarSelectorEmpresas()">‹ Volver</button>
+      <button class="btn-login" style="flex:1;" onclick="crearNuevaEmpresa()">Crear e ingresar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════ LOGIN ══════════ -->
 <div id="login-screen">
   <div class="login-box">
@@ -346,10 +373,13 @@ tr:hover td{background:#f4f8f4;}
   <a class="nav-item nav-solo-completo" onclick="showSection('exportar')" href="#">
     <span class="ico">📤</span> Exportar Datos
   </a>
-  <a class="nav-item" onclick="doLogout()" href="#" style="margin-top:auto;color:rgba(255,100,100,.8);">
+  <a class="nav-item admin-only" onclick="cambiarDeEmpresa()" href="#" style="margin-top:auto;">
+    <span class="ico">🏢</span> Cambiar de Empresa
+  </a>
+  <a class="nav-item" onclick="doLogout()" href="#" style="color:rgba(255,100,100,.8);">
     <span class="ico">🚪</span> Cerrar Sesión
   </a>
-  <div class="sidebar-bottom">v2.0 · APARCH © 2026</div>
+  <div class="sidebar-bottom" id="sidebar-bottom-brand">v2.0 · APARCH © 2026</div>
 </nav>
 
 <!-- ══════════ MAIN ══════════ -->
@@ -991,7 +1021,7 @@ tr:hover td{background:#f4f8f4;}
         <strong>1.</strong> Haz clic en <em>"Conectar Google Drive"</em> — inicia sesión con tu cuenta Google<br>
         <strong>2.</strong> Haz clic en <em>"☁️ Guardar en Drive"</em> — sube todos tus datos a Drive automáticamente<br>
         <strong>3.</strong> En otro PC, conecta la misma cuenta y haz <em>"📥 Cargar desde Drive"</em> — recupera todo al instante<br>
-        <strong>4.</strong> El archivo se guarda como <code>APARCH_datos_nube.json</code> en tu Google Drive
+        <strong>4.</strong> El archivo se guarda como <code id="gdrive-filename-hint">APARCH_datos_nube.json</code> en tu Google Drive
       </div>
     </div>
     </div><!-- fin panel drive oculto -->
@@ -3404,8 +3434,15 @@ tr:hover td{background:#f4f8f4;}
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
-let DB = { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, tablaPrecios:null, configHumedad:null, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], telefonoAlertasPrestamos:'', facturacionConfig:{habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'}, ultimaImportacionGuias:null,
-  liquidacionesProceso:[], guiasRemision:[], facturasVenta:[] };
+// Skeleton vacío de DB — es una FUNCIÓN (no un objeto compartido) a propósito: con varias
+// empresas activas en la misma sesión, cargarDB() necesita poder "empezar de cero" cada vez que
+// se cambia de empresa, para no arrastrar en memoria los datos de la empresa anterior hacia la
+// nueva (ver cargarDB más abajo).
+function _dbVacio(){
+  return { tickets:[], guias:[], comprobantes:[], socios:[], usuarios:[], campana:null, precioBase:790, tablaPrecios:null, configHumedad:null, prestamos:[], aperturas:[], recibos:[], cafecoco:[], kardex:[], arqueos:[], ganancias:[], tostadoProduccion:[], tostadoVentas:[], inspecciones:[], parcelas:[], criteriosInspeccion:[], telefonoAlertasPrestamos:'', facturacionConfig:{habilitado:false,ruc:'',token:'',serieFactura:'F001',serieBoleta:'B001'}, ultimaImportacionGuias:null,
+    liquidacionesProceso:[], guiasRemision:[], facturasVenta:[] };
+}
+let DB = _dbVacio();
 
 // El café YA PROCESADO (exportable/descarte) usa 46 kg = 1 QQ, distinto del pergamino crudo
 // (55.2 kg = 1 QQ, usado en Tickets/Guías de Entrada) — NUNCA mezclar ambos factores.
@@ -3437,11 +3474,166 @@ const ES_APP_MOVIL_INSTALADA = (function(){
 if(ES_APP_MOVIL_INSTALADA) document.body.classList.add('modo-app-movil');
 
 // ── Clave única del archivo para distinguir versiones del sistema ──
-const STORAGE_KEY = 'aparch_db';
+// (mutable: cambia según qué empresa está activa — ver bloque MULTI-EMPRESA más abajo)
+let STORAGE_KEY = 'aparch_db';
 const BACKUP_META_KEY = 'aparch_backup_meta';
 
 // ── URL del Google Apps Script Web App ──
-let SHEETS_URL = localStorage.getItem('aparch_sheets_url') || '';
+let SHEETS_URL = '';
+
+// ══════════════════════════════════════════
+// MULTI-EMPRESA — varias cooperativas/organizaciones en un mismo sistema, cada una con su
+// propio acopio, socios, guías, facturas, etc. completamente separados. El registro de empresas
+// (solo nombre/RUC/qué clave de localStorage usa cada una) vive aparte de los datos de cada
+// empresa, así que cambiar de empresa nunca mezcla ni borra datos de otra.
+// ══════════════════════════════════════════
+const EMPRESAS_REGISTRO_KEY = 'aparch_empresas_registro';
+const EMPRESA_ACTIVA_KEY = 'aparch_empresa_activa';
+
+function _empresaAparchPorDefecto(){
+  return {
+    id:'aparch', nombreCorto:'APARCH', nombreSub:'Raíces de Chirinos',
+    razonLarga:'ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS',
+    ruc:'20614704994', direccion:'Calle Chinchipe S/N Salida al Higuerón', telefono:'958723090',
+    storageKey:'aparch_db', sheetsKey:'aparch_sheets_url', fechaCreacion: new Date().toISOString()
+  };
+}
+// Trae el registro de empresas. La primera vez que corre esta versión del sistema (o en una
+// instalación existente de una sola empresa) no hay registro todavía — se crea uno con APARCH
+// apuntando a la clave de localStorage 'aparch_db' de siempre, así los datos ya guardados quedan
+// intactos y visibles, solo que ahora catalogados como "la empresa APARCH".
+function cargarRegistroEmpresas(){
+  try{
+    const raw = localStorage.getItem(EMPRESAS_REGISTRO_KEY);
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr) && arr.length) return arr;
+    }
+  }catch(e){ console.warn('Error leyendo registro de empresas:', e); }
+  const registro = [ _empresaAparchPorDefecto() ];
+  guardarRegistroEmpresas(registro);
+  return registro;
+}
+function guardarRegistroEmpresas(registro){
+  localStorage.setItem(EMPRESAS_REGISTRO_KEY, JSON.stringify(registro));
+}
+let _empresaActivaCache = null;
+function empresaActiva(){
+  if(_empresaActivaCache) return _empresaActivaCache;
+  const registro = cargarRegistroEmpresas();
+  const id = localStorage.getItem(EMPRESA_ACTIVA_KEY);
+  _empresaActivaCache = registro.find(e=>e.id===id) || registro[0];
+  return _empresaActivaCache;
+}
+function _escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function _slugEmpresa(nombre){
+  const base = String(nombre||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,24);
+  return base || 'empresa';
+}
+
+// ── Pantalla "Selecciona tu empresa" ──
+function mostrarSelectorEmpresas(){
+  const registro = cargarRegistroEmpresas();
+  const cont = document.getElementById('empresa-lista');
+  cont.innerHTML = registro.map(e=>`
+    <div onclick="entrarAEmpresa('${e.id}')" style="cursor:pointer;padding:14px 16px;border:2px solid #e0e0e0;border-radius:10px;transition:.15s;" onmouseover="this.style.borderColor='#2e7d32'" onmouseout="this.style.borderColor='#e0e0e0'">
+      <div style="font-weight:800;color:#1a5c2e;font-size:1.05rem;">${_escHtml(e.nombreCorto)}</div>
+      <div style="font-size:0.8rem;color:#666;margin-top:2px;">${_escHtml(e.nombreSub||'')}</div>
+    </div>`).join('') + `
+    <div onclick="document.getElementById('empresa-screen').style.display='none';document.getElementById('empresa-nueva-screen').style.display='flex';" style="cursor:pointer;padding:14px 16px;border:2px dashed #bbb;border-radius:10px;text-align:center;color:#2e7d32;font-weight:700;">
+      + Nueva Empresa
+    </div>`;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('empresa-nueva-screen').style.display='none';
+  document.getElementById('app-sidebar').style.display='none';
+  document.getElementById('app-main').style.display='none';
+  document.getElementById('empresa-screen').style.display='flex';
+}
+function entrarAEmpresa(id){
+  localStorage.setItem(EMPRESA_ACTIVA_KEY, id);
+  _empresaActivaCache = null;
+  document.getElementById('empresa-screen').style.display='none';
+  iniciarConEmpresaActiva();
+}
+function crearNuevaEmpresa(){
+  const nombreCorto = document.getElementById('ne-corto').value.trim();
+  const nombreSub = document.getElementById('ne-sub').value.trim();
+  const razonLarga = document.getElementById('ne-razon').value.trim();
+  const ruc = document.getElementById('ne-ruc').value.trim();
+  const direccion = document.getElementById('ne-direccion').value.trim();
+  const telefono = document.getElementById('ne-telefono').value.trim();
+  if(!nombreCorto){ alert('Escribe al menos el nombre corto de la empresa.'); return; }
+  const registro = cargarRegistroEmpresas();
+  let id = _slugEmpresa(nombreCorto);
+  if(registro.find(e=>e.id===id)) id = id + '-' + Math.random().toString(36).slice(2,6);
+  const nueva = {
+    id, nombreCorto, nombreSub: nombreSub || '',
+    razonLarga: razonLarga || nombreSub.toUpperCase() || nombreCorto.toUpperCase(),
+    ruc, direccion, telefono,
+    storageKey: 'aparch_db__'+id, sheetsKey: 'aparch_sheets_url__'+id,
+    fechaCreacion: new Date().toISOString()
+  };
+  registro.push(nueva);
+  guardarRegistroEmpresas(registro);
+  document.getElementById('empresa-nueva-screen').style.display='none';
+  entrarAEmpresa(id);
+}
+// Vuelve al selector de empresas sin cerrar del todo — los datos de la empresa actual quedan
+// guardados tal cual (cada empresa vive en su propia clave de localStorage).
+function cambiarDeEmpresa(){
+  if(!confirm('¿Cambiar de empresa?\n\nTus datos actuales quedan guardados sin cambios — solo vas a elegir con cuál empresa seguir trabajando.')) return;
+  SESSION = {user:null, role:null};
+  document.getElementById('app-sidebar').style.display='none';
+  document.getElementById('app-main').style.display='none';
+  mostrarSelectorEmpresas();
+}
+// Aplica el nombre/RUC de la empresa activa a todo lo que ya está pintado en pantalla (panel
+// lateral, pestaña del navegador, login) — el resto de documentos (tickets, guías, facturas...)
+// se genera bajo demanda y ya toma empresaActiva() directamente en el momento de imprimir/exportar.
+function aplicarMarcaEmpresa(){
+  const e = empresaActiva();
+  document.title = e.nombreCorto + ' — Sistema de Acopio';
+  const orgEl = document.querySelector('.sidebar-logo .org');
+  if(orgEl) orgEl.textContent = e.nombreCorto;
+  const subEls = document.querySelectorAll('.sidebar-logo .sub');
+  if(subEls[0]) subEls[0].textContent = e.nombreSub || e.razonLarga || '';
+  const loginH2 = document.querySelector('#login-screen h2');
+  if(loginH2) loginH2.textContent = e.nombreCorto;
+  const loginP = document.querySelector('#login-screen .login-box > p');
+  if(loginP) loginP.textContent = (e.nombreSub || e.razonLarga || '') + ' · Sistema de Acopio';
+  const foot = document.getElementById('sidebar-bottom-brand');
+  if(foot) foot.textContent = 'v2.0 · ' + e.nombreCorto + ' © ' + new Date().getFullYear();
+  NOMBRE_ORGANIZACION = e.razonLarga || e.nombreCorto;
+  RUC_ORGANIZACION = e.ruc || '';
+  // El respaldo a Google Drive usa un nombre de archivo fijo dentro de la cuenta de Drive del
+  // usuario — si dos empresas compartieran el mismo nombre, "Guardar en Drive" de una pisaría el
+  // respaldo de la otra. Se namespacea por empresa para evitar esa colisión.
+  GDRIVE_FILE_NAME = e.nombreCorto + '_datos_nube.json';
+  const gdriveHint = document.getElementById('gdrive-filename-hint');
+  if(gdriveHint) gdriveHint.textContent = GDRIVE_FILE_NAME;
+}
+// Carga los datos de la empresa activa y deja la app lista para mostrar el login. Se llama tanto
+// en el arranque normal (una sola empresa registrada, o ya había una elegida) como justo después
+// de elegir/crear una empresa desde el selector.
+function iniciarConEmpresaActiva(){
+  const e = empresaActiva();
+  STORAGE_KEY = e.storageKey;
+  SHEETS_URL = localStorage.getItem(e.sheetsKey) || '';
+  cargarDB();
+  aplicarMarcaEmpresa();
+  actualizarCampaña();
+  actualizarEstadoRespaldo();
+  document.getElementById('empresa-screen').style.display='none';
+  document.getElementById('empresa-nueva-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  setTimeout(()=>{
+    const el=document.getElementById('cfg-precio-base');
+    if(el) el.value=DB.precioBase||790;
+    renderTablaPreciosConfig();
+  },100);
+}
 
 // ── Cola de sincronización para evitar pérdidas ──
 let _syncTimer = null;
@@ -3813,6 +4005,10 @@ function calcularResumenInspeccion(respuestas){
 }
 
 function cargarDB(){
+  // Siempre se parte del skeleton vacío, NUNCA del DB que haya en memoria — si no, al cambiar de
+  // empresa (varias empresas en la misma sesión) una empresa nueva sin datos guardados heredaría
+  // por accidente todo lo que tenía cargado la empresa anterior en memoria.
+  DB = _dbVacio();
   try{
     const d = localStorage.getItem(STORAGE_KEY);
     if(d){
@@ -3845,7 +4041,8 @@ function cargarDB(){
   if(!DB.ganancias) DB.ganancias=[];
   if(!DB.tostadoProduccion) DB.tostadoProduccion=[];
   if(!DB.tostadoVentas) DB.tostadoVentas=[];
-  if(!DB.facturacionConfig) DB.facturacionConfig = {habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'};
+  if(!DB.facturacionConfig) DB.facturacionConfig = {habilitado:false,ruc:'',token:'',serieFactura:'F001',serieBoleta:'B001'};
+  if(!DB.facturacionConfig.ruc) DB.facturacionConfig.ruc = empresaActiva().ruc || '';
   if(!DB.inspecciones) DB.inspecciones=[];
   if(!DB.parcelas) DB.parcelas=[];
   if(!DB.criteriosInspeccion) DB.criteriosInspeccion=[];
@@ -3863,7 +4060,7 @@ function exportarBackupJSON(){
   const backup = {
     _version: '2.0',
     _fecha: new Date().toISOString(),
-    _sistema: 'APARCH - Raíces de Chirinos',
+    _sistema: `APARCH - ${empresaActiva().nombreSub || empresaActiva().nombreCorto}`,
     _registros: {
       tickets: DB.tickets.length,
       guias: DB.guias.length,
@@ -3878,7 +4075,7 @@ function exportarBackupJSON(){
   const a    = document.createElement('a');
   const fecha = new Date().toISOString().slice(0,10);
   a.href = url;
-  a.download = `APARCH_backup_${fecha}.json`;
+  a.download = `${empresaActiva().nombreCorto}_backup_${fecha}.json`;
   a.click();
   URL.revokeObjectURL(url);
 
@@ -4315,7 +4512,7 @@ function nextCodigoCertif(tipo, certif){
 // independiente, con su propio <title>, y lo abre en una pestaña nueva.
 function abrirVentanaImpresion(bodyHtml, titulo, extraStyle, customScript){
   const script = customScript || `window.onload=function(){ setTimeout(function(){ window.print(); }, 80); };`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titulo||'APARCH'}</title>
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titulo||empresaActiva().nombreCorto}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;background:#fff;}
@@ -5238,8 +5435,8 @@ function generarTicketHTML(t){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:12px;font-weight:900;line-height:1.25;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:9px;color:#555;line-height:1.5;margin-top:2px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:12px;font-weight:900;line-height:1.25;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:9px;color:#555;line-height:1.5;margin-top:2px;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
         <div style="font-size:10px;font-weight:700;margin-top:4px;">PRE TICKET DE ALMACEN · CHIRINOS</div>
       </div>
       <div style="width:48px;flex-shrink:0;"></div>
@@ -5281,7 +5478,7 @@ function verPrintTicket(idx){
 }
 function imprimirTicket(){
   const c=document.getElementById('print-zona-ticket').outerHTML;
-  abrirVentanaImpresion(c, 'Ticket APARCH', '@page{size:80mm auto;margin:6mm;}');
+  abrirVentanaImpresion(c, `Ticket ${empresaActiva().nombreCorto}`, '@page{size:80mm auto;margin:6mm;}');
 }
 
 // Imprime TODOS los tickets actualmente visibles (respeta el filtro de búsqueda/pestaña activo)
@@ -5296,7 +5493,7 @@ function imprimirTodosTickets(){
   if(!confirm(`¿Imprimir ${lista.length} ticket(s)?`)) return;
 
   const bloques = lista.map((t,i)=>`<div style="page-break-after:${i===lista.length-1?'avoid':'always'};padding:8px 0;">${generarTicketHTML(t)}</div>`).join('\n');
-  abrirVentanaImpresion(bloques, 'Tickets APARCH', '@page{size:A4;margin:8mm;}');
+  abrirVentanaImpresion(bloques, `Tickets ${empresaActiva().nombreCorto}`, '@page{size:A4;margin:8mm;}');
 }
 
 // ══════════════════════════════════════════
@@ -6586,8 +6783,8 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
           <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
             <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;">
             <div>
-              <div style="font-size:13px;font-weight:900;line-height:1.15;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-              <div style="font-size:8px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+              <div style="font-size:13px;font-weight:900;line-height:1.15;">${NOMBRE_ORGANIZACION}</div>
+              <div style="font-size:8px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
               <div style="font-size:10.5px;font-weight:700;letter-spacing:0.5px;margin-top:1px;">GUÍA DE ENTRADA DE CAFÉ</div>
             </div>
           </div>
@@ -6710,7 +6907,7 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
         <div style="font-weight:400;font-size:9px;color:#555;">Productor (A)</div>
       </div>
       <div style="flex:1;text-align:center;border-top:1.5px solid #000;padding-top:4px;">
-        <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;">APARCH</div>
+        <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;">${empresaActiva().nombreCorto}</div>
         <div style="font-weight:400;font-size:9px;color:#555;">Responsable de Área</div>
       </div>
     </div>
@@ -6834,7 +7031,7 @@ async function _generarPDFyWhatsApp(elemento, nombreArchivo, mensajeWA){
 function _mensajeWhatsAppGuia(g){
   const totalPN = (g.tickets_detalle||[]).reduce((a,r)=>a+(parseFloat(r.pesoneto)||0),0);
   const totalQQ = (totalPN/55.2).toFixed(2);
-  return `🌿 *RAÍCES DE CHIRINOS — APARCH*
+  return `🌿 *${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}*
 📋 *GUÍA DE ENTRADA*
 ━━━━━━━━━━━━━━━━━━
 📄 N° Guía: *${g.codigo}*
@@ -6850,7 +7047,7 @@ function _mensajeWhatsAppGuia(g){
 ━━━━━━━━━━━━━━━━━━
 💵 *VALOR TOTAL: S/. ${fmtPago(g.valorrecibido)}*
 ━━━━━━━━━━━━━━━━━━
-_Adjunto la guía en PDF. Campaña ${g.campana||'2026'} — APARCH_`;
+_Adjunto la guía en PDF. Campaña ${g.campana||'2026'} — ${empresaActiva().nombreCorto}_`;
 }
 
 function _mensajeWhatsAppComp(c){
@@ -6861,7 +7058,7 @@ function _mensajeWhatsAppComp(c){
     return a + (g ? parseFloat(g.valorrecibido||0) : 0);
   }, 0) || parseFloat(c.total_guia||0);
   const saldo = Math.max(0, tot - parseFloat(c.monto||0));
-  return `🌿 *RAÍCES DE CHIRINOS — APARCH*
+  return `🌿 *${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}*
 🧾 *COMPROBANTE DE PAGO*
 ━━━━━━━━━━━━━━━━━━
 📄 N° Comp: *${c.codigo}*
@@ -6874,7 +7071,7 @@ function _mensajeWhatsAppComp(c){
 ${saldo>0.01?`⏳ Saldo: S/. ${fmtPago(saldo)}`:'✅ Pagado total'}
 💳 ${c.formapago||'Efectivo'}
 ━━━━━━━━━━━━━━━━━━
-_Adjunto el comprobante en PDF. APARCH_`;
+_Adjunto el comprobante en PDF. ${empresaActiva().nombreCorto}_`;
 }
 
 // Variables para guardar el índice actual al abrir modals
@@ -6913,7 +7110,7 @@ function imprimirGuia(){
       }catch(e){ console.warn('Ajuste de impresión de guía:', e); }
       setTimeout(function(){ window.print(); }, 80);
     };`;
-  abrirVentanaImpresion(c, 'Guía APARCH', estilo, script);
+  abrirVentanaImpresion(c, `Guía ${empresaActiva().nombreCorto}`, estilo, script);
 }
 
 // ══════════════════════════════════════════
@@ -7674,8 +7871,8 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #333;padding-bottom:6px;margin-bottom:8px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13.5px;font-weight:900;line-height:1.15;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:9px;color:#555;line-height:1.3;margin-top:1px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:13.5px;font-weight:900;line-height:1.15;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:9px;color:#555;line-height:1.3;margin-top:1px;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
         <div style="font-size:11px;font-weight:700;margin-top:2px;">COMPROBANTE DE PAGO</div>
         <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
       </div>
@@ -7736,7 +7933,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     </div>`:''}
     ${c.observaciones?`<div style="font-size:11px;margin-bottom:7px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:38px;">
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Pagado por (APARCH)</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Pagado por (${empresaActiva().nombreCorto})</div>
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:9.5px;">${c.productor||''}</span></div>
     </div>
   </div>`;
@@ -7797,7 +7994,7 @@ function imprimirTodosComprobantes(){
     </div>`;
   }).join('\n');
 
-  abrirVentanaImpresion(bloques, 'Comprobantes APARCH', '@page{size:A4;margin:8mm;}');
+  abrirVentanaImpresion(bloques, `Comprobantes ${empresaActiva().nombreCorto}`, '@page{size:A4;margin:8mm;}');
 }
 
 function imprimirComprobante(){
@@ -7826,7 +8023,7 @@ function imprimirComprobante(){
       }catch(e){ console.warn('Ajuste de impresión de comprobante:', e); }
       setTimeout(function(){ window.print(); }, 80);
     };`;
-  abrirVentanaImpresion(c, 'Comprobante APARCH', estilo, script);
+  abrirVentanaImpresion(c, `Comprobante ${empresaActiva().nombreCorto}`, estilo, script);
 }
 
 // ══════════════════════════════════════════
@@ -8107,7 +8304,7 @@ function exportarExcel(tipo){
   if(tipo==='tickets'){
     h=['N° Ticket','Fecha','Hora','Productor','DNI','Base','Caserío','Certif.','Sacos','P.Bruto','Tara','Humedad%','D.Hum','P.Neto','Exp g','Exp%','Seg g','Seg%','Cas g','Cas%','Defectos','Lote','Obs','Usuario'];
     d=DB.tickets.map(t=>[t.codigo,t.fecha,t.hora,t.productor,t.dni,t.base,t.caserio,t.certificacion,t.sacos,t.pesobruto,t.tara,t.humedad,t.deschum,t.pesoneto,t.exp_g,t.exp_pct,t.seg_g,t.seg_pct,t.cas_g,t.cas_pct,t.defectos,t.lote,t.observaciones,t.usuario]);
-    n='Tickets_APARCH';
+    n=('Tickets_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='guias'){
     h=['N° Guía','Fecha','Campaña','Productor','DNI','Producto','Certif.','Base','F.Entrega','Rend%','QQ Netos','Precio QQ','Precio KG','Prima S/.qq','Prima Total S/.','Descuento S/.qq','Descuento Total S/.','Valor Total','Estado Pago'];
     d=DB.guias.map(g=>{
@@ -8120,22 +8317,22 @@ function exportarExcel(tipo){
         descQQ, parseFloat((qq*descQQ).toFixed(2)),
         g.valorrecibido, estadoPagoLive(g)];
     });
-    n='Guias_APARCH';
+    n=('Guias_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='comprobantes'){
     h=['N° Comp.','Fecha','Guía Ref.','Productor','Total Guía','Monto Pagado','Tipo Pago','Forma Pago','N° Apertura Caja','Obs'];
     d=DB.comprobantes.map(c=>[c.codigo,c.fecha,c.guia_ref,c.productor,c.total_guia,c.monto,c.tipopago,c.formapago,c.apertura_ref||'',c.observaciones]);
-    n='Comprobantes_APARCH';
+    n=('Comprobantes_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='recibos'){
     h=['N° Recibo','Tipo','Fecha','Persona','Concepto','Monto S/.','Forma Pago','N° Apertura','Usuario'];
     d=(DB.recibos||[]).map(r=>[r.codigo,r.tipo==='ingreso'?'Ingreso':'Egreso',r.fecha,r.persona,r.concepto,parseFloat(r.monto||0),r.formapago,r.apertura_ref,r.usuario]);
-    n='Recibos_Caja_APARCH';
+    n=('Recibos_Caja_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='aperturas'){
     h=['N° Apertura','Fecha','Hora','Usuario','Saldo Inicial S/.','Ingresos S/.','Egresos S/.','Saldo Final S/.','Fecha Cierre','Estado'];
     d=(DB.aperturas||[]).map(a=>[a.codigo,a.fecha,a.hora,a.usuario,parseFloat(a.saldo_inicial||0),
       totalIngresosApertura(a.codigo), totalEgresosApertura(a.codigo),
       a.estado==='Cerrada'?parseFloat(a.saldo_final||0):saldoActualApertura(a.codigo),
       a.fecha_cierre||'', a.estado]);
-    n='Aperturas_Caja_APARCH';
+    n=('Aperturas_Caja_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='prestamos'){
     h=['N° Préstamo','Fecha Inicio','Socio / Entidad','DNI','Dirección','Tipo','Monto S/.','Tasa','Plazo','Interés S/.','Total S/.','Pagado S/.','Saldo S/.','Vencimiento','Estado'];
     d=(DB.prestamos||[]).map((p,pi)=>[p.codigo,p.fecha,p.socio,p.dni,
@@ -8144,27 +8341,27 @@ function exportarExcel(tipo){
       parseFloat(p.monto||0), p.tasaDesc||'', `${p.plazo} ${p.plazoUnidad}`,
       parseFloat(p.interes||0), parseFloat(p.total||0), totalPagadoPrestamo(pi), saldoPrestamo(pi),
       p.vencimiento, estadoPrestamo(pi)]);
-    n='Prestamos_APARCH';
+    n=('Prestamos_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='cafecoco'){
     h=['N° Compra','Fecha','DNI','Nombres','Sacos','Kg Bruto','Tara','Kg Neto','Precio Kg','Total','Observación'];
     d=(DB.cafecoco||[]).map(c=>[c.codigo,c.fecha,c.dni,c.nombres,c.sacos,c.kgbruto,c.tara,c.kgneto,c.preciokg,c.total,c.observacion]);
-    n='CompraCafeCoco_APARCH';
+    n=('CompraCafeCoco_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='kardex'){
     h=['N° Venta','Fecha','Tipo','Cliente','KG Vendidos','Precio S/./kg','Ingreso S/.','Costo S/.','Gastos S/.','Utilidad S/.','Margen%','Manual','Obs.'];
     d=(DB.kardex||[]).map(k=>[k.codigo,k.fecha,k.tipo==='conv'?'Convencional':'Coco',k.cliente,parseFloat(k.kg_venta||0),parseFloat(k.precio_venta||0),parseFloat(k.ingreso||0),parseFloat(k.costo||0),parseFloat(k.gastos_total||0),parseFloat(k.utilidad||0),parseFloat(k.margen||0),k.venta_manual?'Sí':'No',k.observaciones]);
-    n='KardexVentas_APARCH';
+    n=('KardexVentas_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='ganancias'){
     h=['N°','Fecha','N° de Venta','Tipo','KG Vendidos','QQ Vendidos','Ganancia S/.','Obs.'];
     d=(DB.ganancias||[]).map((g,i)=>[i+1,g.fecha,g.nventa,g.tipo,parseFloat(g.kg||0),parseFloat(g.qq||0),parseFloat(g.ganancia||0),g.observaciones]);
-    n='RegistroGanancias_APARCH';
+    n=('RegistroGanancias_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='tostadoProduccion'){
     h=['N° Lote','Fecha','KG Verde','Merma%','KG Tostado','Costo M.P. S/.','Otros Costos S/.','Costo Total S/.','Costo/KG S/.','Obs.'];
     d=(DB.tostadoProduccion||[]).map(p=>[p.lote,p.fecha,parseFloat(p.kg_verde||0),parseFloat(p.merma_pct||0),parseFloat(p.kg_tostado||0),parseFloat(p.costo_mp||0),parseFloat(p.otros_costos||0),parseFloat(p.costo_total||0),parseFloat(p.costo_kg||0),p.observaciones]);
-    n='TostadoProduccion_APARCH';
+    n=('TostadoProduccion_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='tostadoVentas'){
     h=['N° Venta','Fecha','Cliente','DNI','KG Vendidos','Precio/kg S/.','Costo/kg S/.','Ingreso S/.','Costo S/.','Utilidad S/.','Margen%','Obs.'];
     d=(DB.tostadoVentas||[]).map(v=>[v.nventa,v.fecha,v.cliente,v.cliente_dni,parseFloat(v.kg||0),parseFloat(v.precio||0),parseFloat(v.costo_kg||0),parseFloat(v.ingreso||0),parseFloat(v.costo||0),parseFloat(v.utilidad||0),parseFloat(v.margen||0),v.observaciones]);
-    n='TostadoVentas_APARCH';
+    n=('TostadoVentas_'+empresaActiva().nombreCorto).slice(0,31);
   } else if(tipo==='inspecciones'){
     exportarExcelInspecciones();
     return;
@@ -8227,7 +8424,7 @@ function exportarExcelInspecciones(){
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([hResumen,...dResumen]), 'Inspecciones');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([hCriterios,...dCriterios]), 'Criterios_Detalle');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([hParcelas,...dParcelas]), 'Parcelas_Detalle');
-  XLSX.writeFile(wb, `Inspecciones_APARCH_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `Inspecciones_${empresaActiva().nombreCorto}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function exportarTodo(){
@@ -8257,7 +8454,7 @@ function exportarTodo(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hCC,...(DB.cafecoco||[]).map(c=>[c.codigo,c.fecha,c.dni,c.nombres,c.sacos,c.kgbruto,c.tara,c.kgneto,c.preciokg,c.total,c.observacion])]),'Cafe_Coco');
   const hArq=['N° Arqueo','Fecha','Hora','Caja/Apertura','Saldo Sistema','Total Contado','Diferencia','Observaciones','Usuario'];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hArq,...(DB.arqueos||[]).map(a=>[a.codigo,a.fecha,a.hora,a.apertura_ref,parseFloat(a.saldo_sistema||0),parseFloat(a.total_contado||0),parseFloat(a.diferencia||0),a.observaciones,a.usuario])]),'Arqueos_Caja');
-  XLSX.writeFile(wb,`APARCH_Datos_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb,`${empresaActiva().nombreCorto}_Datos_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 function exportarReportePorSocio(){
   // Agrupar datos por socio
@@ -8344,7 +8541,7 @@ function exportarReportePorSocio(){
   const ws = XLSX.utils.aoa_to_sheet([headers,...filas]);
   ws['!cols']=[{wch:30},{wch:12},{wch:14},{wch:14},{wch:20},{wch:10},{wch:12},{wch:12},{wch:10},{wch:14},{wch:14},{wch:14},{wch:16},{wch:12},{wch:12},{wch:10}];
   XLSX.utils.book_append_sheet(wb, ws, 'Reporte por Socio');
-  XLSX.writeFile(wb, `APARCH_ReporteSocios_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_ReporteSocios_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function exportarReporteCaja(){
@@ -8511,7 +8708,7 @@ function exportarReporteCaja(){
   // Mover resumen al frente
   // Guardar archivo
   const fecha = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `APARCH_ReporteCaja_${fecha}.xlsx`);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_ReporteCaja_${fecha}.xlsx`);
 }
 
 // Anchos de columna del Reporte General — compartidos entre el botón standalone (Exportar Datos)
@@ -8724,7 +8921,7 @@ function exportarReporteGeneral(){
   }
 
   const fecha = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `APARCH_ReporteGeneral_${fecha}.xlsx`);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_ReporteGeneral_${fecha}.xlsx`);
 }
 
 function updateExportCounts(){
@@ -8776,8 +8973,8 @@ const TIPOS_PRESTAMO = {
 };
 
 // Identidad usada cuando el préstamo lo saca la Organización (no un socio individual)
-const NOMBRE_ORGANIZACION = 'ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS';
-const RUC_ORGANIZACION    = '20614704994';
+let NOMBRE_ORGANIZACION = 'ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS';
+let RUC_ORGANIZACION    = '20614704994';
 
 // Alterna el formulario de préstamo entre "socio" y "la Organización"
 function toggleEsOrganizacionPrestamo(){
@@ -9351,7 +9548,7 @@ function renderPrestamos(filtro, tipoF, estadoF){
           <div style="font-weight:800;color:#c62828;font-size:0.88rem;margin-bottom:4px;">🔴 ${vencidos15.length} financiamiento(s) VENCIDO(S)</div>
           ${vencidos15.map(v=>{
             const saldo = fmt(saldoPrestamo(v.i));
-            const msg = `🔴 Recordatorio APARCH: el financiamiento ${v.p.codigo} (${v.p.socio}) venció hace ${Math.abs(v.dias)} día(s) (${fechaDisplay(v.p.vencimiento)}). Saldo pendiente: S/. ${saldo}. Por favor programar el pago desde caja.`;
+            const msg = `🔴 Recordatorio ${empresaActiva().nombreCorto}: el financiamiento ${v.p.codigo} (${v.p.socio}) venció hace ${Math.abs(v.dias)} día(s) (${fechaDisplay(v.p.vencimiento)}). Saldo pendiente: S/. ${saldo}. Por favor programar el pago desde caja.`;
             return `<div style="font-size:0.78rem;color:#7a1f1f;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
               <span>• ${v.p.codigo} — ${v.p.socio} — venció hace ${Math.abs(v.dias)} día(s) (${fechaDisplay(v.p.vencimiento)}) — Saldo: S/. ${saldo}</span>${botonWA(msg)}
             </div>`;
@@ -9363,7 +9560,7 @@ function renderPrestamos(filtro, tipoF, estadoF){
           <div style="font-weight:800;color:#1565c0;font-size:0.88rem;margin-bottom:4px;">💳 ${cuotasInteres.length} cuota(s) de interés por pagar desde caja</div>
           ${cuotasInteres.map(c=>{
             const estadoTxt = c.dias<0 ? `atrasada ${Math.abs(c.dias)} día(s)` : (c.dias===0 ? 'vence hoy' : `en ${c.dias} día(s)`);
-            const msg = `💳 Recordatorio APARCH: cuota de interés del financiamiento ${c.p.codigo} (${c.p.socio}) — mes ${c.prox.periodo}/${c.prox.totalPeriodos}: S/. ${c.prox.cuotaMonto.toFixed(2)}. Fecha de pago: ${fechaDisplay(c.prox.fechaCuota)}. Por favor programar el pago desde caja.`;
+            const msg = `💳 Recordatorio ${empresaActiva().nombreCorto}: cuota de interés del financiamiento ${c.p.codigo} (${c.p.socio}) — mes ${c.prox.periodo}/${c.prox.totalPeriodos}: S/. ${c.prox.cuotaMonto.toFixed(2)}. Fecha de pago: ${fechaDisplay(c.prox.fechaCuota)}. Por favor programar el pago desde caja.`;
             return `<div style="font-size:0.78rem;color:#0d47a1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
               <span>• ${c.p.codigo} — ${c.p.socio} — cuota S/. ${c.prox.cuotaMonto.toFixed(2)} (mes ${c.prox.periodo}/${c.prox.totalPeriodos}) — ${estadoTxt} (${fechaDisplay(c.prox.fechaCuota)})</span>${botonWA(msg)}
             </div>`;
@@ -9375,7 +9572,7 @@ function renderPrestamos(filtro, tipoF, estadoF){
           <div style="font-weight:800;color:#e65100;font-size:0.88rem;margin-bottom:4px;">🟠 ${porVencer15.length} financiamiento(s) por vencer en los próximos 15 días</div>
           ${porVencer15.map(v=>{
             const saldo = fmt(saldoPrestamo(v.i));
-            const msg = `🟠 Recordatorio APARCH: el financiamiento ${v.p.codigo} (${v.p.socio}) vence en ${v.dias} día(s) (${fechaDisplay(v.p.vencimiento)}). Saldo pendiente: S/. ${saldo}. Por favor programar el pago desde caja.`;
+            const msg = `🟠 Recordatorio ${empresaActiva().nombreCorto}: el financiamiento ${v.p.codigo} (${v.p.socio}) vence en ${v.dias} día(s) (${fechaDisplay(v.p.vencimiento)}). Saldo pendiente: S/. ${saldo}. Por favor programar el pago desde caja.`;
             return `<div style="font-size:0.78rem;color:#8a5a00;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
               <span>• ${v.p.codigo} — ${v.p.socio} — vence en ${v.dias} día(s) (${fechaDisplay(v.p.vencimiento)}) — Saldo: S/. ${saldo}</span>${botonWA(msg)}
             </div>`;
@@ -9809,8 +10006,8 @@ function imprimirEstadoCuentaPrestamo(){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:8.5px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
         <div style="font-size:10.5px;font-weight:700;margin-top:2px;">ESTADO DE CUENTA — ${cfg.nombre.toUpperCase()}</div>
         <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${p.codigo}</div>
       </div>
@@ -9841,7 +10038,7 @@ function imprimirEstadoCuentaPrestamo(){
     </table>
     ${p.observaciones?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${p.observaciones}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:24px;">
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">APARCH</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">${empresaActiva().nombreCorto}</div>
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:9px;">${p.socio||''}</span></div>
     </div>
   </div>`;
@@ -9862,8 +10059,8 @@ function verPrintAbono(prestamoIdx, abonoIdx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:8.5px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
         <div style="font-size:10.5px;font-weight:700;margin-top:2px;">COMPROBANTE DE ABONO A PRÉSTAMO</div>
         <div style="font-size:17px;font-weight:900;color:#1a5c2e;">${p.codigo}${ab.recibo_ref?` · ${ab.recibo_ref}`:''}</div>
       </div>
@@ -9885,7 +10082,7 @@ function verPrintAbono(prestamoIdx, abonoIdx){
     </div>
     ${ab.obs?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${ab.obs}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:30px;">
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Recibido por (APARCH)</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Recibido por (${empresaActiva().nombreCorto})</div>
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:9px;">${p.socio||''}</span></div>
     </div>
   </div>`;
@@ -9894,7 +10091,7 @@ function verPrintAbono(prestamoIdx, abonoIdx){
 
 function imprimirAbono(){
   const c = document.getElementById('print-zona-abono').outerHTML;
-  abrirVentanaImpresion(c, 'Comprobante de Abono APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Comprobante de Abono ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 // Inicializar prestamos en DB si no existe
@@ -9905,7 +10102,7 @@ function imprimirAbono(){
 // ══════════════════════════════════════════
 const GDRIVE_CLIENT_ID = ''; // Se configura en la sección de Config
 const GDRIVE_SCOPES    = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
-const GDRIVE_FILE_NAME = 'APARCH_datos_nube.json';
+let GDRIVE_FILE_NAME = 'APARCH_datos_nube.json';
 let gdriveToken  = null;
 let gdriveFileId = null;
 
@@ -10014,7 +10211,7 @@ async function gdriveGuardar(){
   try{
     const backup = {
       _version:'2.0', _fecha:new Date().toISOString(),
-      _sistema:'APARCH - Raíces de Chirinos',
+      _sistema:`APARCH - ${empresaActiva().nombreSub || empresaActiva().nombreCorto}`,
       _registros:{ tickets:DB.tickets.length, guias:DB.guias.length, comprobantes:DB.comprobantes.length, socios:DB.socios.length },
       ...DB
     };
@@ -10447,7 +10644,7 @@ function ejecutarImpresionMasiva(){
   const portada = `
     <div style="page-break-after:always;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial,sans-serif;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;margin-bottom:20px;">
-      <div style="font-size:24px;font-weight:900;color:#1a5c2e;margin-bottom:8px;">RAÍCES DE CHIRINOS — APARCH</div>
+      <div style="font-size:24px;font-weight:900;color:#1a5c2e;margin-bottom:8px;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
       <div style="font-size:16px;font-weight:700;margin-bottom:6px;">GUÍAS DE ENTRADA</div>
       <div style="font-size:14px;color:#555;margin-bottom:4px;">Campaña: ${DB.campana?DB.campana.nombre:'—'}</div>
       <div style="font-size:13px;color:#888;margin-bottom:4px;">Total: ${guiasAImprimir.length} guía(s)</div>
@@ -10455,7 +10652,7 @@ function ejecutarImpresionMasiva(){
       <div style="font-size:12px;color:#aaa;margin-top:4px;">Filtro: ${tipo==='todas'?'Todas':tipo==='pendientes'?'Pendientes/Parciales':'Pagadas'}</div>
     </div>`;
 
-  const w = abrirVentanaImpresion(portada + todasLasCopias, `Guías APARCH — ${DB.campana?DB.campana.nombre:''}`,
+  const w = abrirVentanaImpresion(portada + todasLasCopias, `Guías ${empresaActiva().nombreCorto} — ${DB.campana?DB.campana.nombre:''}`,
     '.guia-bloque{break-inside:avoid;} @page{size:A4;margin:8mm;} .copia-guia{margin-bottom:0;}',
     'window.onload=function(){ setTimeout(function(){ window.print(); }, 800); };');
 }
@@ -11074,8 +11271,8 @@ function verPrintRecibo(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid ${colorPrincipal};padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:11.5px;font-weight:900;line-height:1.25;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:8.5px;color:#555;line-height:1.5;margin-top:2px;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:11.5px;font-weight:900;line-height:1.25;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:8.5px;color:#555;line-height:1.5;margin-top:2px;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
         <div style="font-size:11px;font-weight:800;color:${colorPrincipal};letter-spacing:0.5px;margin-top:3px;">${etiqueta}</div>
       </div>
       <div style="width:46px;"></div>
@@ -11101,7 +11298,7 @@ function verPrintRecibo(idx){
     ${r.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${r.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px;">
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">${esIngreso?'Entregado por':'Recibido por'}</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">V°B° APARCH</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
     </div>
   </div>`;
   abrirModal('modal-print-recibo');
@@ -11109,7 +11306,7 @@ function verPrintRecibo(idx){
 
 function imprimirRecibo(){
   const c = document.getElementById('print-zona-recibo').outerHTML;
-  abrirVentanaImpresion(c, 'Recibo APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Recibo ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 // ── IMPRESIÓN DE ARQUEO/CIERRE ──
@@ -11137,7 +11334,7 @@ function verPrintCierre(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
         <div style="font-size:11px;font-weight:800;">ARQUEO DE CAJA — ${ap.estado.toUpperCase()}</div>
         <div style="font-size:15px;font-weight:900;color:#1a5c2e;">${ap.codigo}</div>
       </div>
@@ -11169,7 +11366,7 @@ function verPrintCierre(idx){
     ${ap.observaciones ? `<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${ap.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px;">
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">Responsable de Caja</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">V°B° APARCH</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
     </div>
   </div>`;
   abrirModal('modal-print-cierre');
@@ -11177,7 +11374,7 @@ function verPrintCierre(idx){
 
 function imprimirCierre(){
   const c = document.getElementById('print-zona-cierre').outerHTML;
-  abrirVentanaImpresion(c, 'Cierre de Caja APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Cierre de Caja ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 // ══════════════════════════════════════════
@@ -11332,7 +11529,7 @@ function verPrintArqueo(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
         <div style="font-size:11px;font-weight:800;">ACTA DE ARQUEO DE CAJA (CONTEO FÍSICO)</div>
         <div style="font-size:15px;font-weight:900;color:#1a5c2e;">${a.codigo}</div>
       </div>
@@ -11360,7 +11557,7 @@ function verPrintArqueo(idx){
     ${a.observaciones ? `<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${a.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px;">
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">Responsable de Caja</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">V°B° APARCH</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
     </div>
   </div>`;
   abrirModal('modal-print-arqueo');
@@ -11368,7 +11565,7 @@ function verPrintArqueo(idx){
 
 function imprimirArqueo(){
   const c = document.getElementById('print-zona-arqueo').outerHTML;
-  abrirVentanaImpresion(c, 'Arqueo de Caja APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Arqueo de Caja ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 // ══════════════════════════════════════════
@@ -11593,7 +11790,7 @@ function verPrintCafeCoco(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #6b3a2a;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
         <div style="font-size:11px;font-weight:800;color:#6b3a2a;letter-spacing:0.5px;">COMPRA DE CAFÉ COCO</div>
       </div>
       <div style="width:40px;"></div>
@@ -11619,7 +11816,7 @@ function verPrintCafeCoco(idx){
     ${c.observacion ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observación:</b> ${c.observacion}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px;">
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Entregado por (Productor)</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Recibido por (APARCH)</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Recibido por (${empresaActiva().nombreCorto})</div>
     </div>
   </div>`;
   abrirModal('modal-print-cc');
@@ -11627,7 +11824,7 @@ function verPrintCafeCoco(idx){
 
 function imprimirCafeCoco(){
   const c = document.getElementById('print-zona-cc').outerHTML;
-  abrirVentanaImpresion(c, 'Compra Café Coco APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Compra Café Coco ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 // ── EXPORTAR EXCEL ──
@@ -11646,7 +11843,7 @@ function exportarCafeCoco(){
   ws['!cols'] = [{wch:14},{wch:12},{wch:11},{wch:28},{wch:7},{wch:10},{wch:9},{wch:10},{wch:14},{wch:15},{wch:25},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws, 'Compra Café Coco');
   const fecha = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `APARCH_CompraCafeCoco_${fecha}.xlsx`);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_CompraCafeCoco_${fecha}.xlsx`);
 }
 
 // ══════════════════════════════════════════
@@ -12185,7 +12382,7 @@ function verPrintRemision(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #1b5e20;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
         <div style="font-size:11px;font-weight:800;color:#1b5e20;letter-spacing:0.5px;">GUÍA DE REMISIÓN — ALMACÉN A PLANTA</div>
       </div>
       <div style="width:40px;"></div>
@@ -12226,7 +12423,7 @@ function verPrintRemision(idx){
 
 function imprimirRemision(){
   const c = document.getElementById('print-zona-rem').outerHTML;
-  abrirVentanaImpresion(c, 'Guía de Remisión APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Guía de Remisión ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 // ── EXPORTAR EXCEL ──
@@ -12247,7 +12444,7 @@ function exportarGuiasRemision(){
   ws['!cols'] = [{wch:12},{wch:12},{wch:18},{wch:22},{wch:20},{wch:10},{wch:12},{wch:10},{wch:12},{wch:10},{wch:12},{wch:10},{wch:12},{wch:14},{wch:25},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws, 'Guías Remisión');
   const fecha = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `APARCH_GuiasRemision_${fecha}.xlsx`);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_GuiasRemision_${fecha}.xlsx`);
 }
 
 // ── IMPORTAR EXCEL (hoja tipo ORG-YANAPAMPA: columnas "Salida" y "Recepción" repetidas) ──
@@ -12645,7 +12842,7 @@ function verPrintLiquidacion(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #4e342e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
         <div style="font-size:11px;font-weight:800;color:#4e342e;letter-spacing:0.5px;">LIQUIDACIÓN DE PROCESO</div>
       </div>
       <div style="width:40px;"></div>
@@ -12677,7 +12874,7 @@ function verPrintLiquidacion(idx){
     ${l.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${l.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px;">
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Elabora (Planta)</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Revisa (APARCH)</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Revisa (${empresaActiva().nombreCorto})</div>
     </div>
   </div>`;
   abrirModal('modal-print-liq');
@@ -12685,7 +12882,7 @@ function verPrintLiquidacion(idx){
 
 function imprimirLiquidacion(){
   const c = document.getElementById('print-zona-liq').outerHTML;
-  abrirVentanaImpresion(c, 'Liquidación de Proceso APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Liquidación de Proceso ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 // ── EXPORTAR EXCEL ──
@@ -12713,7 +12910,7 @@ function exportarLiquidaciones(){
   ws['!cols'] = headers.map(()=>({wch:14}));
   XLSX.utils.book_append_sheet(wb, ws, 'Liquidaciones');
   const fecha = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `APARCH_LiquidacionesProceso_${fecha}.xlsx`);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_LiquidacionesProceso_${fecha}.xlsx`);
 }
 
 // ── IMPORTAR EXCEL (hoja tipo EXP-YANAPAMPA: grupos de 3 columnas KG/QQ/% por calidad) ──
@@ -13127,7 +13324,7 @@ function verPrintFactura(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #e65100;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">RAÍCES DE CHIRINOS — APARCH</div>
+        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
         <div style="font-size:11px;font-weight:800;color:#e65100;letter-spacing:0.5px;">FACTURA DE VENTA — EXPORTACIÓN</div>
       </div>
       <div style="width:40px;"></div>
@@ -13157,7 +13354,7 @@ function verPrintFactura(idx){
 
 function imprimirFactura(){
   const c = document.getElementById('print-zona-fact').outerHTML;
-  abrirVentanaImpresion(c, 'Factura de Venta APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Factura de Venta ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 // ── EXPORTAR EXCEL ──
@@ -13177,7 +13374,7 @@ function exportarFacturasVenta(){
   ws['!cols'] = headers.map(()=>({wch:14}));
   XLSX.utils.book_append_sheet(wb, ws, 'Facturas Venta');
   const fecha = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `APARCH_FacturasVenta_${fecha}.xlsx`);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_FacturasVenta_${fecha}.xlsx`);
 }
 
 // ── IMPORTAR EXCEL (hoja tipo VENTAS: encabezado simple de 1 sola fila) ──
@@ -13870,7 +14067,7 @@ function exportarResumenCampana(){
 
   // Hoja Resumen
   const filasResumen = [
-    ['RESUMEN GENERAL DE CAMPAÑA — APARCH'],
+    [`RESUMEN GENERAL DE CAMPAÑA — ${empresaActiva().nombreCorto}`],
     ['Generado', new Date().toISOString().slice(0,19).replace('T',' ')],
     ['Filtro Certificación', r.certifFiltro || 'Todas'],
     ['Solo campaña activa (Acopio)', r.soloCampanaActiva ? 'Sí' : 'No'],
@@ -14013,7 +14210,7 @@ function exportarResumenCampana(){
   XLSX.utils.book_append_sheet(wb, wsRG, 'Reporte General');
 
   const fecha = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `APARCH_ResumenCampana_${fecha}.xlsx`);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_ResumenCampana_${fecha}.xlsx`);
 }
 
 
@@ -15071,8 +15268,8 @@ function verPrintKardex(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:12.5px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:8px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:12.5px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:8px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
         <div style="font-size:10px;font-weight:700;margin-top:2px;">COMPROBANTE DE VENTA — ${k.tipo==='conv'?'CAFÉ PERGAMINO CONVENCIONAL':'CAFÉ COCO'}</div>
         <div style="font-size:18px;font-weight:900;color:#1a5c2e;">${k.codigo}</div>
       </div>
@@ -15103,7 +15300,7 @@ function verPrintKardex(idx){
 
 function imprimirKardex(){
   const c = document.getElementById('print-zona-kardex').outerHTML;
-  abrirVentanaImpresion(c, 'Venta APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Venta ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 function limpiarKardexForm(){
@@ -15716,8 +15913,8 @@ function verPrintTostadoVenta(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:8.5px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
         <div style="font-size:10.5px;font-weight:700;margin-top:2px;">COMPROBANTE DE COMPRA — CAFÉ TOSTADO</div>
         <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${v.nventa}</div>
       </div>
@@ -15747,7 +15944,7 @@ function verPrintTostadoVenta(idx){
     </div>
     ${v.observaciones?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${v.observaciones}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:34px;">
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Entregado por (APARCH)</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Entregado por (${empresaActiva().nombreCorto})</div>
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Cliente<br><span style="font-style:italic;color:#666;font-size:9px;">${v.cliente||''}</span></div>
     </div>
   </div>`;
@@ -15756,7 +15953,7 @@ function verPrintTostadoVenta(idx){
 
 function imprimirTostadoVenta(){
   const c = document.getElementById('print-zona-tostado').outerHTML;
-  abrirVentanaImpresion(c, 'Comprobante de Compra APARCH', 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Comprobante de Compra ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
 }
 
 function renderTostado(){
@@ -15785,12 +15982,13 @@ function renderTostado(){
 // FACTURACIÓN ELECTRÓNICA SUNAT — vía NubeFacT (PSE/OSE autorizado)
 // ══════════════════════════════════════════
 function cargarConfigFacturacion(){
-  if(!DB.facturacionConfig) DB.facturacionConfig = {habilitado:false,ruc:'20614704994',token:'',serieFactura:'F001',serieBoleta:'B001'};
+  if(!DB.facturacionConfig) DB.facturacionConfig = {habilitado:false,ruc:'',token:'',serieFactura:'F001',serieBoleta:'B001'};
+  if(!DB.facturacionConfig.ruc) DB.facturacionConfig.ruc = empresaActiva().ruc || '';
   const c = DB.facturacionConfig;
   const elH = document.getElementById('fe-habilitado');
   if(!elH) return; // sección aún no renderizada
   elH.value = c.habilitado ? '1' : '0';
-  document.getElementById('fe-ruc').value = c.ruc || '20614704994';
+  document.getElementById('fe-ruc').value = c.ruc || empresaActiva().ruc || '';
   document.getElementById('fe-token').value = c.token || '';
   document.getElementById('fe-serie-factura').value = c.serieFactura || 'F001';
   document.getElementById('fe-serie-boleta').value = c.serieBoleta || 'B001';
@@ -17013,8 +17211,8 @@ function verPrintInspeccionSimple(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
-        <div style="font-size:8.5px;color:#555;">RUC: 20614704994 · Calle Chinchipe S/N Salida al Higuerón · Tel: 958723090</div>
+        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
         <div style="font-size:10.5px;font-weight:700;margin-top:2px;">ACTA DE INSPECCIÓN INTERNA — ${i.tipo.toUpperCase()}</div>
         <div style="font-size:18px;font-weight:900;color:#1a5c2e;">${i.codigo}</div>
       </div>
@@ -17042,7 +17240,7 @@ function verPrintInspeccionSimple(idx){
   </div>`;
   const w = window.open('', '_blank');
   if(!w){ alert('El navegador bloqueó la ventana de impresión.'); return; }
-  const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Inspección APARCH</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},80);};<\/script></body></html>`;
+  const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Inspección ${empresaActiva().nombreCorto}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Trebuchet MS','Segoe UI',Verdana,Arial;background:#fff;padding:12px;}table{border-collapse:collapse;width:100%;}</style></head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},80);};<\/script></body></html>`;
   const blob = new Blob([doc], {type:'text/html'});
   w.location = URL.createObjectURL(blob);
 }
@@ -17189,7 +17387,7 @@ function generarFichaInspeccionHTML(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">ASOCIACIÓN DE PRODUCTORES AGROPECUARIOS RAÍCES DE CHIRINOS</div>
+        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
         <div style="font-size:10.5px;font-weight:700;margin-top:2px;">FICHA DE INSPECCIÓN INTERNA</div>
         <div style="font-size:16px;font-weight:900;color:#1a5c2e;">${i.codigo}</div>
       </div>
@@ -17255,7 +17453,7 @@ function imprimirFichaInspeccion(){
   const c = document.getElementById('print-zona-inspeccion').outerHTML;
   // Sin page-break-inside:avoid a nivel de todo el documento — es una ficha condensada de varias
   // páginas a propósito (ver plan), a diferencia de un ticket/comprobante de una sola hoja.
-  abrirVentanaImpresion(c, 'Ficha de Inspección APARCH', '@page{size:A4;margin:10mm;}');
+  abrirVentanaImpresion(c, `Ficha de Inspección ${empresaActiva().nombreCorto}`, '@page{size:A4;margin:10mm;}');
 }
 
 // ── Detección de conexión (online/offline) ──
@@ -17268,21 +17466,31 @@ window.addEventListener('online', actualizarBannerConexion);
 window.addEventListener('offline', actualizarBannerConexion);
 
 (function init(){
-  cargarDB();
   const hoyStr=new Date().toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('fecha-hoy').textContent=hoyStr.charAt(0).toUpperCase()+hoyStr.slice(1);
-  actualizarCampaña();
-  actualizarEstadoRespaldo();
+
+  // ── Elegir con qué empresa arrancar ──
+  // Instalación existente de una sola empresa (o primera vez que corre esta versión): no hace
+  // falta mostrar el selector, entra directo — es exactamente como se comportaba el sistema antes
+  // de que existiera el concepto de "varias empresas". El selector solo aparece cuando ya hay 2 o
+  // más empresas registradas, o cuando el usuario elige explícitamente "Cambiar de Empresa".
+  const _registroEmpresas = cargarRegistroEmpresas();
+  const _idEmpresaActiva = localStorage.getItem(EMPRESA_ACTIVA_KEY);
+  if(_idEmpresaActiva && _registroEmpresas.find(e=>e.id===_idEmpresaActiva)){
+    iniciarConEmpresaActiva();
+  } else if(_registroEmpresas.length===1){
+    localStorage.setItem(EMPRESA_ACTIVA_KEY, _registroEmpresas[0].id);
+    iniciarConEmpresaActiva();
+  } else {
+    mostrarSelectorEmpresas();
+  }
+
   // Cerrar modal al clic en overlay
   document.querySelectorAll('.modal-overlay').forEach(m=>{
     m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
   });
-  // Precargar precio base en config
-  setTimeout(()=>{
-    const el=document.getElementById('cfg-precio-base');
-    if(el) el.value=DB.precioBase||790;
-    renderTablaPreciosConfig();
-  },100);
+  // (el precio base de Configuración se precarga dentro de iniciarConEmpresaActiva(), una vez que
+  // se sabe con qué empresa se está trabajando)
   // Redibujar gráficos al cambiar tamaño de ventana
   window.addEventListener('resize', ()=>{
     if(document.getElementById('sec-dashboard').classList.contains('active')){
