@@ -3259,14 +3259,25 @@ tr:hover td{background:#f4f8f4;}
     </div>
   </div>
 
-  <!-- Guías seleccionadas para el comprobante -->
+  <div class="form-group" style="margin-bottom:10px;">
+    <label>Agregar Compra(s) de Café Coco del mismo socio (opcional)</label>
+    <div style="display:flex;gap:8px;align-items:flex-start;">
+      <select id="c-cafecoco-sel" onchange="agregarCafeCocoComp()" style="font-size:0.9rem;font-weight:600;padding:9px 12px;border:2px solid #6b3a2a;flex:1;">
+        <option value="">-- Agregar Compra de Café Coco --</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Guías y/o compras de café coco seleccionadas para el comprobante -->
   <div id="comp-guias-seleccionadas" style="display:none;margin-bottom:14px;">
-    <div style="font-size:0.75rem;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:6px;">Guías incluidas en este comprobante:</div>
+    <div id="comp-guias-label" style="font-size:0.75rem;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:6px;">Guías incluidas en este comprobante:</div>
     <div id="comp-guias-lista" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <div id="comp-cafecoco-label" style="font-size:0.75rem;font-weight:700;color:#6b3a2a;text-transform:uppercase;margin:10px 0 6px;">🌰 Café Coco incluido en este comprobante:</div>
+    <div id="comp-cafecoco-lista" style="display:flex;flex-direction:column;gap:6px;"></div>
     <div style="margin-top:10px;padding:10px 14px;background:#f0faf4;border:1px solid #b2dfcb;border-radius:8px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:0.82rem;">
       <div><span style="color:#555;font-size:0.7rem;">Productor</span><div id="ci-productor" style="font-weight:700;"></div></div>
       <div><span style="color:#555;font-size:0.7rem;">DNI</span><div id="ci-dni"></div></div>
-      <div><span style="color:#555;font-size:0.7rem;">Total Guías S/.</span><div id="ci-total" style="font-weight:800;color:#e65100;font-size:1.1rem;"></div></div>
+      <div><span style="color:#555;font-size:0.7rem;">Total S/.</span><div id="ci-total" style="font-weight:800;color:#e65100;font-size:1.1rem;"></div></div>
       <div><span style="color:#555;font-size:0.7rem;">Ya Pagado S/.</span><div id="ci-pagado" style="font-weight:700;color:#2e7d32;"></div></div>
       <div><span style="color:#555;font-size:0.7rem;">Saldo Total S/.</span><div id="ci-saldo" style="font-weight:800;font-size:1.1rem;"></div></div>
       <div><span style="color:#555;font-size:0.7rem;">Fecha</span><div id="ci-fecha"></div></div>
@@ -4547,6 +4558,40 @@ ${bodyHtml}
   }
   setTimeout(()=>URL.revokeObjectURL(url), 60000);
   return w;
+}
+
+// Genera el estilo + script para imprimir 2 copias apiladas (ej. Copia Productor + Copia Caja)
+// dentro de UNA sola hoja A4: cada copia ocupa la mitad de la hoja y, si su contenido no cabe en
+// esa mitad, se reduce automáticamente de tamaño (transform:scale) en vez de saltar a otra hoja.
+// Mismo mecanismo ya usado y verificado en imprimirComprobante() — reutilizado aquí para que
+// Café Coco, Comprobante de Abono y Estado de Cuenta de Préstamo se comporten igual.
+function _estiloImpresionDobleCopia(zonaId){
+  return `
+    @page{size:A4;margin:8mm;}
+    #${zonaId}{display:flex;flex-direction:column;height:calc(297mm - 16mm);}
+    #${zonaId} > div:first-child{flex:1;min-height:0;overflow:hidden;}
+    #${zonaId} > div:last-child{flex:1;min-height:0;overflow:hidden;}`;
+}
+function _scriptImpresionDobleCopia(zonaId){
+  return `
+    window.onload=function(){
+      try{
+        var cont = document.getElementById('${zonaId}');
+        var first = cont.children[0];
+        var last  = cont.children[cont.children.length-1];
+        [first,last].forEach(function(el){
+          var avail = el.clientHeight;
+          var natural = el.scrollHeight;
+          if(natural > avail + 1 && avail > 0){
+            var scale = avail / natural;
+            el.style.transformOrigin = 'top left';
+            el.style.transform = 'scale(' + scale + ')';
+            el.style.width = (100/scale) + '%';
+          }
+        });
+      }catch(e){ console.warn('Ajuste de impresión doble:', e); }
+      setTimeout(function(){ window.print(); }, 80);
+    };`;
 }
 
 function fmt(n, dec=2){
@@ -7126,6 +7171,24 @@ function imprimirGuia(){
 // ══════════════════════════════════════════
 // COMPROBANTES
 // ══════════════════════════════════════════
+// Valor total de TODOS los ítems (guías + compras de café coco) vinculados a un comprobante —
+// usado para prorratear el monto pagado cuando un mismo comprobante cubre varios ítems, sean
+// del tipo que sean. Si el comprobante no tiene cafecoco_ref (comprobantes antiguos, antes de
+// que esta función existiera), valCC=0 y el resultado es idéntico al cálculo de antes.
+function _valorTotalItemsComprobante(comp){
+  const guiasRef = comp.guias_ref && comp.guias_ref.length ? comp.guias_ref : (comp.guia_ref ? [comp.guia_ref] : []);
+  const ccRef = comp.cafecoco_ref || [];
+  const valGuias = guiasRef.reduce((a,cod)=>{
+    const g = DB.guias.find(x=>x.codigo===cod);
+    return a + parseFloat(g?.valorrecibido||0);
+  }, 0);
+  const valCC = ccRef.reduce((a,cod)=>{
+    const cc = (DB.cafecoco||[]).find(x=>x.codigo===cod);
+    return a + parseFloat(cc?.total||0);
+  }, 0);
+  return { valGuias, valCC, valTotal: valGuias+valCC, nItems: guiasRef.length + ccRef.length };
+}
+
 function totalPagadoGuia(guiaCodigo){
   let total = 0;
   const g = DB.guias.find(x=>x.codigo===guiaCodigo);
@@ -7135,35 +7198,48 @@ function totalPagadoGuia(guiaCodigo){
     c.guia_ref === guiaCodigo ||
     (Array.isArray(c.guias_ref) && c.guias_ref.includes(guiaCodigo))
   )).forEach(comp=>{
-    const guiasRef = comp.guias_ref && comp.guias_ref.length > 0
-      ? comp.guias_ref
-      : (comp.guia_ref ? [comp.guia_ref] : []);
     // El valor "saldado" de la guía incluye tanto el efectivo entregado como cualquier
     // descuento de préstamo aplicado (ese descuento también cancela parte de la deuda,
     // aunque no haya salido efectivo de caja por esa parte).
     const monto = parseFloat(comp.monto||0) + parseFloat(comp.descuento_prestamos||0);
+    const { valTotal, nItems } = _valorTotalItemsComprobante(comp);
 
-    if(guiasRef.length <= 1){
-      // Un solo comprobante para esta guía — monto completo
+    if(nItems <= 1){
+      // Un solo ítem en este comprobante — monto completo
       total += monto;
+    } else if(valTotal > 0 && valorGuia > 0){
+      // Comprobante en bloque (guías y/o café coco) — distribuir por valor proporcional
+      total += monto * (valorGuia / valTotal);
     } else {
-      // Comprobante en bloque — distribuir por valor proporcional
-      const valTotal = guiasRef.reduce((a,cod)=>{
-        const gx = DB.guias.find(x=>x.codigo===cod);
-        return a + parseFloat(gx?.valorrecibido||0);
-      }, 0);
-
-      if(valTotal > 0 && valorGuia > 0){
-        // Proporcional al valor de la guía
-        total += monto * (valorGuia / valTotal);
-      } else {
-        // Equitativo si no hay valores
-        total += monto / guiasRef.length;
-      }
+      // Equitativo si no hay valores
+      total += monto / nItems;
     }
   });
 
   return Math.round(total * 10) / 10; // Redondear al décimo
+}
+
+// Igual que totalPagadoGuia() pero para una compra de café coco — un comprobante puede
+// combinar guías y compras de café coco del mismo socio en un solo pago.
+function totalPagadoCafeCoco(codigoCC){
+  let total = 0;
+  const cc = (DB.cafecoco||[]).find(x=>x.codigo===codigoCC);
+  const valorCC = parseFloat(cc?.total||0);
+
+  DB.comprobantes.filter(c => c.estado !== 'Anulado' && Array.isArray(c.cafecoco_ref) && c.cafecoco_ref.includes(codigoCC)).forEach(comp=>{
+    const monto = parseFloat(comp.monto||0) + parseFloat(comp.descuento_prestamos||0);
+    const { valTotal, nItems } = _valorTotalItemsComprobante(comp);
+
+    if(nItems <= 1){
+      total += monto;
+    } else if(valTotal > 0 && valorCC > 0){
+      total += monto * (valorCC / valTotal);
+    } else {
+      total += monto / nItems;
+    }
+  });
+
+  return Math.round(total * 10) / 10;
 }
 
 // Calcula si una guía está totalmente pagada
@@ -7210,17 +7286,36 @@ function saldoPendienteGuiaExcluyendoComp(guiaCodigo, excluirIdx){
     const guiasRef = c.guias_ref && c.guias_ref.length ? c.guias_ref : (c.guia_ref ? [c.guia_ref] : []);
     if(!guiasRef.includes(guiaCodigo)) return;
     const monto = parseFloat(c.monto||0) + parseFloat(c.descuento_prestamos||0);
-    if(guiasRef.length <= 1){
+    const { valTotal, nItems } = _valorTotalItemsComprobante(c);
+    if(nItems <= 1){
       pagado += monto;
     } else {
-      const valTotal = guiasRef.reduce((a,cod)=>{
-        const gx = DB.guias.find(x=>x.codigo===cod);
-        return a + parseFloat(gx?.valorrecibido||0);
-      }, 0);
-      pagado += valTotal > 0 ? monto * (totG / valTotal) : monto / guiasRef.length;
+      pagado += valTotal > 0 ? monto * (totG / valTotal) : monto / nItems;
     }
   });
   return Math.round((totG - pagado) * 10) / 10;
+}
+
+// Igual que saldoPendienteGuiaExcluyendoComp() pero para una compra de café coco.
+function saldoPendienteCafeCocoExcluyendoComp(codigoCC, excluirIdx){
+  const cc = (DB.cafecoco||[]).find(x=>x.codigo===codigoCC);
+  if(!cc) return 0;
+  const totCC = parseFloat(cc.total||0);
+  let pagado = 0;
+  DB.comprobantes.forEach((c,i)=>{
+    if(excluirIdx!==undefined && excluirIdx!==null && excluirIdx>=0 && i===excluirIdx) return;
+    if(c.estado==='Anulado') return;
+    const ccRef = c.cafecoco_ref || [];
+    if(!ccRef.includes(codigoCC)) return;
+    const monto = parseFloat(c.monto||0) + parseFloat(c.descuento_prestamos||0);
+    const { valTotal, nItems } = _valorTotalItemsComprobante(c);
+    if(nItems <= 1){
+      pagado += monto;
+    } else {
+      pagado += valTotal > 0 ? monto * (totCC / valTotal) : monto / nItems;
+    }
+  });
+  return Math.round((totCC - pagado) * 10) / 10;
 }
 
 // Actualiza estado_pago de una guía basándose en pagos reales
@@ -7281,10 +7376,35 @@ function abrirModalComprobante(idx){
   if(countPendientes === 0){
     selG.innerHTML='<option value="">— Sin guías con saldo pendiente —</option>';
   }
+
+  // Poblar selector de compras de Café Coco — mismo criterio que las guías: solo con saldo
+  // pendiente (o las de este comprobante si se edita).
+  const selCC = document.getElementById('c-cafecoco-sel');
+  if(selCC){
+    selCC.innerHTML = '<option value="">-- Agregar Compra de Café Coco --</option>';
+    let countPendientesCC = 0;
+    (DB.cafecoco||[]).forEach(cc=>{
+      const tp = totalPagadoCafeCoco(cc.codigo);
+      const tot = parseFloat(cc.total||0);
+      const saldo = Math.round((tot - tp) * 10) / 10;
+      if(compCafeCocoTemp.includes(cc.codigo)) return;
+      const esActual = c && (c.cafecoco_ref||[]).includes(cc.codigo);
+      if(saldo <= 0.05 && !esActual) return;
+      selCC.innerHTML += `<option value="${cc.codigo}">${cc.codigo} — ${cc.nombres} | Saldo: S/.${fmtPago(saldo)}</option>`;
+      countPendientesCC++;
+    });
+    if(countPendientesCC === 0){
+      selCC.innerHTML = '<option value="">— Sin compras de café coco con saldo pendiente —</option>';
+    }
+  }
+
   compGuiasTemp = [];
+  compCafeCocoTemp = [];
   document.getElementById('comp-guias-seleccionadas').style.display='none';
-  if(c && c.guias_ref){ compGuiasTemp = Array.isArray(c.guias_ref)?c.guias_ref:[c.guia_ref]; actualizarResumenGuiasComp(); }
-  else if(c && c.guia_ref){ compGuiasTemp=[c.guia_ref]; actualizarResumenGuiasComp(); }
+  if(c && c.guias_ref){ compGuiasTemp = Array.isArray(c.guias_ref)?c.guias_ref:[c.guia_ref]; }
+  else if(c && c.guia_ref){ compGuiasTemp=[c.guia_ref]; }
+  if(c && Array.isArray(c.cafecoco_ref)){ compCafeCocoTemp = [...c.cafecoco_ref]; }
+  if(compGuiasTemp.length || compCafeCocoTemp.length) actualizarResumenGuiasComp();
   document.getElementById('comp-guia-info').style.display='none';
   document.getElementById('comp-deuda-panel').style.display='none';
   document.getElementById('comp-descuento-resumen').style.display='none';
@@ -7310,8 +7430,19 @@ function abrirModalComprobante(idx){
   abrirModal('modal-comprobante');
 }
 
-// Array de guías seleccionadas para el comprobante
+// Array de guías y de compras de café coco seleccionadas para el comprobante (un mismo
+// comprobante puede combinar ambas del mismo socio, para hacer un solo pago).
 let compGuiasTemp = [];
+let compCafeCocoTemp = [];
+
+// Compara el socio de una guía con el de una compra de café coco: por DNI si ambos lo tienen
+// (más confiable), o por nombre si a alguno le falta el DNI (para no bloquear datos históricos
+// incompletos).
+function _mismoSocioGuiaCafeCoco(g, cc){
+  if(!g || !cc) return true;
+  if(g.dni && cc.dni) return g.dni === cc.dni;
+  return (g.productor||'').trim().toUpperCase() === (cc.nombres||'').trim().toUpperCase();
+}
 
 function agregarGuiaComp(){
   const sel = document.getElementById('c-guia-sel');
@@ -7324,11 +7455,18 @@ function agregarGuiaComp(){
   const g = DB.guias.find(x=>x.codigo===codigo);
   if(!g) return;
 
-  // Verificar mismo productor
+  // Verificar mismo productor (comparando contra otra guía ya agregada, o contra alguna
+  // compra de café coco ya agregada si aún no hay guías).
   if(compGuiasTemp.length > 0){
     const primera = DB.guias.find(x=>x.codigo===compGuiasTemp[0]);
     if(primera && primera.productor !== g.productor){
       showAlert('comp-form-alert','error','Solo puedes agregar guías del mismo productor en un comprobante.');
+      return;
+    }
+  } else if(compCafeCocoTemp.length > 0){
+    const primeraCC = (DB.cafecoco||[]).find(x=>x.codigo===compCafeCocoTemp[0]);
+    if(primeraCC && !_mismoSocioGuiaCafeCoco(g, primeraCC)){
+      showAlert('comp-form-alert','error','La guía debe ser del mismo socio (DNI) que la(s) compra(s) de café coco ya agregadas.');
       return;
     }
   }
@@ -7366,12 +7504,66 @@ function quitarGuiaComp(codigo){
   actualizarResumenGuiasComp();
 }
 
+// ── Compras de Café Coco vinculadas al comprobante (mismo patrón que las guías) ──
+function agregarCafeCocoComp(){
+  const sel = document.getElementById('c-cafecoco-sel');
+  const codigo = sel.value;
+  if(!codigo) return;
+  sel.value = '';
+
+  if(compCafeCocoTemp.includes(codigo)){ showAlert('comp-form-alert','error','Esa compra de café coco ya está agregada.'); return; }
+
+  const cc = (DB.cafecoco||[]).find(x=>x.codigo===codigo);
+  if(!cc) return;
+
+  // Debe ser del mismo socio que las guías ya agregadas (si hay alguna)
+  if(compGuiasTemp.length > 0){
+    const primera = DB.guias.find(x=>x.codigo===compGuiasTemp[0]);
+    if(primera && !_mismoSocioGuiaCafeCoco(primera, cc)){
+      showAlert('comp-form-alert','error','La compra de café coco debe ser del mismo socio (DNI) que las guías ya agregadas.');
+      return;
+    }
+  }
+
+  compCafeCocoTemp.push(codigo);
+
+  const opt = sel.querySelector(`option[value="${codigo}"]`);
+  if(opt) opt.remove();
+
+  actualizarResumenGuiasComp();
+  // Si el comprobante es solo de café coco (sin guías todavía), igual conviene mostrar la
+  // deuda de préstamos pendiente del socio.
+  if(!compGuiasTemp.length) mostrarDeudaSocio(cc.nombres);
+}
+
+function quitarCafeCocoComp(codigo){
+  compCafeCocoTemp = compCafeCocoTemp.filter(c=>c!==codigo);
+  const cc = (DB.cafecoco||[]).find(x=>x.codigo===codigo);
+  if(cc){
+    const sel = document.getElementById('c-cafecoco-sel');
+    const tp = totalPagadoCafeCoco(codigo);
+    const saldo = parseFloat(cc.total||0) - tp;
+    if(saldo > 0.01){
+      const opt = document.createElement('option');
+      opt.value = codigo;
+      opt.textContent = `${codigo} — ${cc.nombres} | Saldo: S/.${fmtPago(saldo)}`;
+      sel.appendChild(opt);
+    }
+  }
+  actualizarResumenGuiasComp();
+}
+
 function actualizarResumenGuiasComp(){
   const panel = document.getElementById('comp-guias-seleccionadas');
   const lista = document.getElementById('comp-guias-lista');
+  const labelGuias = document.getElementById('comp-guias-label');
+  const labelCC = document.getElementById('comp-cafecoco-label');
+  const listaCC = document.getElementById('comp-cafecoco-lista');
 
-  if(!compGuiasTemp.length){ panel.style.display='none'; return; }
+  if(!compGuiasTemp.length && !compCafeCocoTemp.length){ panel.style.display='none'; return; }
   panel.style.display='block';
+  if(labelGuias) labelGuias.style.display = compGuiasTemp.length ? 'block' : 'none';
+  if(labelCC) labelCC.style.display = compCafeCocoTemp.length ? 'block' : 'none';
 
   let totalGuias=0, totalPagado=0, productor='', dni='', fecha='';
 
@@ -7388,6 +7580,22 @@ function actualizarResumenGuiasComp(){
       <button onclick="quitarGuiaComp('${cod}')" style="background:#ffebee;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;color:#c62828;font-weight:700;">✕</button>
     </div>`;
   }).join('');
+
+  if(listaCC){
+    listaCC.innerHTML = compCafeCocoTemp.map(cod=>{
+      const cc = (DB.cafecoco||[]).find(x=>x.codigo===cod);
+      if(!cc) return '';
+      const tot = parseFloat(cc.total||0);
+      const pag = totalPagadoCafeCoco(cod);
+      const sal = tot - pag;
+      totalGuias += sal; totalPagado += pag;
+      if(!productor){ productor=cc.nombres; dni=cc.dni; fecha=fechaDisplay(cc.fecha); }
+      return `<div style="display:flex;align-items:center;gap:8px;background:#fbf2ee;border:1px solid #d7c3ba;border-radius:6px;padding:6px 10px;font-size:0.8rem;">
+        <div style="flex:1;">🌰 <strong>${cod}</strong> — ${cc.nombres} — Saldo: <strong style="color:#c62828;">S/. ${sal.toFixed(2)}</strong></div>
+        <button onclick="quitarCafeCocoComp('${cod}')" style="background:#ffebee;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;color:#c62828;font-weight:700;">✕</button>
+      </div>`;
+    }).join('');
+  }
 
   document.getElementById('ci-productor').textContent = productor||'—';
   document.getElementById('ci-dni').textContent = dni||'—';
@@ -7578,9 +7786,9 @@ function calcSaldoComp(){
 }
 
 function guardarComprobante(){
-  // ── Validar que haya al menos una guía seleccionada ──
-  if(!compGuiasTemp || !compGuiasTemp.length){
-    showAlert('comp-form-alert','error','Seleccione al menos una guía de entrada.');
+  // ── Validar que haya al menos una guía o una compra de café coco seleccionada ──
+  if((!compGuiasTemp || !compGuiasTemp.length) && (!compCafeCocoTemp || !compCafeCocoTemp.length)){
+    showAlert('comp-form-alert','error','Seleccione al menos una guía de entrada o una compra de café coco.');
     return;
   }
 
@@ -7591,10 +7799,12 @@ function guardarComprobante(){
     aplicarDescuentoPrestamosAuto();
   }
 
-  // Usar la primera guía para datos del productor
+  // Usar la primera guía para datos del productor; si el comprobante es solo de café coco
+  // (sin guías), usar la primera compra de café coco en su lugar.
   const guiaCod = compGuiasTemp[0];
-  const g = DB.guias.find(x=>x.codigo===guiaCod);
-  if(!g){ showAlert('comp-form-alert','error','Guía no encontrada.'); return; }
+  const g = guiaCod ? DB.guias.find(x=>x.codigo===guiaCod) : null;
+  const primeraCC = (!g && compCafeCocoTemp.length) ? (DB.cafecoco||[]).find(x=>x.codigo===compCafeCocoTemp[0]) : null;
+  if(!g && !primeraCC){ showAlert('comp-form-alert','error','Guía o compra de café coco no encontrada.'); return; }
 
   const monto = parseFloat(document.getElementById('c-monto').value)||0;
   const tipo  = document.getElementById('c-tipopago').value;
@@ -7608,10 +7818,11 @@ function guardarComprobante(){
   document.getElementById('c-codigo').value = codigoComp;
 
   // ── Validar que el monto (+ descuento de préstamo, si aplica) coincida con la suma de
-  // saldos pendientes de las guías seleccionadas ──
-  // (evita el error de ingresar un monto que cubre varias guías pero solo vincular 1 al comprobante)
+  // saldos pendientes de las guías + compras de café coco seleccionadas ──
+  // (evita el error de ingresar un monto que cubre varios ítems pero solo vincular 1 al comprobante)
   if(tipo!=='pendiente'){
-    const totalEsperado = compGuiasTemp.reduce((a,cod)=>a + Math.max(0, saldoPendienteGuiaExcluyendoComp(cod, editandoCompIdx)), 0);
+    const totalEsperado = compGuiasTemp.reduce((a,cod)=>a + Math.max(0, saldoPendienteGuiaExcluyendoComp(cod, editandoCompIdx)), 0)
+                         + compCafeCocoTemp.reduce((a,cod)=>a + Math.max(0, saldoPendienteCafeCocoExcluyendoComp(cod, editandoCompIdx)), 0);
     const totalDescAplicado = (window._descuentosPendientes||[]).reduce((a,d)=>a+d.monto,0);
     const diferencia = (monto + totalDescAplicado) - totalEsperado;
     if(Math.abs(diferencia) > 1){
@@ -7675,18 +7886,25 @@ function guardarComprobante(){
 
 function _ejecutarGuardadoComprobante(apCaja){
   const guiaCod   = compGuiasTemp[0];
-  const g         = DB.guias.find(x=>x.codigo===guiaCod);
-  if(!g) return;
+  const g         = guiaCod ? DB.guias.find(x=>x.codigo===guiaCod) : null;
+  const primeraCC = (!g && compCafeCocoTemp.length) ? (DB.cafecoco||[]).find(x=>x.codigo===compCafeCocoTemp[0]) : null;
+  if(!g && !primeraCC) return;
+  const productorNombre = g ? g.productor : primeraCC.nombres;
+  const dniVal          = g ? g.dni : primeraCC.dni;
   const monto     = parseFloat(document.getElementById('c-monto').value)||0;
   const tipo      = document.getElementById('c-tipopago').value;
   const descuentos     = window._descuentosPendientes || [];
   const totalDescuento = descuentos.reduce((a,d)=>a+d.monto,0);
   const montoEfectivoCaja = monto;
 
-  // Calcular total de todas las guías seleccionadas
+  // Calcular total de todas las guías + compras de café coco seleccionadas
   const totalTodasGuias = compGuiasTemp.reduce((a,cod)=>{
     const guia = DB.guias.find(x=>x.codigo===cod);
     return a + (guia ? parseFloat(guia.valorrecibido||0) : 0);
+  }, 0);
+  const totalTodoCafeCoco = compCafeCocoTemp.reduce((a,cod)=>{
+    const cc = (DB.cafecoco||[]).find(x=>x.codigo===cod);
+    return a + (cc ? parseFloat(cc.total||0) : 0);
   }, 0);
 
   const comp = {
@@ -7695,8 +7913,9 @@ function _ejecutarGuardadoComprobante(apCaja){
     // Compatibilidad hacia atrás: guia_ref = primera guía
     guia_ref:  guiaCod,
     guias_ref: [...compGuiasTemp],
-    productor: g.productor, dni: g.dni,
-    total_guia: totalTodasGuias.toFixed(2),
+    cafecoco_ref: [...compCafeCocoTemp],
+    productor: productorNombre, dni: dniVal,
+    total_guia: (totalTodasGuias + totalTodoCafeCoco).toFixed(2),
     monto: monto.toFixed(2),
     tipopago:  tipo,
     formapago: document.getElementById('c-formapago').value,
@@ -7716,11 +7935,11 @@ function _ejecutarGuardadoComprobante(apCaja){
       if(idxRecibo >= 0){ DB.recibos[idxRecibo].monto = montoEfectivoCaja.toFixed(2); DB.recibos[idxRecibo].fecha = comp.fecha; }
     } else {
       const codigoRecibo = nextCodigo(DB.recibos, 'EGR-');
-      const guiasDesc = compGuiasTemp.join(', ');
+      const itemsDesc = [...compGuiasTemp, ...compCafeCocoTemp].join(', ');
       DB.recibos.push({
         codigo: codigoRecibo, tipo: 'egreso', fecha: comp.fecha,
-        persona: g.productor,
-        concepto: `Pago Guía(s) ${guiasDesc} (Comprobante ${comp.codigo})`,
+        persona: productorNombre,
+        concepto: `Pago Guía(s)/Café Coco ${itemsDesc} (Comprobante ${comp.codigo})`,
         monto: montoEfectivoCaja.toFixed(2),
         formapago: comp.formapago,
         observaciones: `Generado automáticamente`,
@@ -7735,9 +7954,9 @@ function _ejecutarGuardadoComprobante(apCaja){
 
   // Actualizar estado de TODAS las guías incluidas
   // IMPORTANTE: usar siempre totalPagadoGuia()/actualizarEstadoPagoGuia(), que distribuye
-  // el monto de un comprobante en bloque proporcionalmente al valor de cada guía.
-  // (Antes se sumaba el monto COMPLETO del comprobante contra cada guía por separado,
-  // lo que producía un estado_pago incorrecto en pagos en bloque.)
+  // el monto de un comprobante en bloque proporcionalmente al valor de cada ítem (guía o
+  // compra de café coco). (Antes se sumaba el monto COMPLETO del comprobante contra cada
+  // guía por separado, lo que producía un estado_pago incorrecto en pagos en bloque.)
   compGuiasTemp.forEach(cod=>{
     const guia = DB.guias.find(x=>x.codigo===cod);
     if(!guia) return;
@@ -7757,7 +7976,7 @@ function _ejecutarGuardadoComprobante(apCaja){
       if(!p) return;
       if(!p.abonos) p.abonos=[];
       p.abonos.push({ fecha:comp.fecha, monto:d.monto.toFixed(2), tipo:'parcial',
-        formapago:'Descuento en Guía', obs:`Descontado de guía(s) ${compGuiasTemp.join(', ')}`,
+        formapago:'Descuento en Guía', obs:`Descontado de guía(s)/café coco ${[...compGuiasTemp, ...compCafeCocoTemp].join(', ')}`,
         usuario:SESSION.user, comp_ref: comp.codigo });
     });
     window._descuentosPendientes = null;
@@ -7793,23 +8012,31 @@ function renderComprobantes(filtro){
   if(!lista.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty-state"><span class="ico">🧾</span>Sin comprobantes.</div></td></tr>`;renderPager('comprobantes',0,'comp-pager');return;}
   tb.innerHTML=paginaComp.map(c=>{
     const ri=DB.comprobantes.indexOf(c);
-    // Calcular total real de todas las guías del comprobante
+    // Calcular total real de todas las guías + compras de café coco del comprobante
     const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
-    const tot = guiasRef.reduce((a,cod)=>{
+    const ccRef = c.cafecoco_ref || [];
+    const totG = guiasRef.reduce((a,cod)=>{
       const g = DB.guias.find(x=>x.codigo===cod);
-      return a + (g ? parseFloat(g.valorrecibido||0) : parseFloat(c.total_guia||0));
-    }, 0) || parseFloat(c.total_guia||0);
-    // Pagado / Saldo considerando TODAS las guías del comprobante (no solo la primera)
-    const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0);
+      return a + (g ? parseFloat(g.valorrecibido||0) : 0);
+    }, 0);
+    const totCC = ccRef.reduce((a,cod)=>{
+      const cc = (DB.cafecoco||[]).find(x=>x.codigo===cod);
+      return a + (cc ? parseFloat(cc.total||0) : 0);
+    }, 0);
+    const tot = (totG + totCC) || parseFloat(c.total_guia||0);
+    // Pagado / Saldo considerando TODOS los ítems del comprobante (no solo el primero)
+    const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0) + ccRef.reduce((a,cod)=>a+totalPagadoCafeCoco(cod), 0);
     // Saldo redondeado al décimo
     const saldoRaw = tot - pagado;
     const saldo = Math.round(saldoRaw * 10) / 10;
     const tipo=c.tipopago||'total';
     const badgeTipo=tipo==='total'?'badge-verde pago-total':tipo==='parcial'?'badge-dorado pago-parcial':'badge-rojo pago-pendiente';
-    // Mostrar TODAS las guías incluidas (no solo la primera) para detectar pagos en bloque a simple vista
-    const guiaRefHtml = guiasRef.length<=1
-      ? `<span class="tag">${guiasRef[0]||c.guia_ref||'—'}</span>`
-      : `<span class="tag" title="Guías incluidas: ${guiasRef.join(', ')}">${guiasRef[0]} +${guiasRef.length-1} más (${guiasRef.length} guías)</span>`;
+    // Mostrar TODOS los ítems incluidos (guías + café coco) para detectar pagos en bloque a simple vista
+    const nItemsTotal = guiasRef.length + ccRef.length;
+    const primerItem = guiasRef[0] || ccRef[0] || c.guia_ref || '—';
+    const guiaRefHtml = nItemsTotal<=1
+      ? `<span class="tag">${primerItem}</span>`
+      : `<span class="tag" title="Ítems incluidos: ${[...guiasRef, ...ccRef].join(', ')}">${primerItem} +${nItemsTotal-1} más (${nItemsTotal} ítems)</span>`;
     return `<tr>
       <td class="td-codigo">${c.codigo}</td><td>${fechaDisplay(c.fecha)}</td>
       <td>${guiaRefHtml}</td>
@@ -7854,9 +8081,12 @@ function eliminarComp(i){
 }
 
 function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta){
-  // Lista de guías incluidas
+  // Lista de guías y de compras de café coco incluidas
   const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
+  const ccRef = c.cafecoco_ref || [];
   const nGuias = guiasRef.length;
+  const nCC = ccRef.length;
+  const nItems = nGuias + nCC;
   // Base y Caserío: se obtienen de la primera guía incluida (o del registro de socios si no hay guías)
   const primeraGuia = guiasRef.length ? DB.guias.find(x=>x.codigo===guiasRef[0]) : null;
   const socioRef = !primeraGuia ? (DB.socios||[]).find(s=>s.nombre===c.productor) : null;
@@ -7870,6 +8100,15 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
       <span style="color:#1565c0;font-weight:700;">${cod}</span>
       <span>${g?g.productor:''}</span>
       <span style="font-weight:700;">S/. ${fmt(valG)}</span>
+    </div>`;
+  }).join('');
+  const cafeCocoHtml = ccRef.map(cod=>{
+    const cc = (DB.cafecoco||[]).find(x=>x.codigo===cod);
+    const valCC = cc ? parseFloat(cc.total||0) : 0;
+    return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #e0e0e0;font-size:10.5px;">
+      <span style="color:#6b3a2a;font-weight:700;">🌰 ${cod}</span>
+      <span>${cc?cc.nombres:''}</span>
+      <span style="font-weight:700;">S/. ${fmt(valCC)}</span>
     </div>`;
   }).join('');
 
@@ -7889,7 +8128,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
       <div style="text-align:right;font-size:10px;color:#555;flex-shrink:0;">
         <div><strong>Fecha:</strong> ${fechaDisplay(c.fecha)}</div>
         <div style="background:#e8f5e9;color:#1a5c2e;font-weight:800;padding:3px 8px;border-radius:5px;margin-top:3px;">
-          ${nGuias} GUÍA${nGuias>1?'S':''} INCLUIDA${nGuias>1?'S':''}
+          ${nGuias>0?`${nGuias} GUÍA${nGuias>1?'S':''}`:''}${nGuias>0&&nCC>0?' + ':''}${nCC>0?`${nCC} CAFÉ COCO`:''}${nItems===0?'0 ÍTEMS':''}
         </div>
       </div>
     </div>
@@ -7914,10 +8153,19 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
       ${guiasHtml}
     </div>`:''}
 
+    <!-- Café Coco incluido -->
+    ${nCC>0?`
+    <div style="margin-bottom:7px;">
+      <div style="font-size:9.5px;font-weight:800;color:#6b3a2a;text-transform:uppercase;border-bottom:1.5px solid #d7c3ba;padding-bottom:2px;margin-bottom:3px;">
+        🌰 Café Coco incluido en este comprobante (${nCC})
+      </div>
+      ${cafeCocoHtml}
+    </div>`:''}
+
     <!-- Montos -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px;text-align:center;">
       <div style="border:1.5px solid #ccc;padding:7px;border-radius:7px;background:#f9f9f9;">
-        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Total Guía${nGuias>1?'s':''}</div>
+        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Total${nItems>1?' (Guías + Café Coco)':''}</div>
         <div style="font-size:16px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
       </div>
       <div style="border:2.5px solid #1a5c2e;padding:7px;border-radius:7px;background:#f0faf4;">
@@ -7952,15 +8200,19 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
 function verPrintComp(idx){
   _compIdxActual = idx;
   const c = DB.comprobantes[idx];
-  // Calcular totales considerando múltiples guías
+  // Calcular totales considerando múltiples guías + compras de café coco
   const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
-  const tot = guiasRef.reduce((a,cod)=>{
+  const ccRef = c.cafecoco_ref || [];
+  const tot = (guiasRef.reduce((a,cod)=>{
     const g = DB.guias.find(x=>x.codigo===cod);
     return a + (g ? parseFloat(g.valorrecibido||0) : 0);
-  }, 0) || parseFloat(c.total_guia||0);
-  // "Pagado" = TODO lo abonado a estas guías (todos los comprobantes + descuentos de
+  }, 0) + ccRef.reduce((a,cod)=>{
+    const cc = (DB.cafecoco||[]).find(x=>x.codigo===cod);
+    return a + (cc ? parseFloat(cc.total||0) : 0);
+  }, 0)) || parseFloat(c.total_guia||0);
+  // "Pagado" = TODO lo abonado a estos ítems (todos los comprobantes + descuentos de
   // préstamo), no solo el monto de este comprobante — así el saldo refleja la realidad.
-  const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0);
+  const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0) + ccRef.reduce((a,cod)=>a+totalPagadoCafeCoco(cod), 0);
   const saldo  = Math.max(0, tot - pagado);
 
   const copiaProductor = generarCopiaComprobante(c, tot, pagado, saldo, '📄 Copia Productor', '#1a5c2e');
@@ -7989,11 +8241,15 @@ function imprimirTodosComprobantes(){
 
   const bloques = lista.map((c,i)=>{
     const guiasRef = c.guias_ref || (c.guia_ref ? [c.guia_ref] : []);
-    const tot = guiasRef.reduce((a,cod)=>{
+    const ccRef = c.cafecoco_ref || [];
+    const tot = (guiasRef.reduce((a,cod)=>{
       const g = DB.guias.find(x=>x.codigo===cod);
       return a + (g ? parseFloat(g.valorrecibido||0) : 0);
-    }, 0) || parseFloat(c.total_guia||0);
-    const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0);
+    }, 0) + ccRef.reduce((a,cod)=>{
+      const cc = (DB.cafecoco||[]).find(x=>x.codigo===cod);
+      return a + (cc ? parseFloat(cc.total||0) : 0);
+    }, 0)) || parseFloat(c.total_guia||0);
+    const pagado = guiasRef.reduce((a,cod)=>a+totalPagadoGuia(cod), 0) + ccRef.reduce((a,cod)=>a+totalPagadoCafeCoco(cod), 0);
     const saldo  = Math.max(0, tot - pagado);
     const copiaProductor = generarCopiaComprobante(c, tot, pagado, saldo, '📄 Copia Productor', '#1a5c2e');
     const copiaCaja      = generarCopiaComprobante(c, tot, pagado, saldo, '🏦 Copia Caja',      '#c8951a');
@@ -10070,12 +10326,12 @@ function imprimirEstadoCuentaPrestamo(idx){
   const copiaSocio = generarCopiaEstadoCuentaPrestamo(_prestIdxActual, '📄 Copia Socio', '#1a5c2e');
   const copiaOrg    = generarCopiaEstadoCuentaPrestamo(_prestIdxActual, `🏦 Copia ${empresaActiva().nombreCorto}`, '#c8951a');
   const html = `
-  <div style="display:flex;flex-direction:column;gap:10px;">
+  <div id="print-zona-estcta" style="display:flex;flex-direction:column;gap:10px;">
     ${copiaSocio}
     <div style="border-top:2px dashed #aaa;margin:4px 0;"></div>
     ${copiaOrg}
   </div>`;
-  abrirVentanaImpresion(html, `Estado de Cuenta ${p.codigo}`, 'body{padding:12px;}');
+  abrirVentanaImpresion(html, `Estado de Cuenta ${p.codigo}`, _estiloImpresionDobleCopia('print-zona-estcta'), _scriptImpresionDobleCopia('print-zona-estcta'));
 }
 
 // ── IMPRESIÓN: COMPROBANTE DE ABONO (se genera automáticamente al registrar un pago) ──
@@ -10138,7 +10394,7 @@ function verPrintAbono(prestamoIdx, abonoIdx){
 
 function imprimirAbono(){
   const c = document.getElementById('print-zona-abono').outerHTML;
-  abrirVentanaImpresion(c, `Comprobante de Abono ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Comprobante de Abono ${empresaActiva().nombreCorto}`, _estiloImpresionDobleCopia('print-zona-abono'), _scriptImpresionDobleCopia('print-zona-abono'));
 }
 
 // Inicializar prestamos en DB si no existe
@@ -11840,7 +12096,8 @@ function generarCopiaCafeCoco(c, etiqueta, colorEtiqueta){
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
         <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
-        <div style="font-size:11px;font-weight:800;color:#6b3a2a;letter-spacing:0.5px;">COMPRA DE CAFÉ COCO</div>
+        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:11px;font-weight:800;color:#6b3a2a;letter-spacing:0.5px;margin-top:2px;">COMPRA DE CAFÉ COCO</div>
       </div>
       <div style="width:40px;"></div>
     </div>
@@ -11884,7 +12141,7 @@ function verPrintCafeCoco(idx){
 
 function imprimirCafeCoco(){
   const c = document.getElementById('print-zona-cc').outerHTML;
-  abrirVentanaImpresion(c, `Compra Café Coco ${empresaActiva().nombreCorto}`, 'body{padding:12px;}');
+  abrirVentanaImpresion(c, `Compra Café Coco ${empresaActiva().nombreCorto}`, _estiloImpresionDobleCopia('print-zona-cc'), _scriptImpresionDobleCopia('print-zona-cc'));
 }
 
 // ── EXPORTAR EXCEL ──
