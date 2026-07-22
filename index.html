@@ -1936,7 +1936,16 @@ tr:hover td{background:#f4f8f4;}
           <datalist id="tv-cliente-list"></datalist>
         </div>
         <div class="form-group"><label>DNI <span style="font-weight:400;color:#888;font-size:0.7rem;">(automático si es socio — editable)</span></label><input type="text" id="tv-cliente-dni" placeholder="DNI del cliente..."></div>
-        <div class="form-group"><label>KG Vendidos</label><input type="number" id="tv-kg" step="0.01" min="0" oninput="tostadoCalcVenta()"></div>
+        <div class="form-group">
+          <label>Presentación</label>
+          <select id="tv-presentacion" onchange="tostadoCalcVenta()">
+            <option value="1">Kg completo</option>
+            <option value="0.5">Medio Kg (1/2)</option>
+            <option value="0.25">Cuarto Kg (1/4)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Cantidad <span style="font-weight:400;color:#888;font-size:0.7rem;">(N° de presentaciones vendidas)</span></label><input type="number" id="tv-cantidad" step="0.01" min="0.01" value="1" oninput="tostadoCalcVenta()"></div>
+        <div class="form-group"><label>KG Vendidos <span style="font-weight:400;color:#888;font-size:0.7rem;">(calculado)</span></label><input type="number" id="tv-kg" step="0.01" min="0" readonly style="background:#eee;font-weight:700;"></div>
         <div class="form-group"><label>Precio de Venta (S/./kg)</label><input type="number" id="tv-precio" step="0.01" min="0" oninput="tostadoCalcVenta()" style="font-weight:800;border:2px solid var(--dorado);"></div>
         <div class="form-group"><label>Costo (S/./kg) <span style="font-weight:400;color:#888;font-size:0.7rem;">(según promedio actual)</span></label><input type="text" id="tv-costo-kg" readonly style="background:#eee;"></div>
         <div class="form-group"><label>Ingreso Total (S/.)</label><input type="text" id="tv-ingreso" readonly style="background:#f0faf4;font-weight:800;color:#1b5e20;"></div>
@@ -16071,9 +16080,18 @@ function tostadoActualizarPanelVenta(){
   tostadoCalcVenta();
 }
 
+// Calcula el KG equivalente según la presentación elegida (Kg completo, 1/2 o 1/4) y la
+// cantidad de presentaciones vendidas — ej. 1/4 kg x 3 unidades = 0.75 kg.
+function tostadoCalcularKgPresentacion(){
+  const factor = parseFloat(document.getElementById('tv-presentacion').value)||1;
+  const cantidad = parseFloat(document.getElementById('tv-cantidad').value)||0;
+  return Math.round(factor*cantidad*1000)/1000;
+}
+
 function tostadoCalcVenta(){
   const stock = calcularStockTostadoActual(editandoTostadoVentaIdx>=0?editandoTostadoVentaIdx:undefined);
-  const kg = parseFloat(document.getElementById('tv-kg').value)||0;
+  const kg = tostadoCalcularKgPresentacion();
+  document.getElementById('tv-kg').value = kg>0 ? String(parseFloat(kg.toFixed(3))) : '';
   const precio = parseFloat(document.getElementById('tv-precio').value)||0;
   const costoKg = stock.costoPromedio;
 
@@ -16101,7 +16119,9 @@ function limpiarTostadoVentaForm(){
   document.getElementById('tv-nventa').value = nextCodigo(DB.tostadoVentas||[], 'VTA-TOST-');
   document.getElementById('tv-cliente').value = '';
   document.getElementById('tv-cliente-dni').value = '';
-  document.getElementById('tv-kg').value = '';
+  document.getElementById('tv-presentacion').value = '1';
+  document.getElementById('tv-cantidad').value = '1';
+  document.getElementById('tv-kg').value = '1';
   document.getElementById('tv-precio').value = '';
   document.getElementById('tv-obs').value = '';
   document.getElementById('tst-venta-alert').innerHTML = '';
@@ -16123,18 +16143,29 @@ function tostadoAutocompletarCliente(){
   if(socio) document.getElementById('tv-cliente-dni').value = socio.dni||'';
 }
 
+// Etiqueta legible de la presentación elegida — solo para mostrar en tabla/impresión,
+// no afecta el cálculo (que siempre se hace en KG reales).
+function tostadoEtiquetaPresentacion(factor, cantidad){
+  const nombres = {'1':'Kg completo', '0.5':'1/2 Kg', '0.25':'1/4 Kg'};
+  const nombre = nombres[String(factor)] || `${factor} kg`;
+  return `${nombre} x ${cantidad}`;
+}
+
 function guardarTostadoVenta(){
   const fecha = document.getElementById('tv-fecha').value;
   const nventa = document.getElementById('tv-nventa').value.trim();
   const cliente = document.getElementById('tv-cliente').value.trim();
   const clienteDni = document.getElementById('tv-cliente-dni').value.trim();
-  const kg = parseFloat(document.getElementById('tv-kg').value)||0;
+  const presentacion = parseFloat(document.getElementById('tv-presentacion').value)||1;
+  const cantidadPresentaciones = parseFloat(document.getElementById('tv-cantidad').value)||0;
+  const kg = tostadoCalcularKgPresentacion();
   const precio = parseFloat(document.getElementById('tv-precio').value)||0;
   const obs = document.getElementById('tv-obs').value.trim();
 
   const faltantes = [];
   if(!fecha) faltantes.push('Fecha');
   if(!nventa) faltantes.push('N° de Venta');
+  if(cantidadPresentaciones<=0) faltantes.push('Cantidad');
   if(kg<=0) faltantes.push('KG Vendidos');
   if(precio<=0) faltantes.push('Precio de Venta');
   if(faltantes.length){
@@ -16153,7 +16184,9 @@ function guardarTostadoVenta(){
   const costoTotal = kg*costoKg;
 
   const registro = {
-    fecha, nventa, cliente, cliente_dni: clienteDni, kg, precio,
+    fecha, nventa, cliente, cliente_dni: clienteDni,
+    presentacion, cantidad_presentaciones: cantidadPresentaciones,
+    kg, precio,
     costo_kg: costoKg, ingreso, costo: costoTotal,
     utilidad: ingreso-costoTotal, margen: ingreso>0?((ingreso-costoTotal)/ingreso*100):0,
     observaciones: obs, usuario: SESSION.user
@@ -16176,7 +16209,11 @@ function editarTostadoVenta(idx){
   document.getElementById('tv-nventa').value = v.nventa;
   document.getElementById('tv-cliente').value = v.cliente||'';
   document.getElementById('tv-cliente-dni').value = v.cliente_dni||'';
-  document.getElementById('tv-kg').value = v.kg;
+  // Ventas registradas antes de esta función (sin presentación/cantidad guardadas) se
+  // muestran como "Kg completo" con la cantidad igual al KG vendido, para no perder el
+  // valor original.
+  document.getElementById('tv-presentacion').value = (v.presentacion!==undefined && v.presentacion!==null) ? String(v.presentacion) : '1';
+  document.getElementById('tv-cantidad').value = (v.cantidad_presentaciones!==undefined && v.cantidad_presentaciones!==null) ? v.cantidad_presentaciones : v.kg;
   document.getElementById('tv-precio').value = v.precio;
   document.getElementById('tv-obs').value = v.observaciones||'';
   switchTostadoTab('venta');
@@ -16201,9 +16238,11 @@ function renderTostadoVentas(){
   tb.innerHTML = [...DB.tostadoVentas].reverse().map((v)=>{
     const ri = DB.tostadoVentas.indexOf(v);
     const util = parseFloat(v.utilidad||0);
+    const presentLabel = (v.presentacion!==undefined && v.presentacion!==null && v.cantidad_presentaciones)
+      ? tostadoEtiquetaPresentacion(v.presentacion, v.cantidad_presentaciones) : '';
     return `<tr>
       <td class="td-codigo">${v.nventa}</td><td>${fechaDisplay(v.fecha)}</td><td>${v.cliente||'—'}</td>
-      <td style="text-align:right;">${fmtKg(v.kg)} kg</td>
+      <td style="text-align:right;">${fmtKg(v.kg)} kg${presentLabel?`<div style="font-size:0.7rem;color:#888;">${presentLabel}</div>`:''}</td>
       <td style="text-align:right;">S/.${parseFloat(v.precio||0).toFixed(2)}</td>
       <td style="text-align:right;font-weight:700;color:#1b5e20;">S/.${fmtMonto(v.ingreso)}</td>
       <td style="text-align:right;color:#e65100;">S/.${fmtMonto(v.costo)}</td>
@@ -16225,6 +16264,8 @@ function verPrintTostadoVenta(idx){
   const v = DB.tostadoVentas[idx];
   if(!v) return;
   const util = parseFloat(v.utilidad||0);
+  const presentLabel = (v.presentacion!==undefined && v.presentacion!==null && v.cantidad_presentaciones)
+    ? tostadoEtiquetaPresentacion(v.presentacion, v.cantidad_presentaciones) : '';
   document.getElementById('print-tostado-content').innerHTML = `
   <div id="print-zona-tostado" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:520px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;">
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
@@ -16249,7 +16290,7 @@ function verPrintTostadoVenta(idx){
         <th style="border:1px solid #14431f;padding:5px;">Subtotal</th>
       </tr></thead>
       <tbody><tr>
-        <td style="border:1px solid #ccc;padding:5px;">Café Tostado</td>
+        <td style="border:1px solid #ccc;padding:5px;">Café Tostado${presentLabel?`<div style="font-size:9px;color:#666;">${presentLabel}</div>`:''}</td>
         <td style="border:1px solid #ccc;padding:5px;text-align:center;">${fmtKg(v.kg)}</td>
         <td style="border:1px solid #ccc;padding:5px;text-align:right;">S/.${parseFloat(v.precio||0).toFixed(2)}</td>
         <td style="border:1px solid #ccc;padding:5px;text-align:right;font-weight:800;">S/.${fmtMonto(v.ingreso)}</td>
