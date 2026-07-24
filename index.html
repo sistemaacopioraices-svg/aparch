@@ -1780,7 +1780,7 @@ tr:hover td{background:#f4f8f4;}
       </div>
       <div class="form-group">
         <label>KG Netos a Vender <span style="color:#c62828;font-size:0.7rem;">(editable)</span></label>
-        <input type="number" id="kd-kg-venta" step="0.01" oninput="calcKardex()" style="font-weight:800;border:2px solid var(--dorado);font-size:1rem;">
+        <input type="number" id="kd-kg-venta" step="0.01" oninput="kardexKgVentaManual()" style="font-weight:800;border:2px solid var(--dorado);font-size:1rem;">
       </div>
       <div class="form-group">
         <label>Precio Venta (S/./kg)</label>
@@ -1789,6 +1789,7 @@ tr:hover td{background:#f4f8f4;}
       <div class="form-group">
         <label>Costo Promedio (S/./kg)</label>
         <input type="text" id="kd-costo-prom" readonly style="background:#fff8e1;color:#e65100;font-weight:700;">
+        <div id="kd-aviso-balanza" style="display:none;color:#1565c0;font-size:0.72rem;margin-top:3px;font-weight:600;"></div>
       </div>
       <div class="form-group form-full" style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:10px 14px;">
         <label style="color:#e65100;">🚚 Gastos Adicionales de esta Venta <span style="font-weight:400;color:#888;font-size:0.7rem;">(opcional — flete, estiba, carga... marca los egresos de Caja que correspondan a esta venta; se descuentan de la utilidad)</span></label>
@@ -15615,32 +15616,65 @@ function kardexCalcGastos(){
   calcKardex();
 }
 
+// Recalcula "Costo Promedio (S/./kg)" repartiendo el costo total FIJO ya pagado por los
+// orígenes seleccionados (totalCostoPond, no cambia) entre el mayor de: "KG Acopiados" (el
+// tamaño real del lote, corregido por diferencia de balanza) y "KG Netos a Vender" (lo que se
+// está facturando en esta venta).
+//   - Si vendes MENOS o IGUAL que lo acopiado (venta parcial, o balanza normal): el costo/kg
+//     se mantiene igual al del lote completo — el saldo no vendido queda en stock a ese mismo costo.
+//   - Si vendes MÁS que "KG Acopiados" (solo puede pasar por diferencia de balanza al pesar de
+//     nuevo — nunca por venta parcial, porque no se puede vender más de lo que existe): el
+//     costo/kg debe BAJAR, repartiendo el mismo costo total sobre los kg reales, más altos.
+// Así, sin importar en cuál de los dos campos el usuario registre la diferencia de balanza, el
+// costo total de la venta nunca supera lo que realmente se pagó por el lote.
+function kardexRecalcularCostoProm(){
+  const totalCostoPond = kardexOrigenesTemp.reduce((a,o)=>a+(o.kgAjustado*o.costoProm),0);
+  const kgAcop  = parseFloat(document.getElementById('kd-kg-acopiados').value) || 0;
+  const kgVenta = parseFloat(document.getElementById('kd-kg-venta').value) || 0;
+  const denom = Math.max(kgAcop, kgVenta);
+  const costoProm = denom > 0 ? totalCostoPond/denom : 0;
+  document.getElementById('kd-costo-prom').value = costoProm.toFixed(4);
+
+  const avisoEl = document.getElementById('kd-aviso-balanza');
+  if(avisoEl){
+    if(kgVenta > kgAcop + 0.01 && kgAcop > 0){
+      avisoEl.style.display = '';
+      avisoEl.textContent = `⚖️ Vendes ${fmtKg(kgVenta-kgAcop)} kg más de los ${fmtKg(kgAcop)} kg acopiados (ganaste por diferencia de balanza) — el costo promedio se recalculó repartiendo el mismo costo total pagado (S/.${fmtMonto(totalCostoPond)}) entre los ${fmtKg(kgVenta)} kg reales.`;
+    } else {
+      avisoEl.style.display = 'none';
+    }
+  }
+  return costoProm;
+}
+
 // Se ejecuta cuando el usuario edita manualmente "KG Acopiados" (por diferencia de balanza).
-// Reparte el MISMO costo total pagado (fijo, según los orígenes seleccionados) entre el
-// nuevo total de kg indicado, para que la utilidad refleje el kg real vendido.
 function kardexKgAcopiadosManual(){
   kardexKgAcopiadosEditado = true;
-  const totalCostoPond = kardexOrigenesTemp.reduce((a,o)=>a+(o.kgAjustado*o.costoProm),0);
-  const kgAcopiadosManual = parseFloat(document.getElementById('kd-kg-acopiados').value) || 0;
-  const costoProm = kgAcopiadosManual > 0 ? totalCostoPond/kgAcopiadosManual : 0;
-  document.getElementById('kd-costo-prom').value = costoProm.toFixed(4);
+  kardexRecalcularCostoProm();
+  calcKardex();
+}
+
+// Se ejecuta cuando el usuario edita "KG Netos a Vender". Si vende más kg de los que aparecen
+// en "KG Acopiados" (ganancia por diferencia de balanza detectada recién al vender), el costo
+// promedio se recalcula igual que si hubiera corregido "KG Acopiados" — ver
+// kardexRecalcularCostoProm(). En modo "Venta manual" (sin orígenes/costo ligado a guías) no
+// aplica: el costo promedio ahí se tipea a mano.
+function kardexKgVentaManual(){
+  if(document.getElementById('kd-venta-manual').checked){ calcKardex(); return; }
+  kardexRecalcularCostoProm();
   calcKardex();
 }
 
 function kardexRecalcularTotales(){
   const totalKgAcopAuto = kardexOrigenesTemp.reduce((a,o)=>a+o.kgAjustado,0);
-  const totalCostoPond = kardexOrigenesTemp.reduce((a,o)=>a+(o.kgAjustado*o.costoProm),0);
 
   const kgAcopiadosInput = document.getElementById('kd-kg-acopiados');
   // Si el usuario NO editó manualmente el campo, se autocompleta con la suma de los orígenes.
-  // Si SÍ lo editó (por diferencia de balanza), se respeta su valor y el costo promedio
-  // se recalcula repartiendo el MISMO costo total pagado entre esos kg reales.
+  // Si SÍ lo editó (por diferencia de balanza), se respeta su valor.
   if(!kardexKgAcopiadosEditado){
     kgAcopiadosInput.value = fmtKg(totalKgAcopAuto);
   }
   const totalKgAcop = parseFloat(kgAcopiadosInput.value) || 0;
-  const costoProm = totalKgAcop > 0 ? totalCostoPond/totalKgAcop : 0;
-  document.getElementById('kd-costo-prom').value   = costoProm.toFixed(4);
 
   // Actualizar subtotales individuales
   kardexOrigenesTemp.forEach((o,i)=>{
@@ -15652,6 +15686,7 @@ function kardexRecalcularTotales(){
   if(!kgVenta && totalKgAcop > 0){
     document.getElementById('kd-kg-venta').value = fmtKg(totalKgAcop);
   }
+  kardexRecalcularCostoProm();
   calcKardex();
 }
 
@@ -15693,6 +15728,8 @@ function toggleVentaManual(){
     costoPromEl.style.background = '#fff';
     costoPromEl.style.border = '2px solid #1565c0';
     costoPromEl.oninput = function(){ calcKardex(); };
+    const avisoElManual = document.getElementById('kd-aviso-balanza');
+    if(avisoElManual) avisoElManual.style.display = 'none';
   } else {
     kardexKgAcopiadosEditado = false;
     costoPromEl.readOnly = true;
@@ -15882,6 +15919,8 @@ function limpiarKardexForm(){
   document.getElementById('kd-kg-venta').value      = '';
   document.getElementById('kd-precio-venta').value  = '';
   document.getElementById('kd-costo-prom').value    = '';
+  const avisoElLimpiar = document.getElementById('kd-aviso-balanza');
+  if(avisoElLimpiar) avisoElLimpiar.style.display = 'none';
   document.getElementById('kd-ingreso-total').value = '';
   document.getElementById('kd-costo-total').value   = '';
   document.getElementById('kd-gastos-total').value  = '';
