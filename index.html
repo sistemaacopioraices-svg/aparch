@@ -138,6 +138,16 @@ body.modo-app-movil .nav-solo-completo{ display:none !important; }
 }
 .form-group input[readonly]{background:#eee;color:#666;}
 .form-group textarea{resize:vertical;min-height:55px;}
+/* Evita que el navegador "marque" en amarillo los campos con datos recordados (autocompletado
+   del navegador) — no es un estado de la app, es solo el estilo por defecto de Chrome. */
+input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus,
+textarea:-webkit-autofill,textarea:-webkit-autofill:hover,textarea:-webkit-autofill:focus,
+select:-webkit-autofill,select:-webkit-autofill:hover,select:-webkit-autofill:focus{
+  -webkit-text-fill-color:var(--txt) !important;
+  -webkit-box-shadow:0 0 0px 1000px var(--bg) inset !important;
+  box-shadow:0 0 0px 1000px var(--bg) inset !important;
+  transition:background-color 5000s ease-in-out 0s;
+}
 .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-bottom:1px solid var(--borde);flex-wrap:wrap;}
 
 /* Los gráficos (Chart.js-style, dibujados a mano en <canvas>) fijan canvas.width/height en píxeles
@@ -1051,11 +1061,20 @@ tr:hover td{background:#f4f8f4;}
     </div>
 
     <!-- REPORTE GENERAL destacado -->
-    <div style="background:linear-gradient(135deg,#1a5c2e,#2d7a45);border-radius:10px;padding:20px 24px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
-      <div>
+    <div style="background:linear-gradient(135deg,#1a5c2e,#2d7a45);border-radius:10px;padding:20px 24px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:260px;">
         <div style="color:#f0b429;font-weight:800;font-size:1.05rem;margin-bottom:4px;">📊 REPORTE GENERAL DE ACOPIO</div>
-        <div style="color:rgba(255,255,255,0.8);font-size:0.8rem;">Solo café <strong>Orgánico</strong> y <strong>Orgánico Fairtrade USA</strong> (el convencional no entra aquí). Cruza tickets + guías: Fecha, Lote, DNI, Productor, N° Guía, Sacos, KG Bruto, KG Neto, QQ Neto, Rendimiento, Precio KG, Precio QQ, Total a Pagar, Humedad, Desc. Humedad, Base</div>
+        <div style="color:rgba(255,255,255,0.8);font-size:0.8rem;">Cruza tickets + guías: Fecha, Lote, DNI, Productor, N° Guía, Sacos, KG Bruto, KG Neto, QQ Neto, Rendimiento, Precio KG, Precio QQ, Total a Pagar, Humedad, Desc. Humedad, Base</div>
         <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;margin-top:4px;" id="exp-count-reporte">0 registros cruzados</div>
+        <div style="margin-top:10px;">
+          <label style="color:rgba(255,255,255,0.85);font-size:0.72rem;font-weight:700;text-transform:uppercase;display:block;margin-bottom:4px;">🌱 Tipo de reporte</label>
+          <select id="rg-certif-filtro" onchange="updateExportCounts()" style="padding:7px 10px;border-radius:7px;border:none;font-size:0.85rem;font-weight:600;min-width:260px;">
+            <option value="organico_familia">Orgánico + Orgánico Fairtrade USA (todo lo orgánico)</option>
+            <option value="ORGANICO">Solo Orgánico</option>
+            <option value="ORGANICO - FAIRTRADE USA">Solo Orgánico - Fairtrade USA</option>
+            <option value="CONVENCIONAL">Convencional</option>
+          </select>
+        </div>
       </div>
       <button class="btn" onclick="exportarReporteGeneral()" style="background:#f0b429;color:#1a5c2e;font-weight:800;font-size:0.95rem;padding:12px 22px;white-space:nowrap;flex-shrink:0;">
         📥 Descargar Reporte
@@ -1081,6 +1100,21 @@ tr:hover td{background:#f4f8f4;}
       </div>
       <button class="btn" onclick="exportarReportePorSocio()" style="background:#fff;color:#1565c0;font-weight:800;font-size:0.95rem;padding:12px 22px;white-space:nowrap;flex-shrink:0;">
         📥 Reporte por Socio
+      </button>
+    </div>
+
+    <!-- REPORTE DETALLADO DE UN SOCIO -->
+    <div style="background:linear-gradient(135deg,#e65100,#f57c00);border-radius:10px;padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:260px;">
+        <div style="color:#fff;font-weight:800;font-size:1.05rem;margin-bottom:4px;">🔍 REPORTE DE SOCIO — Todo su acopio de la campaña</div>
+        <div style="color:rgba(255,255,255,0.85);font-size:0.8rem;">Elige un socio y mira el detalle completo de sus tickets y guías en la campaña activa: sacos, kg, precios, total pagado y saldo pendiente.</div>
+        <div style="margin-top:10px;">
+          <input type="text" id="rs-socio" list="rs-socio-list" autocomplete="off" placeholder="Escribe el nombre o apellido del socio..." style="padding:8px 10px;border-radius:7px;border:none;font-size:0.85rem;font-weight:600;min-width:280px;">
+          <datalist id="rs-socio-list"></datalist>
+        </div>
+      </div>
+      <button class="btn" onclick="verReporteSocio()" style="background:#fff;color:#e65100;font-weight:800;font-size:0.95rem;padding:12px 22px;white-space:nowrap;flex-shrink:0;">
+        🔍 Ver Reporte
       </button>
     </div>
 
@@ -2070,9 +2104,8 @@ tr:hover td{background:#f4f8f4;}
         <div class="form-group form-full">
           <label>Socio / Productor</label>
           <div style="display:flex;gap:8px;align-items:flex-start;">
-            <select id="insped-socio" onchange="seleccionarSocioInspeccion()" style="flex:1;">
-              <option value="">— Selecciona un socio —</option>
-            </select>
+            <input type="text" id="insped-socio" list="insped-socio-list" oninput="seleccionarSocioInspeccion()" autocomplete="off" placeholder="Escribe el nombre o apellido..." style="flex:1;">
+            <datalist id="insped-socio-list"></datalist>
             <button type="button" class="btn btn-secondary btn-sm" style="white-space:nowrap;" onclick="abrirNuevoSocioDesdeInspeccion()">➕ Nuevo Productor</button>
           </div>
         </div>
@@ -2270,9 +2303,8 @@ tr:hover td{background:#f4f8f4;}
     </div>
     <div class="form-group" id="p-socio-group">
       <label id="p-socio-label">Socio / Productor</label>
-      <select id="p-socio" onchange="cargarSocioPrestamo()" style="font-weight:600;">
-        <option value="">-- Seleccionar Socio --</option>
-      </select>
+      <input type="text" id="p-socio" list="p-socio-list" oninput="cargarSocioPrestamo()" autocomplete="off" placeholder="Escribe el nombre o apellido..." style="font-weight:600;">
+      <datalist id="p-socio-list"></datalist>
     </div>
     <div class="form-group" id="p-entidad-externa-group" style="display:none;">
       <label>Banco / Proveedor (quien presta)</label>
@@ -2482,6 +2514,15 @@ tr:hover td{background:#f4f8f4;}
     <div id="print-masivo-resumen" style="font-size:0.82rem;color:#555;line-height:1.8;"></div>
   </div>
   <div style="margin-bottom:16px;">
+    <div style="font-size:0.8rem;font-weight:700;color:#555;margin-bottom:8px;">🌱 Certificación:</div>
+    <select id="pm-certif" onchange="actualizarResumenPrintMasivo()" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:7px;font-size:0.86rem;">
+      <option value="">Todas las certificaciones</option>
+      <option value="CONVENCIONAL">Convencional</option>
+      <option value="ORGANICO">Orgánico</option>
+      <option value="ORGANICO - FAIRTRADE USA">Orgánico - Fairtrade USA</option>
+    </select>
+  </div>
+  <div style="margin-bottom:16px;">
     <div style="font-size:0.8rem;font-weight:700;color:#555;margin-bottom:10px;">⚙️ Opciones de impresión:</div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;font-size:0.84rem;">
       <input type="radio" name="print-tipo" value="todas" checked> Todas las guías (<span id="pm-count-todas">0</span>)
@@ -2502,6 +2543,20 @@ tr:hover td{background:#f4f8f4;}
     <button class="btn btn-primary" onclick="ejecutarImpresionMasiva()" style="font-size:0.95rem;padding:10px 24px;">
       🖨️ Imprimir / Guardar PDF
     </button>
+  </div>
+</div></div>
+
+<!-- ══════════ MODAL REPORTE DE SOCIO ══════════ -->
+<div class="modal-overlay" id="modal-reporte-socio">
+<div class="modal" style="max-width:920px;width:96vw;">
+  <div class="modal-header">
+    <div class="modal-title" id="rs-titulo">🔍 Reporte de Socio</div>
+    <button class="modal-close" onclick="cerrarModal('modal-reporte-socio')">✕</button>
+  </div>
+  <div id="rs-contenido"></div>
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="cerrarModal('modal-reporte-socio')">Cerrar</button>
+    <button class="btn btn-export" onclick="exportarReporteSocioExcel()">📥 Descargar Excel</button>
   </div>
 </div></div>
 
@@ -3010,9 +3065,8 @@ tr:hover td{background:#f4f8f4;}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
         <div class="form-group" style="margin:0;min-width:0;">
           <label>Nombre</label>
-          <select id="t-productor" onchange="cargarSocioEnTicket()" style="font-weight:600;width:100%;">
-            <option value="">-- Seleccionar Socio --</option>
-          </select>
+          <input type="text" id="t-productor" list="t-productor-list" oninput="cargarSocioEnTicket()" autocomplete="off" placeholder="Escribe el nombre o apellido..." style="font-weight:600;width:100%;">
+          <datalist id="t-productor-list"></datalist>
         </div>
         <div class="form-group" style="margin:0;min-width:0;"><label>DNI</label><input type="text" id="t-dni" readonly style="background:#fff8e1;"></div>
         <div class="form-group" style="margin:0;min-width:0;"><label>Base</label><input type="text" id="t-base-ticket" readonly style="background:#fff8e1;"></div>
@@ -3035,10 +3089,10 @@ tr:hover td{background:#f4f8f4;}
     <div class="form-group"><label>Humedad (%)</label><input type="number" id="t-humedad" min="0" max="30" step="0.01" oninput="calcTicket()"></div>
     <div class="form-group"><label>Desc. Humedad (kg)</label><input type="number" id="t-deschum" readonly></div>
     <div class="form-group"><label>Peso Neto (kg)</label><input type="number" id="t-pesoneto" readonly style="background:#e8f5e9;color:#1b5e20;font-weight:800;font-size:1rem;"></div>
-    <div class="form-group"><label>Defectos</label><input type="text" id="t-defectos" placeholder="Brocado, Vano..."></div>
-    <div class="form-group"><label>Lote</label><input type="text" id="t-lote" placeholder="LT001-2026"></div>
+    <div class="form-group"><label>Defectos</label><input type="text" id="t-defectos" placeholder="Brocado, Vano..." autocomplete="off"></div>
+    <div class="form-group"><label>Lote</label><input type="text" id="t-lote" placeholder="LT001-2026" autocomplete="off"></div>
     <div class="form-group"><label>Usuario</label><input type="text" id="t-usuario" readonly style="background:#eee;"></div>
-    <div class="form-group form-full"><label>Observaciones</label><textarea id="t-observaciones" placeholder="limpio..."></textarea></div>
+    <div class="form-group form-full"><label>Observaciones</label><textarea id="t-observaciones" placeholder="limpio..." autocomplete="off"></textarea></div>
   </div>
 
   <div class="subsection-title">RENDIMIENTO — MUESTRA 300 g</div>
@@ -5151,13 +5205,10 @@ function abrirModalTicket(idx){
   document.getElementById('t-usuario').value=SESSION.user||'';
   document.getElementById('t-exp-g').value=t?t.exp_g:'';
   document.getElementById('t-seg-g').value=t?t.seg_g:'';
-  // Poblar socios
-  const sel=document.getElementById('t-productor');
-  sel.innerHTML='<option value="">-- Seleccionar Socio --</option>';
-  DB.socios.forEach(s=>{
-    sel.innerHTML+=`<option value="${s.nombre}" data-dni="${s.dni||''}" data-base="${s.base||''}" data-caserio="${s.caserio||''}">${s.nombre}${s.dni?' ['+s.dni+']':''}</option>`;
-  });
-  sel.value=t?t.productor:'';
+  // Poblar lista de socios para autocompletar por nombre/apellido mientras se escribe
+  const dl=document.getElementById('t-productor-list');
+  dl.innerHTML = (DB.socios||[]).map(s=>`<option value="${s.nombre}">`).join('');
+  document.getElementById('t-productor').value = t?(t.productor||''):'';
   document.getElementById('ticket-form-alert').innerHTML='';
   if(t&&t.productor) mostrarEstimadoBanner(t.productor);
   calcRendimiento();
@@ -5165,23 +5216,22 @@ function abrirModalTicket(idx){
 }
 
 function cargarSocioEnTicket(){
-  const sel=document.getElementById('t-productor');
-  const opt=sel.options[sel.selectedIndex];
-  if(!opt||!opt.value){
+  const nombre=(document.getElementById('t-productor').value||'').trim();
+  const s=nombre?DB.socios.find(x=>(x.nombre||'').toLowerCase()===nombre.toLowerCase()):null;
+  if(!s){
     ['t-dni','t-base-ticket','t-caserio','t-lote'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     document.getElementById('ticket-form-alert').innerHTML=''; return;
   }
-  const s=DB.socios.find(x=>x.nombre===opt.value);
-  document.getElementById('t-dni').value=s?s.dni||'':opt.dataset.dni||'';
-  document.getElementById('t-base-ticket').value=s?s.base||'':opt.dataset.base||'';
-  document.getElementById('t-caserio').value=s?s.caserio||'':opt.dataset.caserio||'';
+  document.getElementById('t-dni').value=s.dni||'';
+  document.getElementById('t-base-ticket').value=s.base||'';
+  document.getElementById('t-caserio').value=s.caserio||'';
   // Lote auto si vacío
   if(!document.getElementById('t-lote').value)
-    document.getElementById('t-lote').value=nextLoteSocio(opt.value);
+    document.getElementById('t-lote').value=nextLoteSocio(s.nombre);
   // Certificación auto
-  if(s&&s.certificacion&&!document.getElementById('t-certificacion').value)
+  if(s.certificacion&&!document.getElementById('t-certificacion').value)
     document.getElementById('t-certificacion').value=s.certificacion;
-  mostrarEstimadoBanner(opt.value);
+  mostrarEstimadoBanner(s.nombre);
 }
 
 function mostrarEstimadoBanner(productor){
@@ -8819,6 +8869,173 @@ function exportarReportePorSocio(){
   XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_ReporteSocios_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+// ── REPORTE DE SOCIO — detalle completo (todos sus tickets y guías) de UN socio en la
+// campaña activa. A diferencia de "Reporte por Socio" (una fila resumen por CADA socio), este
+// muestra el desglose línea por línea de un solo productor elegido. Guardado en una variable de
+// módulo para que el botón "Descargar Excel" del modal reuse exactamente los mismos datos que se
+// están mostrando en pantalla, sin recalcular ni arriesgar una descarga distinta a lo visto.
+let _reporteSocioActual = null;
+
+function _construirReporteSocio(nombreSocio){
+  const s = (DB.socios||[]).find(x=>(x.nombre||'').toLowerCase()===nombreSocio.toLowerCase());
+  const campanaActiva = DB.campana ? DB.campana.nombre : '';
+
+  // Guías del socio en la campaña activa (si hay campaña activa; si no, todas sus guías)
+  const guias = DB.guias.filter(g=>{
+    if((g.productor||'').toLowerCase() !== nombreSocio.toLowerCase()) return false;
+    if(campanaActiva && g.campana && g.campana!==campanaActiva) return false;
+    return true;
+  }).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+
+  // Tickets del socio — vinculados a alguna de esas guías, o sueltos (aún sin guía) del mismo productor
+  const codigosGuias = new Set(guias.map(g=>g.codigo));
+  const tickets = DB.tickets.filter(t=>{
+    if((t.productor||'').toLowerCase() !== nombreSocio.toLowerCase()) return false;
+    if(t.guia_asignada && codigosGuias.size && !codigosGuias.has(t.guia_asignada)) return false;
+    return true;
+  }).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+
+  const filasGuias = guias.map(g=>{
+    const valor  = parseFloat(g.valorrecibido||0);
+    const pagado = totalPagadoGuia(g.codigo);
+    const saldo  = Math.max(0, valor-pagado);
+    return {
+      codigo:g.codigo, fecha:g.fecha, certificacion:g.certificacion||'',
+      sacos:parseFloat(g.sacos||0)||0, kgbruto:parseFloat(g.kgbruto||0)||0,
+      kgneto: (function(){
+        const fromDetalle=(g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+        if(fromDetalle>0) return fromDetalle;
+        const fromTks=DB.tickets.filter(t=>t.guia_asignada===g.codigo).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+        if(fromTks>0) return fromTks;
+        const precioqq=parseFloat(g.precioqq||0);
+        if(precioqq>0 && valor>0) return (valor/precioqq)*55.2;
+        return 0;
+      })(),
+      preciokg: parseFloat(g.precikg||0) || (parseFloat(g.precioqq||0)/55.2) || 0,
+      valor, pagado, saldo,
+      estado: estadoPagoLive(g)
+    };
+  });
+
+  const filasTickets = tickets.map(t=>({
+    codigo:t.codigo, fecha:t.fecha, sacos:parseFloat(t.sacos||0)||0,
+    pesobruto:parseFloat(t.pesobruto||0)||0, pesoneto:parseFloat(t.pesoneto||0)||0,
+    humedad:parseFloat(t.humedad||0)||0, lote:t.lote||'', guia:t.guia_asignada||'—'
+  }));
+
+  const totales = filasGuias.reduce((a,g)=>({
+    sacos:a.sacos+g.sacos, kgbruto:a.kgbruto+g.kgbruto, kgneto:a.kgneto+g.kgneto,
+    valor:a.valor+g.valor, pagado:a.pagado+g.pagado, saldo:a.saldo+g.saldo
+  }), {sacos:0,kgbruto:0,kgneto:0,valor:0,pagado:0,saldo:0});
+
+  return {
+    socio: s || {nombre:nombreSocio, dni:'', base:'', caserio:'', certificacion:''},
+    nombreSocio, campanaActiva, guias:filasGuias, tickets:filasTickets, totales
+  };
+}
+
+function verReporteSocio(){
+  const nombre = (document.getElementById('rs-socio').value||'').trim();
+  if(!nombre){ alert('Escribe o selecciona el nombre de un socio.'); return; }
+  const existe = (DB.socios||[]).some(s=>(s.nombre||'').toLowerCase()===nombre.toLowerCase());
+  if(!existe){ alert(`No se encontró ningún socio llamado "${nombre}". Verifica el nombre o créalo primero en el módulo Socios.`); return; }
+
+  const rep = _construirReporteSocio(nombre);
+  _reporteSocioActual = rep;
+  const { socio, campanaActiva, guias, tickets, totales } = rep;
+
+  document.getElementById('rs-titulo').textContent = `🔍 Reporte de Socio — ${socio.nombre}`;
+
+  const filasGuiasHtml = guias.length ? guias.map(g=>`
+    <tr>
+      <td class="td-codigo">${g.codigo}</td><td>${fechaDisplay(g.fecha)}</td><td>${g.certificacion||'—'}</td>
+      <td style="text-align:right;">${g.sacos}</td>
+      <td style="text-align:right;">${fmt(g.kgbruto)}</td>
+      <td style="text-align:right;font-weight:700;">${fmt(g.kgneto)}</td>
+      <td style="text-align:right;">S/.${parseFloat(g.preciokg||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;color:#e65100;">S/.${fmtPago(g.valor)}</td>
+      <td style="text-align:right;color:#2e7d32;">S/.${fmtPago(g.pagado)}</td>
+      <td style="text-align:right;font-weight:700;color:${g.saldo<=0.05?'#2e7d32':'#c62828'};">S/.${fmtPago(g.saldo)}</td>
+      <td>${g.estado}</td>
+    </tr>`).join('') : `<tr><td colspan="11" style="text-align:center;color:#999;padding:10px;">Sin guías registradas${campanaActiva?` en la campaña ${campanaActiva}`:''}.</td></tr>`;
+
+  const filasTicketsHtml = tickets.length ? tickets.map(t=>`
+    <tr>
+      <td class="td-codigo">${t.codigo}</td><td>${fechaDisplay(t.fecha)}</td>
+      <td style="text-align:right;">${t.sacos}</td>
+      <td style="text-align:right;">${fmt(t.pesobruto)}</td>
+      <td style="text-align:right;font-weight:700;">${fmt(t.pesoneto)}</td>
+      <td style="text-align:right;">${t.humedad}%</td>
+      <td>${t.lote||'—'}</td>
+      <td>${t.guia}</td>
+    </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:#999;padding:10px;">Sin tickets registrados.</td></tr>`;
+
+  document.getElementById('rs-contenido').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;font-size:0.82rem;margin-bottom:14px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:8px;padding:10px 14px;">
+      <div><span style="color:#666;font-size:0.7rem;">DNI</span><div style="font-weight:700;">${socio.dni||'—'}</div></div>
+      <div><span style="color:#666;font-size:0.7rem;">Base</span><div style="font-weight:700;">${socio.base||'—'}</div></div>
+      <div><span style="color:#666;font-size:0.7rem;">Caserío</span><div style="font-weight:700;">${socio.caserio||'—'}</div></div>
+      <div><span style="color:#666;font-size:0.7rem;">Campaña</span><div style="font-weight:700;">${campanaActiva||'—'}</div></div>
+    </div>
+    <div class="stats-grid" style="margin-bottom:16px;">
+      <div class="stat-card"><div class="stat-label">📋 N° Guías</div><div class="stat-val">${guias.length}</div></div>
+      <div class="stat-card" style="border-left-color:#1565c0;"><div class="stat-label">🎫 N° Tickets</div><div class="stat-val">${tickets.length}</div></div>
+      <div class="stat-card" style="border-left-color:#2e7d32;"><div class="stat-label">⚖️ KG Netos</div><div class="stat-val">${fmt(totales.kgneto)}</div></div>
+      <div class="stat-card" style="border-left-color:#e65100;"><div class="stat-label">💰 Total Guías S/.</div><div class="stat-val">${fmtPago(totales.valor)}</div></div>
+      <div class="stat-card" style="border-left-color:#2e7d32;"><div class="stat-label">✅ Pagado S/.</div><div class="stat-val">${fmtPago(totales.pagado)}</div></div>
+      <div class="stat-card" style="border-left-color:${totales.saldo<=0.05?'#2e7d32':'#c62828'};"><div class="stat-label">⏳ Saldo Pendiente S/.</div><div class="stat-val">${fmtPago(totales.saldo)}</div></div>
+    </div>
+    <div class="subsection-title" style="margin-top:0;">📋 Guías</div>
+    <div class="table-wrap" style="margin-bottom:16px;">
+      <table><thead><tr>
+        <th>N° Guía</th><th>Fecha</th><th>Certif.</th><th>Sacos</th><th>Kg Bruto</th><th>Kg Neto</th>
+        <th>Precio/kg</th><th>Valor</th><th>Pagado</th><th>Saldo</th><th>Estado</th>
+      </tr></thead><tbody>${filasGuiasHtml}</tbody></table>
+    </div>
+    <div class="subsection-title">🎫 Tickets</div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>N° Ticket</th><th>Fecha</th><th>Sacos</th><th>Peso Bruto</th><th>Peso Neto</th><th>Humedad</th><th>Lote</th><th>Guía</th>
+      </tr></thead><tbody>${filasTicketsHtml}</tbody></table>
+    </div>`;
+
+  abrirModal('modal-reporte-socio');
+}
+
+function exportarReporteSocioExcel(){
+  if(!_reporteSocioActual){ alert('Primero genera el reporte con "Ver Reporte".'); return; }
+  const { socio, campanaActiva, guias, tickets, totales } = _reporteSocioActual;
+
+  const hGuias = ['N° GUÍA','FECHA','CERTIFICACIÓN','SACOS','KG BRUTO','KG NETO','PRECIO/KG (S/.)','VALOR (S/.)','PAGADO (S/.)','SALDO (S/.)','ESTADO'];
+  const fGuias = guias.map(g=>[g.codigo, g.fecha, g.certificacion, g.sacos, parseFloat(g.kgbruto.toFixed(2)), parseFloat(g.kgneto.toFixed(2)), parseFloat(g.preciokg.toFixed(4)), parseFloat(g.valor.toFixed(2)), parseFloat(g.pagado.toFixed(2)), parseFloat(g.saldo.toFixed(2)), g.estado]);
+  fGuias.push(['TOTAL','','','','',parseFloat(totales.kgneto.toFixed(2)),'',parseFloat(totales.valor.toFixed(2)),parseFloat(totales.pagado.toFixed(2)),parseFloat(totales.saldo.toFixed(2)),'']);
+
+  const hTickets = ['N° TICKET','FECHA','SACOS','PESO BRUTO (KG)','PESO NETO (KG)','HUMEDAD %','LOTE','GUÍA'];
+  const fTickets = tickets.map(t=>[t.codigo, t.fecha, t.sacos, parseFloat(t.pesobruto.toFixed(2)), parseFloat(t.pesoneto.toFixed(2)), t.humedad, t.lote, t.guia]);
+
+  const hResumen = ['SOCIO','DNI','BASE','CASERÍO','CAMPAÑA','N° GUÍAS','N° TICKETS','SACOS','KG BRUTO','KG NETO','TOTAL GUÍAS (S/.)','PAGADO (S/.)','SALDO (S/.)'];
+  const fResumen = [[socio.nombre, socio.dni||'', socio.base||'', socio.caserio||'', campanaActiva||'',
+    guias.length, tickets.length, totales.sacos, parseFloat(totales.kgbruto.toFixed(2)), parseFloat(totales.kgneto.toFixed(2)),
+    parseFloat(totales.valor.toFixed(2)), parseFloat(totales.pagado.toFixed(2)), parseFloat(totales.saldo.toFixed(2))]];
+
+  const wb = XLSX.utils.book_new();
+  const wsR = XLSX.utils.aoa_to_sheet([hResumen, ...fResumen]);
+  wsR['!cols'] = [{wch:30},{wch:12},{wch:14},{wch:14},{wch:14},{wch:10},{wch:10},{wch:8},{wch:12},{wch:12},{wch:16},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsR, 'Resumen');
+
+  const wsG = XLSX.utils.aoa_to_sheet([hGuias, ...fGuias]);
+  wsG['!cols'] = [{wch:14},{wch:12},{wch:20},{wch:8},{wch:10},{wch:10},{wch:14},{wch:12},{wch:12},{wch:12},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsG, 'Guías');
+
+  const wsT = XLSX.utils.aoa_to_sheet([hTickets, ...fTickets]);
+  wsT['!cols'] = [{wch:14},{wch:12},{wch:8},{wch:14},{wch:14},{wch:10},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsT, 'Tickets');
+
+  const fecha = new Date().toISOString().slice(0,10);
+  const nombreArchivo = (socio.nombre||'Socio').replace(/[\\/:*?"<>|]/g,'').slice(0,40);
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_ReporteSocio_${nombreArchivo}_${fecha}.xlsx`);
+}
+
 function exportarReporteCaja(){
   if(!DB.aperturas || !DB.aperturas.length){
     alert('No hay aperturas de caja registradas.'); return;
@@ -8997,11 +9214,20 @@ const REPORTE_GENERAL_COLS = [
   {wch:16},{wch:11},{wch:18},{wch:14},{wch:14},{wch:13}
 ];
 
-// Arma las filas del Reporte General de Acopio (cruce tickets + guías), solo café Orgánico +
-// Orgánico Fairtrade USA (excluye Convencional) — extraído a función propia para que tanto el
-// botón standalone (exportarReporteGeneral) como la hoja nueva dentro de Resumen de Campaña
-// (exportarResumenCampana) usen exactamente la misma lógica, sin duplicarla.
-function _construirFilasReporteGeneral(){
+// Filtro de certificación del Reporte General — modo por defecto ('organico_familia' o sin pasar
+// nada) preserva el comportamiento histórico (Orgánico + Orgánico Fairtrade USA, sin Convencional),
+// usado tal cual por la hoja "Reporte General" dentro de Resumen de Campaña. El selector nuevo del
+// botón standalone permite además pedir solo Orgánico, solo Orgánico Fairtrade USA, o Convencional.
+function _matchModoCertifReporte(certif, modo){
+  if(!modo || modo==='organico_familia') return _esCertifOrganicaCampana(certif);
+  return _matchCertifExacta(certif, modo);
+}
+
+// Arma las filas del Reporte General de Acopio (cruce tickets + guías) según el modo de
+// certificación elegido — extraído a función propia para que tanto el botón standalone
+// (exportarReporteGeneral) como la hoja nueva dentro de Resumen de Campaña (exportarResumenCampana)
+// usen exactamente la misma lógica, sin duplicarla.
+function _construirFilasReporteGeneral(modoCertif){
   const headers = [
     'FECHA', 'N° LOTE', 'DNI', 'PRODUCTOR', 'N° GUÍA', 'N° TICKET', 'CERTIFICACIÓN',
     'SACOS', 'KG BRUTO', 'KG NETO', 'QQ NETO',
@@ -9054,10 +9280,8 @@ function _construirFilasReporteGeneral(){
 
   const filas = [];
   const guiasIncompletas = []; // guías sin lote/sacos/kg bruto (datos de ticket faltantes)
-  // Solo café orgánico + orgánico Fairtrade USA (excluye Convencional) — mismo criterio que ya
-  // usa Resumen de Campaña vía _esCertifOrganicaCampana(), para que el acopio general del reporte
-  // no mezcle café convencional.
-  const guiasOrganicas = DB.guias.filter(g => _esCertifOrganicaCampana(g.certificacion));
+  // Filtra según el modo de certificación elegido (por defecto, familia orgánica completa).
+  const guiasOrganicas = DB.guias.filter(g => _matchModoCertifReporte(g.certificacion, modoCertif));
   // Ordenar guías por fecha ASC + correlativo ASC
   const guiasOrdenadas = [...guiasOrganicas].sort((a,b)=>{
     if((a.fecha||'')!==(b.fecha||'')) return (a.fecha||'').localeCompare(b.fecha||'');
@@ -9159,7 +9383,8 @@ function _construirFilasReporteGeneral(){
 }
 
 function exportarReporteGeneral(){
-  const { headers, filas, guiasIncompletas } = _construirFilasReporteGeneral();
+  const modoCertif = document.getElementById('rg-certif-filtro')?.value || 'organico_familia';
+  const { headers, filas, guiasIncompletas } = _construirFilasReporteGeneral(modoCertif);
 
   // ── Avisar si hay guías con datos de ticket incompletos antes de descargar ──
   if(guiasIncompletas.length){
@@ -9196,10 +9421,13 @@ function exportarReporteGeneral(){
   }
 
   const fecha = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_ReporteGeneral_${fecha}.xlsx`);
+  const etiquetaModo = {organico_familia:'Organico', 'ORGANICO':'Organico', 'ORGANICO - FAIRTRADE USA':'OrganicoFairtrade', 'CONVENCIONAL':'Convencional'}[modoCertif] || 'Organico';
+  XLSX.writeFile(wb, `${empresaActiva().nombreCorto}_ReporteGeneral_${etiquetaModo}_${fecha}.xlsx`);
 }
 
 function updateExportCounts(){
+  const dlRs = document.getElementById('rs-socio-list');
+  if(dlRs) dlRs.innerHTML = (DB.socios||[]).map(s=>`<option value="${s.nombre}">`).join('');
   document.getElementById('exp-count-tickets').textContent = DB.tickets.length + ' registros';
   document.getElementById('exp-count-guias').textContent   = DB.guias.length   + ' registros';
   document.getElementById('exp-count-comp').textContent    = DB.comprobantes.length + ' registros';
@@ -9221,9 +9449,10 @@ function updateExportCounts(){
     const sociosActivos = new Set([...DB.tickets.map(t=>t.productor),...DB.guias.map(g=>g.productor)].filter(Boolean)).size;
     elSocRep.textContent = sociosActivos + ' socios con actividad';
   }
+  const modoCertifRep = document.getElementById('rg-certif-filtro')?.value || 'organico_familia';
   let countReporte = 0;
   DB.guias.forEach(g => {
-    if(!_esCertifOrganicaCampana(g.certificacion)) return; // solo Orgánico + Orgánico Fairtrade USA
+    if(!_matchModoCertifReporte(g.certificacion, modoCertifRep)) return;
     countReporte += (g.tickets_detalle && g.tickets_detalle.length > 0) ? g.tickets_detalle.length : 1;
   });
   const el = document.getElementById('exp-count-reporte');
@@ -9436,13 +9665,10 @@ function abrirModalPrestamo(idx){
   document.getElementById('p-total').value   = p ? p.total   : '';
   document.getElementById('p-vencimiento').value = p ? p.vencimiento : '';
 
-  // Cargar socios
-  const selS = document.getElementById('p-socio');
-  selS.innerHTML = '<option value="">-- Seleccionar Socio --</option>';
-  DB.socios.forEach(s=>{
-    selS.innerHTML += `<option value="${s.nombre}" data-dni="${s.dni||''}" data-caserio="${s.caserio||''}">${s.nombre}${s.dni?' ['+s.dni+']':''}</option>`;
-  });
-  selS.value = (p && p.direccion!=='recibido') ? p.socio : '';
+  // Cargar socios (autocompletar por nombre/apellido mientras se escribe)
+  const dlS = document.getElementById('p-socio-list');
+  dlS.innerHTML = (DB.socios||[]).map(s=>`<option value="${s.nombre}">`).join('');
+  document.getElementById('p-socio').value = (p && p.direccion!=='recibido') ? (p.socio||'') : '';
   document.getElementById('p-dni').value     = p ? p.dni     : '';
   document.getElementById('p-caserio').value = p ? p.caserio : '';
 
@@ -9473,12 +9699,11 @@ function abrirModalPrestamo(idx){
 }
 
 function cargarSocioPrestamo(){
-  const sel = document.getElementById('p-socio');
-  const opt = sel.options[sel.selectedIndex];
-  if(!opt||!opt.value){ document.getElementById('p-dni').value=''; document.getElementById('p-caserio').value=''; return; }
-  const s = DB.socios.find(x=>x.nombre===opt.value);
-  document.getElementById('p-dni').value     = s ? s.dni||''     : opt.dataset.dni||'';
-  document.getElementById('p-caserio').value = s ? s.caserio||'' : opt.dataset.caserio||'';
+  const nombre = (document.getElementById('p-socio').value||'').trim();
+  if(!nombre){ document.getElementById('p-dni').value=''; document.getElementById('p-caserio').value=''; return; }
+  const s = DB.socios.find(x=>(x.nombre||'').toLowerCase()===nombre.toLowerCase());
+  document.getElementById('p-dni').value     = s ? s.dni||''     : '';
+  document.getElementById('p-caserio').value = s ? s.caserio||'' : '';
 }
 
 function calcPrestamo(){
@@ -10899,37 +11124,53 @@ function cargarGdriveClientIdEnConfig(){
 // ══════════════════════════════════════════
 // IMPRESIÓN MASIVA DE GUÍAS
 // ══════════════════════════════════════════
+// Filtro exacto de certificación (a diferencia de _certifMatch/_matchCertifCampana, que agrupan
+// "orgánico + fairtrade" en un solo balde): '' = todas, o el texto exacto de la certificación
+// (Convencional / Orgánico / Orgánico - Fairtrade USA).
+function _matchCertifExacta(certif, filtro){
+  if(!filtro) return true;
+  return (certif||'').trim().toUpperCase() === filtro.trim().toUpperCase();
+}
+
 function imprimirTodasGuias(){
   if(!DB.guias || !DB.guias.length){
     alert('No hay guías registradas para imprimir.');
     return;
   }
+  document.getElementById('pm-certif').value = '';
+  actualizarResumenPrintMasivo();
+  abrirModal('modal-print-masivo');
+}
 
-  const total    = DB.guias.length;
-  const pend     = DB.guias.filter(g=>estadoPagoLive(g)!=='Pagado Total').length;
-  const pagadas  = DB.guias.filter(g=>estadoPagoLive(g)==='Pagado Total').length;
+function actualizarResumenPrintMasivo(){
+  const certifFiltro = document.getElementById('pm-certif').value;
+  const guiasCertif = DB.guias.filter(g=>_matchCertifExacta(g.certificacion, certifFiltro));
+
+  const total    = guiasCertif.length;
+  const pend     = guiasCertif.filter(g=>estadoPagoLive(g)!=='Pagado Total').length;
+  const pagadas  = guiasCertif.filter(g=>estadoPagoLive(g)==='Pagado Total').length;
 
   document.getElementById('pm-count-todas').textContent = total;
   document.getElementById('pm-count-pend').textContent  = pend;
   document.getElementById('pm-count-pag').textContent   = pagadas;
 
   document.getElementById('print-masivo-resumen').innerHTML = `
+    <div>🌱 Certificación: <strong>${certifFiltro||'Todas'}</strong></div>
     <div>📋 Total guías: <strong>${total}</strong></div>
     <div>⏳ Pendientes/Parciales: <strong style="color:#e65100;">${pend}</strong></div>
     <div>✅ Pagadas: <strong style="color:#2e7d32;">${pagadas}</strong></div>
     <div style="margin-top:6px;font-size:0.75rem;color:#888;">Campaña: ${DB.campana?DB.campana.nombre:'—'}</div>`;
-
-  abrirModal('modal-print-masivo');
 }
 
 function ejecutarImpresionMasiva(){
   const tipo = document.querySelector('input[name="print-tipo"]:checked').value;
+  const certifFiltro = document.getElementById('pm-certif').value;
 
-  let guiasAImprimir = [...DB.guias];
+  let guiasAImprimir = DB.guias.filter(g=>_matchCertifExacta(g.certificacion, certifFiltro));
   if(tipo === 'pendientes'){
-    guiasAImprimir = DB.guias.filter(g=>estadoPagoLive(g)!=='Pagado Total');
+    guiasAImprimir = guiasAImprimir.filter(g=>estadoPagoLive(g)!=='Pagado Total');
   } else if(tipo === 'pagadas'){
-    guiasAImprimir = DB.guias.filter(g=>estadoPagoLive(g)==='Pagado Total');
+    guiasAImprimir = guiasAImprimir.filter(g=>estadoPagoLive(g)==='Pagado Total');
   }
 
   if(!guiasAImprimir.length){
@@ -10961,7 +11202,7 @@ function ejecutarImpresionMasiva(){
       <div style="font-size:14px;color:#555;margin-bottom:4px;">Campaña: ${DB.campana?DB.campana.nombre:'—'}</div>
       <div style="font-size:13px;color:#888;margin-bottom:4px;">Total: ${guiasAImprimir.length} guía(s)</div>
       <div style="font-size:12px;color:#aaa;">Generado: ${new Date().toLocaleDateString('es-PE')} ${new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</div>
-      <div style="font-size:12px;color:#aaa;margin-top:4px;">Filtro: ${tipo==='todas'?'Todas':tipo==='pendientes'?'Pendientes/Parciales':'Pagadas'}</div>
+      <div style="font-size:12px;color:#aaa;margin-top:4px;">Filtro: ${tipo==='todas'?'Todas':tipo==='pendientes'?'Pendientes/Parciales':'Pagadas'}${certifFiltro?` — ${certifFiltro}`:''}</div>
     </div>`;
 
   const w = abrirVentanaImpresion(portada + todasLasCopias, `Guías ${empresaActiva().nombreCorto} — ${DB.campana?DB.campana.nombre:''}`,
@@ -16596,15 +16837,12 @@ function switchInspTab(tab){
   if(tab==='firmas'){ initFirmaCanvas('productor'); initFirmaCanvas('inspector'); }
 }
 
-// Repuebla el <select> de socios de la ficha de inspección desde DB.socios — factorizado para
+// Repuebla el <datalist> de socios de la ficha de inspección desde DB.socios — factorizado para
 // poder llamarse tanto al abrir el editor como después de crear un socio nuevo al vuelo.
 function _repoblarSelectSocioInspeccion(){
-  const sel = document.getElementById('insped-socio');
-  if(!sel) return;
-  const valorPrevio = sel.value;
-  sel.innerHTML = '<option value="">— Selecciona un socio —</option>' +
-    (DB.socios||[]).map(s=>`<option value="${s.nombre}">${s.nombre}${s.dni?' ['+s.dni+']':''}</option>`).join('');
-  sel.value = valorPrevio;
+  const dl = document.getElementById('insped-socio-list');
+  if(!dl) return;
+  dl.innerHTML = (DB.socios||[]).map(s=>`<option value="${s.nombre}">`).join('');
 }
 
 // "➕ Nuevo Productor" dentro de la ficha de inspección: abre el mismo modal de Socios, y al
