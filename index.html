@@ -9931,6 +9931,30 @@ function guardarPrestamo(){
     prestamo.abonos = DB.prestamos[editIdx].abonos || [];
     prestamo.recibo_egreso_ref = DB.prestamos[editIdx].recibo_egreso_ref || '';
     prestamo.recibo_ingreso_ref = DB.prestamos[editIdx].recibo_ingreso_ref || '';
+    // Si el préstamo ya generó un movimiento de caja (egreso al desembolsar, o ingreso si es
+    // financiamiento externo), ese recibo debe reflejar el monto editado — antes se dejaba el
+    // monto viejo en Caja aunque el préstamo mostrara el nuevo (ej. el préstamo pasaba de S/.500
+    // a S/.2,500 pero el egreso de Caja se quedaba en S/.500).
+    if(DB.recibos){
+      if(prestamo.recibo_egreso_ref){
+        const idxRecEgr = DB.recibos.findIndex(r=>r.codigo===prestamo.recibo_egreso_ref);
+        if(idxRecEgr >= 0){
+          DB.recibos[idxRecEgr].monto = monto.toFixed(2);
+          DB.recibos[idxRecEgr].fecha = fecha;
+          DB.recibos[idxRecEgr].persona = socio;
+          DB.recibos[idxRecEgr].concepto = `Préstamo ${prestamo.codigo} — ${tipo} — ${socio}`;
+        }
+      }
+      if(prestamo.recibo_ingreso_ref){
+        const idxRecIng = DB.recibos.findIndex(r=>r.codigo===prestamo.recibo_ingreso_ref);
+        if(idxRecIng >= 0){
+          DB.recibos[idxRecIng].monto = monto.toFixed(2);
+          DB.recibos[idxRecIng].fecha = fecha;
+          DB.recibos[idxRecIng].persona = socio;
+          DB.recibos[idxRecIng].concepto = `Financiamiento recibido ${prestamo.codigo} — ${socio}`;
+        }
+      }
+    }
     DB.prestamos[editIdx] = prestamo;
   } else {
     if(!DB.prestamos) DB.prestamos=[];
@@ -16053,11 +16077,18 @@ function renderKardex(){
 function eliminarKardex(i){
   if(!confirm('¿Eliminar esta venta del kárdex?')) return;
   const k = DB.kardex[i];
-  // Liberar los egresos de caja que estaban marcados como "gasto de esta venta"
-  if(k && k.gastos_refs && k.gastos_refs.length){
-    k.gastos_refs.forEach(cod=>{
-      const r = DB.recibos.find(x=>x.codigo===cod);
-      if(r && r.usado_gasto_venta===k.codigo) delete r.usado_gasto_venta;
+  // IMPORTANTE: borrar una venta NUNCA debe borrar los recibos de Caja (gastos de flete/estiba/
+  // carrera, etc.) que se le habían vinculado — esos recibos son movimientos de caja reales, ya
+  // ocurridos, y deben seguir existiendo en Caja. Solo se les quita la marca de "usado por esta
+  // venta" para que vuelvan a estar disponibles y se puedan vincular a otra venta si corresponde.
+  // Se recorren TANTO k.gastos_refs COMO, por seguridad extra, cualquier recibo que haya quedado
+  // marcado con este código de venta aunque no esté en esa lista (evita que quede "huérfano").
+  if(k){
+    const codigosLiberar = new Set(k.gastos_refs||[]);
+    (DB.recibos||[]).forEach(r=>{
+      if(r.usado_gasto_venta===k.codigo || codigosLiberar.has(r.codigo)){
+        delete r.usado_gasto_venta;
+      }
     });
   }
   DB.kardex.splice(i,1); guardarDB(); renderKardex();
