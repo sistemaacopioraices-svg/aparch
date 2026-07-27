@@ -526,20 +526,11 @@ tr:hover td{background:#f4f8f4;}
     <div class="card-header">
       <div class="card-title">📋 Guías de Entrada</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar guías NUEVAS desde Excel">
-          📂 Importar Excel
-          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasExcel(this)">
-        </label>
-        <label class="btn btn-secondary" style="cursor:pointer;" title="Importar precio (o rendimiento/puntaje) y humedad de análisis desde Excel para guías YA registradas — recalcula el valor recibido solo">
-          📊 Importar Precios/Humedad
-          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarPreciosGuias(this)">
-        </label>
         <label class="btn btn-secondary" style="cursor:pointer;background:#fff3e0;border-color:#ffb74d;" title="Para historiales YA CALCULADOS Y YA PAGADOS (ej. campañas anteriores llevadas en Excel): crea ticket + guía + comprobante de pago (marcado como Pagado Total) por cada fila, sin recalcular montos">
           📦 Importar Completo (Tickets+Guías+Pago)
           <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importarGuiasCompletasExcel(this)">
         </label>
         <button class="btn btn-export" onclick="exportarExcel('guias')">📥 Exportar Excel</button>
-        <button class="btn btn-secondary" onclick="vincularTicketsHuerfanos(true)" title="Solo úsalo para arreglar datos VIEJOS (guías huérfanas de antes). Revisa siempre el resultado antes de confiar en él — nunca se ejecuta solo.">🔗 Vincular Tickets Antiguos (revisar antes de usar)</button>
         <button class="btn btn-dorado" onclick="imprimirTodasGuias()">🖨️ Imprimir Todas</button>
         <button class="btn btn-primary" onclick="abrirModalGuia()">+ Nueva Guía</button>
       </div>
@@ -6888,63 +6879,63 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   const esConv = (g.certificacion||'').toUpperCase().includes('CONVENCIONAL');
   const colorCertif = esConv ? '#e65100' : '#1a5c2e';
 
-  return `<div style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;font-size:11px;border:1.5px solid #000;padding:8px 12px;box-sizing:border-box;display:flex;flex-direction:column;min-height:46%;color:#111;">
+  return `<div style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;font-size:13px;border:1.5px solid #000;padding:8px 12px;box-sizing:border-box;display:flex;flex-direction:column;min-height:46%;color:#111;">
 
     <!-- ENCABEZADO -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
       <tr>
-        <td style="width:70px;vertical-align:top;font-size:9px;font-weight:700;color:#555;">${g.codigo}</td>
+        <td style="width:70px;vertical-align:top;font-size:11px;font-weight:700;color:#555;">${g.codigo}</td>
         <td style="text-align:center;vertical-align:top;">
           <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
             <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;">
             <div>
-              <div style="font-size:13px;font-weight:900;line-height:1.15;">${NOMBRE_ORGANIZACION}</div>
-              <div style="font-size:8px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.5px;margin-top:1px;">GUÍA DE ENTRADA DE CAFÉ</div>
+              <div style="font-size:15px;font-weight:900;line-height:1.15;">${NOMBRE_ORGANIZACION}</div>
+              <div style="font-size:10px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+              <div style="font-size:12.5px;font-weight:700;letter-spacing:0.5px;margin-top:1px;">GUÍA DE ENTRADA DE CAFÉ</div>
             </div>
           </div>
         </td>
         <td style="width:90px;text-align:right;vertical-align:top;">
-          <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:8.5px;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">${etiqueta}</span>
+          <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">${etiqueta}</span>
         </td>
       </tr>
     </table>
 
     <!-- DATOS GENERALES -->
-    <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:4px;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px;">
       <tr>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;width:14%;">CAMPAÑA</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;width:14%;">CAMPAÑA</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;width:19%;">${g.campana||'—'}</td>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;width:14%;">BASE</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;width:14%;">BASE</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;width:19%;">${g.base||'—'}</td>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;width:14%;">CASERÍO</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;width:14%;">CASERÍO</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${g.caserio||'—'}</td>
       </tr>
       <tr>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRODUCTOR</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">PRODUCTOR</td>
         <td colspan="3" style="border:1px solid #999;padding:3px 6px;font-weight:800;">${g.productor||'—'}</td>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">DNI</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">DNI</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${g.dni||'—'}</td>
       </tr>
       <tr>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRODUCTO</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">PRODUCTO</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${g.producto||'Café Pergamino'}</td>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">CERTIFICACIÓN</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">CERTIFICACIÓN</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:800;color:${colorCertif};">${g.certificacion||'—'}</td>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">FORMA ENTREGA</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">FORMA ENTREGA</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${g.formaentrega||'—'}</td>
       </tr>
       <tr>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">FECHA</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">FECHA</td>
         <td style="border:1px solid #999;padding:3px 6px;font-weight:700;">${fechaDisplay(g.fecha)}</td>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">RENDIMIENTO</td>
-        <td style="border:1px solid #999;padding:3px 6px;font-weight:900;color:#1a5c2e;font-size:12px;">${g.rend_export||'—'}%</td>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRECIO KG</td>
-        <td style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:11px;">S/. ${getPrecioKgGuia(g).toFixed(4)}</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">RENDIMIENTO</td>
+        <td style="border:1px solid #999;padding:3px 6px;font-weight:900;color:#1a5c2e;font-size:14px;">${g.rend_export||'—'}%</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">PRECIO KG</td>
+        <td style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:13px;">S/. ${getPrecioKgGuia(g).toFixed(4)}</td>
       </tr>
       <tr>
-        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:8px;color:#555;">PRECIO QQ</td>
-        <td colspan="5" style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:11px;">S/. ${fmt(g.precioqq)}</td>
+        <td style="border:1px solid #999;padding:3px 6px;background:#f5f5f5;font-size:10px;color:#555;">PRECIO QQ</td>
+        <td colspan="5" style="border:1px solid #999;padding:3px 6px;font-weight:800;font-size:13px;">S/. ${fmt(g.precioqq)}</td>
       </tr>
     </table>
 
@@ -6952,27 +6943,27 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
       <tr>
         <td style="border:1.5px solid #000;padding:6px 8px;background:#eef7ee;width:70%;">
-          <span style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700;">Valor Total del Recibo (Pago Neto):</span>
-          <span style="font-size:23px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${fmtPago(valorTotal)}</span>
+          <span style="font-size:11px;color:#555;text-transform:uppercase;font-weight:700;">Valor Total del Recibo (Pago Neto):</span>
+          <span style="font-size:25px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${fmtPago(valorTotal)}</span>
         </td>
-        <td style="border:1.5px solid #000;padding:6px 8px;font-size:9.5px;font-style:italic;color:#444;">${valorLetras}</td>
+        <td style="border:1.5px solid #000;padding:6px 8px;font-size:11.5px;font-style:italic;color:#444;">${valorLetras}</td>
       </tr>
       ${(primaQQ>0 || (g.formaentrega==='Descuento' && descQQ>0) || estimadoKg>0) ? `<tr>
         <td colspan="2" style="border:1px solid #999;padding:5px 8px;">
-          <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:10px;">
-            <div><span style="color:#555;">Precio Base:</span> <strong style="font-size:11px;">S/. ${fmt(totalQQ*parseFloat(g.precioqq||0))}</strong></div>
-            ${primaQQ>0?`<div><span style="color:#555;">+ Prima (S/.${fmt(primaQQ)}/qq):</span> <strong style="color:#1565c0;font-size:11px;">+S/. ${fmt(primaSol)}</strong></div>`:''}
-            ${g.formaentrega==='Descuento' && descQQ>0?`<div><span style="color:#555;">− Descuento (S/.${fmt(descQQ)}/qq):</span> <strong style="color:#c62828;font-size:11px;">−S/. ${fmt(descSol)}</strong></div>`:''}
-            ${estimadoKg>0?`<div><span style="color:#555;">Compromiso Total:</span> <strong style="color:#e65100;font-size:11px;">${fmt(estimadoKg)} kg</strong></div>`:''}
-            <div style="margin-left:auto;"><span style="color:#555;">= Pago Neto:</span> <strong style="color:#1a5c2e;font-size:12px;">S/. ${fmt(valorTotal)}</strong></div>
+          <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:12px;">
+            <div><span style="color:#555;">Precio Base:</span> <strong style="font-size:13px;">S/. ${fmt(totalQQ*parseFloat(g.precioqq||0))}</strong></div>
+            ${primaQQ>0?`<div><span style="color:#555;">+ Prima (S/.${fmt(primaQQ)}/qq):</span> <strong style="color:#1565c0;font-size:13px;">+S/. ${fmt(primaSol)}</strong></div>`:''}
+            ${g.formaentrega==='Descuento' && descQQ>0?`<div><span style="color:#555;">− Descuento (S/.${fmt(descQQ)}/qq):</span> <strong style="color:#c62828;font-size:13px;">−S/. ${fmt(descSol)}</strong></div>`:''}
+            ${estimadoKg>0?`<div><span style="color:#555;">Compromiso Total:</span> <strong style="color:#e65100;font-size:13px;">${fmt(estimadoKg)} kg</strong></div>`:''}
+            <div style="margin-left:auto;"><span style="color:#555;">= Pago Neto:</span> <strong style="color:#1a5c2e;font-size:14px;">S/. ${fmt(valorTotal)}</strong></div>
           </div>
         </td>
       </tr>`:''}
     </table>
 
     <!-- DETALLE DE TICKETS -->
-    <div style="font-weight:800;font-size:10px;text-transform:uppercase;margin-bottom:2px;color:#1a5c2e;">Detalle de Tickets</div>
-    <table style="width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:6px;">
+    <div style="font-weight:800;font-size:12px;text-transform:uppercase;margin-bottom:2px;color:#1a5c2e;">Detalle de Tickets</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:6px;">
       <thead>
         <tr style="background:#1a5c2e;">
           <th style="border:1px solid #14431f;padding:4px 2px;color:#fff;font-weight:800;">Ticket</th>
@@ -6995,8 +6986,8 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     </table>
 
     <!-- ANÁLISIS FÍSICO Y SENSORIAL -->
-    <div style="font-weight:800;font-size:10px;text-transform:uppercase;margin-bottom:2px;color:#1a5c2e;">Análisis Físico y Sensorial</div>
-    <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px;">
+    <div style="font-weight:800;font-size:12px;text-transform:uppercase;margin-bottom:2px;color:#1a5c2e;">Análisis Físico y Sensorial</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px;">
       <tr style="background:#1a5c2e;">
         <th style="border:1px solid #14431f;padding:4px;color:#fff;font-weight:800;">Exportación</th>
         <th style="border:1px solid #14431f;padding:4px;color:#fff;font-weight:800;">Segunda</th>
@@ -7018,12 +7009,12 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
     <!-- FIRMAS -->
     <div style="display:flex;gap:60px;margin-top:auto;padding-top:18px;">
       <div style="flex:1;text-align:center;border-top:1.5px solid #000;padding-top:4px;">
-        <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;">${g.productor||''}</div>
-        <div style="font-weight:400;font-size:9px;color:#555;">Productor (A)</div>
+        <div style="font-size:12.5px;font-weight:800;text-transform:uppercase;">${g.productor||''}</div>
+        <div style="font-weight:400;font-size:11px;color:#555;">Productor (A)</div>
       </div>
       <div style="flex:1;text-align:center;border-top:1.5px solid #000;padding-top:4px;">
-        <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;">${empresaActiva().nombreCorto}</div>
-        <div style="font-weight:400;font-size:9px;color:#555;">Responsable de Área</div>
+        <div style="font-size:12.5px;font-weight:800;text-transform:uppercase;">${empresaActiva().nombreCorto}</div>
+        <div style="font-weight:400;font-size:11px;color:#555;">Responsable de Área</div>
       </div>
     </div>
   </div>`;
@@ -7196,7 +7187,7 @@ let _compIdxActual = -1;
 function imprimirGuia(){
   const c=document.getElementById('print-zona-guia').outerHTML;
   const estilo = `
-    td,th{font-size:7.5px;padding:2px 3px;}
+    td,th{font-size:9.5px;padding:2px 3px;}
     @page{size:A4 portrait;margin:5mm;}
     /* Estas reglas se aplican SIEMPRE (no solo en @media print) para que el ajuste
        automático por JavaScript pueda medir el espacio real disponible antes de imprimir. */
@@ -8156,7 +8147,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
   const guiasHtml = guiasRef.map(cod=>{
     const g = DB.guias.find(x=>x.codigo===cod);
     const valG = g ? parseFloat(g.valorrecibido||0) : 0;
-    return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #e0e0e0;font-size:10.5px;">
+    return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #e0e0e0;font-size:12.5px;">
       <span style="color:#1565c0;font-weight:700;">${cod}</span>
       <span>${g?g.productor:''}</span>
       <span style="font-weight:700;">S/. ${fmt(valG)}</span>
@@ -8165,7 +8156,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
   const cafeCocoHtml = ccRef.map(cod=>{
     const cc = (DB.cafecoco||[]).find(x=>x.codigo===cod);
     const valCC = cc ? parseFloat(cc.total||0) : 0;
-    return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #e0e0e0;font-size:10.5px;">
+    return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #e0e0e0;font-size:12.5px;">
       <span style="color:#6b3a2a;font-weight:700;">🌰 ${cod}</span>
       <span>${cc?cc.nombres:''}</span>
       <span style="font-weight:700;">S/. ${fmt(valCC)}</span>
@@ -8173,19 +8164,19 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
   }).join('');
 
   return `
-  <div class="copia-guia" style="border:2px solid #333;border-radius:8px;padding:10px 14px;font-size:13px;page-break-inside:avoid;">
+  <div class="copia-guia" style="border:2px solid #333;border-radius:8px;padding:10px 14px;font-size:15px;page-break-inside:avoid;">
     <div style="text-align:right;margin-bottom:4px;">
-      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
+      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:12px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
     </div>
     <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #333;padding-bottom:6px;margin-bottom:8px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13.5px;font-weight:900;line-height:1.15;">${NOMBRE_ORGANIZACION}</div>
-        <div style="font-size:9px;color:#555;line-height:1.3;margin-top:1px;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-        <div style="font-size:11px;font-weight:700;margin-top:2px;">COMPROBANTE DE PAGO</div>
-        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
+        <div style="font-size:15.5px;font-weight:900;line-height:1.15;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:11px;color:#555;line-height:1.3;margin-top:1px;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:13px;font-weight:700;margin-top:2px;">COMPROBANTE DE PAGO</div>
+        <div style="font-size:21px;font-weight:900;color:#1a5c2e;">${c.codigo}</div>
       </div>
-      <div style="text-align:right;font-size:10px;color:#555;flex-shrink:0;">
+      <div style="text-align:right;font-size:12px;color:#555;flex-shrink:0;">
         <div><strong>Fecha:</strong> ${fechaDisplay(c.fecha)}</div>
         <div style="background:#e8f5e9;color:#1a5c2e;font-weight:800;padding:3px 8px;border-radius:5px;margin-top:3px;">
           ${nGuias>0?`${nGuias} GUÍA${nGuias>1?'S':''}`:''}${nGuias>0&&nCC>0?' + ':''}${nCC>0?`${nCC} CAFÉ COCO`:''}${nItems===0?'0 ÍTEMS':''}
@@ -8195,19 +8186,19 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
 
     <!-- Datos del productor -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-bottom:7px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:6px 10px;">
-      <div style="grid-column:1/-1;"><span style="font-size:9px;color:#666;font-weight:600;">PRODUCTOR: </span><strong style="font-size:13.5px;">${c.productor||'—'}</strong></div>
-      <div><span style="font-size:9px;color:#666;font-weight:600;">DNI: </span><strong style="font-size:12px;">${c.dni||'—'}</strong></div>
-      <div><span style="font-size:9px;color:#666;font-weight:600;">BASE: </span><strong style="font-size:12px;">${baseInfo||'—'}</strong></div>
-      <div><span style="font-size:9px;color:#666;font-weight:600;">CASERÍO: </span><strong style="font-size:12px;">${caserioInfo||'—'}</strong></div>
-      <div><span style="font-size:9px;color:#666;font-weight:600;">FORMA PAGO: </span><strong style="font-size:12px;">${c.formapago||'—'}</strong></div>
-      <div><span style="font-size:9px;color:#666;font-weight:600;">TIPO: </span><strong style="font-size:12px;">${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
-      ${c.apertura_ref?`<div style="grid-column:1/-1;"><span style="font-size:9px;color:#666;font-weight:600;">CAJA: </span><strong style="font-size:12px;">${c.apertura_ref}</strong></div>`:''}
+      <div style="grid-column:1/-1;"><span style="font-size:11px;color:#666;font-weight:600;">PRODUCTOR: </span><strong style="font-size:15.5px;">${c.productor||'—'}</strong></div>
+      <div><span style="font-size:11px;color:#666;font-weight:600;">DNI: </span><strong style="font-size:14px;">${c.dni||'—'}</strong></div>
+      <div><span style="font-size:11px;color:#666;font-weight:600;">BASE: </span><strong style="font-size:14px;">${baseInfo||'—'}</strong></div>
+      <div><span style="font-size:11px;color:#666;font-weight:600;">CASERÍO: </span><strong style="font-size:14px;">${caserioInfo||'—'}</strong></div>
+      <div><span style="font-size:11px;color:#666;font-weight:600;">FORMA PAGO: </span><strong style="font-size:14px;">${c.formapago||'—'}</strong></div>
+      <div><span style="font-size:11px;color:#666;font-weight:600;">TIPO: </span><strong style="font-size:14px;">${c.tipopago==='total'?'Pago Total':c.tipopago==='parcial'?'Pago Parcial':'Pendiente'}</strong></div>
+      ${c.apertura_ref?`<div style="grid-column:1/-1;"><span style="font-size:11px;color:#666;font-weight:600;">CAJA: </span><strong style="font-size:14px;">${c.apertura_ref}</strong></div>`:''}
     </div>
 
     <!-- Guías incluidas -->
     ${nGuias>0?`
     <div style="margin-bottom:7px;">
-      <div style="font-size:9.5px;font-weight:800;color:#1a5c2e;text-transform:uppercase;border-bottom:1.5px solid #c8e6c9;padding-bottom:2px;margin-bottom:3px;">
+      <div style="font-size:11.5px;font-weight:800;color:#1a5c2e;text-transform:uppercase;border-bottom:1.5px solid #c8e6c9;padding-bottom:2px;margin-bottom:3px;">
         📋 Guías incluidas en este comprobante (${nGuias})
       </div>
       ${guiasHtml}
@@ -8216,7 +8207,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     <!-- Café Coco incluido -->
     ${nCC>0?`
     <div style="margin-bottom:7px;">
-      <div style="font-size:9.5px;font-weight:800;color:#6b3a2a;text-transform:uppercase;border-bottom:1.5px solid #d7c3ba;padding-bottom:2px;margin-bottom:3px;">
+      <div style="font-size:11.5px;font-weight:800;color:#6b3a2a;text-transform:uppercase;border-bottom:1.5px solid #d7c3ba;padding-bottom:2px;margin-bottom:3px;">
         🌰 Café Coco incluido en este comprobante (${nCC})
       </div>
       ${cafeCocoHtml}
@@ -8225,23 +8216,23 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
     <!-- Montos -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px;text-align:center;">
       <div style="border:1.5px solid #ccc;padding:7px;border-radius:7px;background:#f9f9f9;">
-        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Total${nItems>1?' (Guías + Café Coco)':''}</div>
-        <div style="font-size:16px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
+        <div style="font-size:11px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Total${nItems>1?' (Guías + Café Coco)':''}</div>
+        <div style="font-size:18px;font-weight:900;color:#e65100;">S/. ${fmtPago(tot)}</div>
       </div>
       <div style="border:2.5px solid #1a5c2e;padding:7px;border-radius:7px;background:#f0faf4;">
-        <div style="font-size:9px;color:#2e7d32;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Este Pago</div>
-        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">S/. ${fmtPago(c.monto)}</div>
+        <div style="font-size:11px;color:#2e7d32;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Este Pago</div>
+        <div style="font-size:21px;font-weight:900;color:#1a5c2e;">S/. ${fmtPago(c.monto)}</div>
       </div>
       <div style="border:1.5px solid ${saldo<=0.05?'#a5d6a7':'#ef9a9a'};padding:7px;border-radius:7px;background:${saldo<=0.05?'#e8f5e9':'#fce4ec'};">
-        <div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Saldo</div>
-        <div style="font-size:16px;font-weight:900;color:${saldo<=0.05?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
+        <div style="font-size:11px;color:#666;text-transform:uppercase;margin-bottom:3px;font-weight:700;">Saldo</div>
+        <div style="font-size:18px;font-weight:900;color:${saldo<=0.05?'#2e7d32':'#c62828'};">S/. ${fmtPago(saldo)}</div>
       </div>
     </div>
-    <div style="border:1px solid #999;border-radius:6px;padding:4px 8px;margin-bottom:7px;font-size:9.5px;font-style:italic;color:#444;">
+    <div style="border:1px solid #999;border-radius:6px;padding:4px 8px;margin-bottom:7px;font-size:11.5px;font-style:italic;color:#444;">
       Son: <strong>${montoLetras}</strong>
     </div>
     ${parseFloat(c.descuento_prestamos||0)>0?`
-    <div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:6px;padding:6px 10px;margin-bottom:7px;font-size:11px;">
+    <div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:6px;padding:6px 10px;margin-bottom:7px;font-size:13px;">
       <div style="font-weight:800;color:#e65100;margin-bottom:4px;">🏦 Descuento por Préstamo${(c.prestamos_descontados||[]).length>1?'s':''}</div>
       ${(c.prestamos_descontados||[]).map(pd=>`<div style="display:flex;justify-content:space-between;padding:2px 0;">
         <span><span style="color:#666;">N° de Crédito:</span> <strong style="color:#1565c0;">${pd.codigo||'—'}</strong></span>
@@ -8249,10 +8240,10 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
       </div>`).join('')}
       <div style="font-weight:800;color:#c62828;margin-top:4px;border-top:1px dashed #ffb74d;padding-top:4px;">Total Descontado: S/. ${fmt(c.descuento_prestamos)}</div>
     </div>`:''}
-    ${c.observaciones?`<div style="font-size:11px;margin-bottom:7px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
+    ${c.observaciones?`<div style="font-size:13px;margin-bottom:7px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:38px;">
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Pagado por (${empresaActiva().nombreCorto})</div>
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:9.5px;">${c.productor||''}</span></div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11.5px;font-weight:700;text-transform:uppercase;">Pagado por (${empresaActiva().nombreCorto})</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:11.5px;">${c.productor||''}</span></div>
     </div>
   </div>`;
 }
@@ -10527,39 +10518,39 @@ function generarCopiaEstadoCuentaPrestamo(idx, etiqueta, colorEtiqueta){
         <td style="border:1px solid #ccc;padding:4px 6px;">${fechaDisplay(ab.fecha)}</td>
         <td style="border:1px solid #ccc;padding:4px 6px;text-align:right;font-weight:700;color:#2e7d32;">S/. ${parseFloat(ab.monto).toFixed(2)}</td>
         <td style="border:1px solid #ccc;padding:4px 6px;">${ab.formapago||'—'}</td>
-        <td style="border:1px solid #ccc;padding:4px 6px;font-size:9px;">${ab.obs||'—'}</td>
+        <td style="border:1px solid #ccc;padding:4px 6px;font-size:11px;">${ab.obs||'—'}</td>
       </tr>`).join('')
     : `<tr><td colspan="5" style="border:1px solid #ccc;text-align:center;padding:8px;color:#999;font-style:italic;">Sin abonos registrados</td></tr>`;
 
   return `
   <div class="copia-guia" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:560px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;page-break-inside:avoid;">
     <div style="text-align:right;margin-bottom:4px;">
-      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
+      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:12px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
-        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">ESTADO DE CUENTA — ${cfg.nombre.toUpperCase()}</div>
-        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${p.codigo}</div>
+        <div style="font-size:15px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:10.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:12.5px;font-weight:700;margin-top:2px;">ESTADO DE CUENTA — ${cfg.nombre.toUpperCase()}</div>
+        <div style="font-size:21px;font-weight:900;color:#1a5c2e;">${p.codigo}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
-      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:13px;">${p.socio||'—'}</strong></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:13px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:15px;">${p.socio||'—'}</strong></div>
       <div><span style="color:#666;">DNI: </span><strong>${p.dni||'—'}</strong></div>
       <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(p.fecha)}</strong></div>
       <div><span style="color:#666;">Vencimiento: </span><strong>${fechaDisplay(p.vencimiento)}</strong></div>
       <div><span style="color:#666;">Estado: </span><strong style="color:${est==='Pagado'?'#2e7d32':est==='Vencido'?'#c62828':'#0d47a1'};">${est}</strong></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-bottom:12px;">
-      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#555;">MONTO PRÉSTAMO</div><div style="font-weight:800;font-size:12px;">S/.${fmt(p.monto)}</div></div>
-      <div style="background:#fff3e0;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#e65100;">TOTAL A DEVOLVER</div><div style="font-weight:800;font-size:12px;color:#e65100;">S/.${fmt(p.total)}</div></div>
-      <div style="background:#e8f5e9;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#2e7d32;">PAGADO</div><div style="font-weight:800;font-size:12px;color:#2e7d32;">S/.${fmt(paid)}</div></div>
-      <div style="background:${sald<=0.05?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:8px;color:${sald<=0.05?'#2e7d32':'#c62828'};">SALDO</div><div style="font-weight:900;font-size:12px;color:${sald<=0.05?'#2e7d32':'#c62828'};">S/.${fmt(sald)}</div></div>
+      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:10px;color:#555;">MONTO PRÉSTAMO</div><div style="font-weight:800;font-size:14px;">S/.${fmt(p.monto)}</div></div>
+      <div style="background:#fff3e0;border-radius:6px;padding:7px;"><div style="font-size:10px;color:#e65100;">TOTAL A DEVOLVER</div><div style="font-weight:800;font-size:14px;color:#e65100;">S/.${fmt(p.total)}</div></div>
+      <div style="background:#e8f5e9;border-radius:6px;padding:7px;"><div style="font-size:10px;color:#2e7d32;">PAGADO</div><div style="font-weight:800;font-size:14px;color:#2e7d32;">S/.${fmt(paid)}</div></div>
+      <div style="background:${sald<=0.05?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:10px;color:${sald<=0.05?'#2e7d32':'#c62828'};">SALDO</div><div style="font-weight:900;font-size:14px;color:${sald<=0.05?'#2e7d32':'#c62828'};">S/.${fmt(sald)}</div></div>
     </div>
-    <div style="font-weight:800;font-size:9.5px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Historial de Abonos</div>
-    <table style="width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:14px;">
+    <div style="font-weight:800;font-size:11.5px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Historial de Abonos</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:14px;">
       <thead><tr style="background:#1a5c2e;color:#fff;">
         <th style="border:1px solid #14431f;padding:4px 6px;">#</th>
         <th style="border:1px solid #14431f;padding:4px 6px;">Fecha</th>
@@ -10569,10 +10560,10 @@ function generarCopiaEstadoCuentaPrestamo(idx, etiqueta, colorEtiqueta){
       </tr></thead>
       <tbody>${abonosRows}</tbody>
     </table>
-    ${p.observaciones?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${p.observaciones}</div>`:''}
+    ${p.observaciones?`<div style="font-size:12px;margin-bottom:10px;"><b>Observaciones:</b> ${p.observaciones}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:24px;">
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">${empresaActiva().nombreCorto}</div>
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:9px;">${p.socio||''}</span></div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11px;font-weight:700;text-transform:uppercase;">${empresaActiva().nombreCorto}</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:11px;">${p.socio||''}</span></div>
     </div>
   </div>`;
 }
@@ -10599,36 +10590,36 @@ function generarCopiaAbono(p, ab, sald, cfg, etiqueta, colorEtiqueta){
   return `
   <div class="copia-guia" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:520px;margin:0 auto;padding:18px 20px;border:1.5px solid #000;border-radius:8px;page-break-inside:avoid;">
     <div style="text-align:right;margin-bottom:4px;">
-      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
+      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:12px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
-        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">COMPROBANTE DE ABONO A PRÉSTAMO</div>
-        <div style="font-size:17px;font-weight:900;color:#1a5c2e;">${p.codigo}${ab.recibo_ref?` · ${ab.recibo_ref}`:''}</div>
+        <div style="font-size:15px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:10.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:12.5px;font-weight:700;margin-top:2px;">COMPROBANTE DE ABONO A PRÉSTAMO</div>
+        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${p.codigo}${ab.recibo_ref?` · ${ab.recibo_ref}`:''}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
-      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:13px;">${p.socio||'—'}</strong></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:13px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:15px;">${p.socio||'—'}</strong></div>
       <div><span style="color:#666;">DNI: </span><strong>${p.dni||'—'}</strong></div>
       <div><span style="color:#666;">Tipo Préstamo: </span><strong>${cfg.nombre}</strong></div>
       <div><span style="color:#666;">Fecha de Abono: </span><strong>${fechaDisplay(ab.fecha)}</strong></div>
       <div><span style="color:#666;">Forma de Pago: </span><strong>${ab.formapago||'—'}</strong></div>
     </div>
     <div style="background:#eef7ee;border:1.5px solid #000;border-radius:6px;padding:8px 12px;margin-bottom:10px;text-align:right;">
-      <span style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700;">Monto Abonado:</span>
-      <span style="font-size:20px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${parseFloat(ab.monto).toFixed(2)}</span>
+      <span style="font-size:11px;color:#555;text-transform:uppercase;font-weight:700;">Monto Abonado:</span>
+      <span style="font-size:22px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${parseFloat(ab.monto).toFixed(2)}</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin-bottom:14px;">
-      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#555;">SALDO ANTERIOR</div><div style="font-weight:700;font-size:12px;">S/.${(sald+parseFloat(ab.monto)).toFixed(2)}</div></div>
-      <div style="background:${sald<=0.05?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:8px;color:${sald<=0.05?'#2e7d32':'#c62828'};">SALDO ACTUAL</div><div style="font-weight:900;font-size:12px;color:${sald<=0.05?'#2e7d32':'#c62828'};">S/.${sald.toFixed(2)}</div></div>
+      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:10px;color:#555;">SALDO ANTERIOR</div><div style="font-weight:700;font-size:14px;">S/.${(sald+parseFloat(ab.monto)).toFixed(2)}</div></div>
+      <div style="background:${sald<=0.05?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:10px;color:${sald<=0.05?'#2e7d32':'#c62828'};">SALDO ACTUAL</div><div style="font-weight:900;font-size:14px;color:${sald<=0.05?'#2e7d32':'#c62828'};">S/.${sald.toFixed(2)}</div></div>
     </div>
-    ${ab.obs?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${ab.obs}</div>`:''}
+    ${ab.obs?`<div style="font-size:12px;margin-bottom:10px;"><b>Observaciones:</b> ${ab.obs}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:30px;">
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Recibido por (${empresaActiva().nombreCorto})</div>
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:9px;">${p.socio||''}</span></div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11px;font-weight:700;text-transform:uppercase;">Recibido por (${empresaActiva().nombreCorto})</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11px;font-weight:700;text-transform:uppercase;">Firma Socio<br><span style="font-style:italic;color:#666;font-size:11px;">${p.socio||''}</span></div>
     </div>
   </div>`;
 }
@@ -11849,17 +11840,17 @@ function verPrintRecibo(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid ${colorPrincipal};padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:11.5px;font-weight:900;line-height:1.25;">${NOMBRE_ORGANIZACION}</div>
-        <div style="font-size:8.5px;color:#555;line-height:1.5;margin-top:2px;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-        <div style="font-size:11px;font-weight:800;color:${colorPrincipal};letter-spacing:0.5px;margin-top:3px;">${etiqueta}</div>
+        <div style="font-size:13.5px;font-weight:900;line-height:1.25;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:10.5px;color:#555;line-height:1.5;margin-top:2px;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:13px;font-weight:800;color:${colorPrincipal};letter-spacing:0.5px;margin-top:3px;">${etiqueta}</div>
       </div>
       <div style="width:46px;"></div>
     </div>
     <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:18px;font-weight:900;color:${colorPrincipal};">${r.codigo}</div>
-      <div style="font-size:10px;color:#666;">${fechaDisplay(r.fecha)}</div>
+      <div style="font-size:20px;font-weight:900;color:${colorPrincipal};">${r.codigo}</div>
+      <div style="font-size:12px;color:#666;">${fechaDisplay(r.fecha)}</div>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:2.1;">
       <tr><td style="width:38%;color:#444;">${esIngreso?'Recibí de':'Pagado a'}</td><td style="font-weight:800;">: ${r.persona||'—'}</td></tr>
       ${r.dni ? `<tr><td style="color:#444;">DNI</td><td style="font-weight:700;">: ${r.dni}</td></tr>` : ''}
       ${r.base ? `<tr><td style="color:#444;">Base</td><td style="font-weight:700;">: ${r.base}</td></tr>` : ''}
@@ -11870,13 +11861,13 @@ function verPrintRecibo(idx){
       <tr><td style="color:#444;">Usuario</td><td style="font-weight:700;text-transform:uppercase;">: ${r.usuario||'—'}</td></tr>
     </table>
     <div style="border:2px solid ${colorPrincipal};border-radius:8px;padding:12px;text-align:center;margin:14px 0;background:${esIngreso?'#f0faf4':'#fdf2f0'};">
-      <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">${esIngreso?'MONTO RECIBIDO':'MONTO PAGADO'}</div>
-      <div style="font-size:26px;font-weight:900;color:${colorPrincipal};">S/. ${fmtPago(r.monto)}</div>
+      <div style="font-size:12px;color:#666;text-transform:uppercase;font-weight:700;">${esIngreso?'MONTO RECIBIDO':'MONTO PAGADO'}</div>
+      <div style="font-size:28px;font-weight:900;color:${colorPrincipal};">S/. ${fmtPago(r.monto)}</div>
     </div>
-    ${r.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${r.observaciones}</div>` : ''}
+    ${r.observaciones ? `<div style="font-size:13px;margin-bottom:10px;"><b>Observaciones:</b> ${r.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px;">
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">${esIngreso?'Entregado por':'Recibido por'}</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:11px;text-transform:uppercase;">${esIngreso?'Entregado por':'Recibido por'}</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:11px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
     </div>
   </div>`;
   abrirModal('modal-print-recibo');
@@ -11898,7 +11889,7 @@ function verPrintCierre(idx){
 
   const filas = recibosAp.map(r=>{
     const esIngreso = r.tipo==='ingreso';
-    return `<tr style="font-size:10px;">
+    return `<tr style="font-size:12px;">
       <td style="border:1px solid #ccc;padding:3px 5px;">${r.codigo}</td>
       <td style="border:1px solid #ccc;padding:3px 5px;">${fechaDisplay(r.fecha)}</td>
       <td style="border:1px solid #ccc;padding:3px 5px;">${r.concepto||'—'}</td>
@@ -11912,39 +11903,39 @@ function verPrintCierre(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
-        <div style="font-size:11px;font-weight:800;">ARQUEO DE CAJA — ${ap.estado.toUpperCase()}</div>
-        <div style="font-size:15px;font-weight:900;color:#1a5c2e;">${ap.codigo}</div>
+        <div style="font-size:15px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
+        <div style="font-size:13px;font-weight:800;">ARQUEO DE CAJA — ${ap.estado.toUpperCase()}</div>
+        <div style="font-size:17px;font-weight:900;color:#1a5c2e;">${ap.codigo}</div>
       </div>
       <div style="width:40px;"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:13px;margin-bottom:12px;">
       <div><span style="color:#666;">Apertura: </span><strong>${fechaDisplay(ap.fecha)} ${ap.hora}</strong></div>
       <div><span style="color:#666;">Usuario: </span><strong>${ap.usuario}</strong></div>
       ${ap.fecha_cierre ? `<div><span style="color:#666;">Cierre: </span><strong>${fechaDisplay(ap.fecha_cierre)} ${ap.hora_cierre}</strong></div>` : ''}
       ${ap.usuario_cierre ? `<div><span style="color:#666;">Cerrado por: </span><strong>${ap.usuario_cierre}</strong></div>` : ''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-bottom:14px;">
-      <div style="background:#f5f5f5;border-radius:6px;padding:8px;"><div style="font-size:8px;color:#666;">SALDO INICIAL</div><div style="font-weight:800;font-size:13px;">S/.${parseFloat(ap.saldo_inicial).toFixed(2)}</div></div>
-      <div style="background:#e8f5e9;border-radius:6px;padding:8px;"><div style="font-size:8px;color:#2e7d32;">INGRESOS</div><div style="font-weight:800;font-size:13px;color:#2e7d32;">+S/.${ingresos.toFixed(2)}</div></div>
-      <div style="background:#ffebee;border-radius:6px;padding:8px;"><div style="font-size:8px;color:#c62828;">EGRESOS</div><div style="font-weight:800;font-size:13px;color:#c62828;">−S/.${egresos.toFixed(2)}</div></div>
-      <div style="background:#fff8e1;border-radius:6px;padding:8px;"><div style="font-size:8px;color:#e65100;">SALDO FINAL</div><div style="font-weight:900;font-size:13px;color:#e65100;">S/.${saldoCalc.toFixed(2)}</div></div>
+      <div style="background:#f5f5f5;border-radius:6px;padding:8px;"><div style="font-size:10px;color:#666;">SALDO INICIAL</div><div style="font-weight:800;font-size:15px;">S/.${parseFloat(ap.saldo_inicial).toFixed(2)}</div></div>
+      <div style="background:#e8f5e9;border-radius:6px;padding:8px;"><div style="font-size:10px;color:#2e7d32;">INGRESOS</div><div style="font-weight:800;font-size:15px;color:#2e7d32;">+S/.${ingresos.toFixed(2)}</div></div>
+      <div style="background:#ffebee;border-radius:6px;padding:8px;"><div style="font-size:10px;color:#c62828;">EGRESOS</div><div style="font-weight:800;font-size:15px;color:#c62828;">−S/.${egresos.toFixed(2)}</div></div>
+      <div style="background:#fff8e1;border-radius:6px;padding:8px;"><div style="font-size:10px;color:#e65100;">SALDO FINAL</div><div style="font-weight:900;font-size:15px;color:#e65100;">S/.${saldoCalc.toFixed(2)}</div></div>
     </div>
-    <div style="font-weight:700;font-size:9px;text-transform:uppercase;margin-bottom:5px;border-bottom:1px solid #ccc;padding-bottom:2px;">DETALLE DE MOVIMIENTOS</div>
+    <div style="font-weight:700;font-size:11px;text-transform:uppercase;margin-bottom:5px;border-bottom:1px solid #ccc;padding-bottom:2px;">DETALLE DE MOVIMIENTOS</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
       <thead style="background:#1a5c2e;color:#fff;"><tr>
-        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">N° Recibo</th>
-        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Fecha</th>
-        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Concepto</th>
-        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Persona</th>
-        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Monto</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:11px;">N° Recibo</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:11px;">Fecha</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:11px;">Concepto</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:11px;">Persona</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:11px;">Monto</th>
       </tr></thead>
       <tbody>${filas || '<tr><td colspan="5" style="text-align:center;padding:6px;color:#999;">Sin movimientos</td></tr>'}</tbody>
     </table>
-    ${ap.observaciones ? `<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${ap.observaciones}</div>` : ''}
+    ${ap.observaciones ? `<div style="font-size:12px;margin-bottom:10px;"><b>Observaciones:</b> ${ap.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px;">
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">Responsable de Caja</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:10px;text-transform:uppercase;">Responsable de Caja</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:10px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
     </div>
   </div>`;
   abrirModal('modal-print-cierre');
@@ -12096,7 +12087,7 @@ function verPrintArqueo(idx){
   const a = DB.arqueos[idx];
   if(!a) return;
   const dif = parseFloat(a.diferencia||0);
-  const filasDet = (a.detalle||[]).map(d=>`<tr style="font-size:10px;">
+  const filasDet = (a.detalle||[]).map(d=>`<tr style="font-size:12px;">
       <td style="border:1px solid #ccc;padding:3px 5px;">${d.tipo==='billete'?'Billete':'Moneda'} S/.${d.valor.toFixed(2)}</td>
       <td style="border:1px solid #ccc;padding:3px 5px;text-align:center;">${d.cantidad}</td>
       <td style="border:1px solid #ccc;padding:3px 5px;text-align:right;">S/.${d.subtotal.toFixed(2)}</td>
@@ -12107,35 +12098,35 @@ function verPrintArqueo(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
-        <div style="font-size:11px;font-weight:800;">ACTA DE ARQUEO DE CAJA (CONTEO FÍSICO)</div>
-        <div style="font-size:15px;font-weight:900;color:#1a5c2e;">${a.codigo}</div>
+        <div style="font-size:15px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
+        <div style="font-size:13px;font-weight:800;">ACTA DE ARQUEO DE CAJA (CONTEO FÍSICO)</div>
+        <div style="font-size:17px;font-weight:900;color:#1a5c2e;">${a.codigo}</div>
       </div>
       <div style="width:40px;"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:13px;margin-bottom:12px;">
       <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(a.fecha)} ${a.hora||''}</strong></div>
       <div><span style="color:#666;">Caja: </span><strong>${a.apertura_ref||'—'}</strong></div>
       <div><span style="color:#666;">Responsable: </span><strong>${a.usuario||'—'}</strong></div>
     </div>
-    <div style="font-weight:700;font-size:9px;text-transform:uppercase;margin-bottom:5px;border-bottom:1px solid #ccc;padding-bottom:2px;">DETALLE DEL CONTEO</div>
+    <div style="font-weight:700;font-size:11px;text-transform:uppercase;margin-bottom:5px;border-bottom:1px solid #ccc;padding-bottom:2px;">DETALLE DEL CONTEO</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
       <thead style="background:#1a5c2e;color:#fff;"><tr>
-        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Denominación</th>
-        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Cantidad</th>
-        <th style="border:1px solid #ccc;padding:3px 5px;font-size:9px;">Subtotal</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:11px;">Denominación</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:11px;">Cantidad</th>
+        <th style="border:1px solid #ccc;padding:3px 5px;font-size:11px;">Subtotal</th>
       </tr></thead>
       <tbody>${filasDet || '<tr><td colspan="3" style="text-align:center;padding:6px;color:#999;">Sin detalle</td></tr>'}</tbody>
     </table>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-bottom:14px;">
-      <div style="background:#e8f5e9;border-radius:6px;padding:8px;"><div style="font-size:8px;color:#2e7d32;">TOTAL CONTADO</div><div style="font-weight:800;font-size:13px;color:#2e7d32;">S/.${parseFloat(a.total_contado).toFixed(2)}</div></div>
-      <div style="background:#f5f5f5;border-radius:6px;padding:8px;"><div style="font-size:8px;color:#666;">SALDO SISTEMA</div><div style="font-weight:800;font-size:13px;">S/.${parseFloat(a.saldo_sistema).toFixed(2)}</div></div>
-      <div style="background:${dif===0?'#e8f5e9':dif>0?'#e3f2fd':'#ffebee'};border-radius:6px;padding:8px;"><div style="font-size:8px;color:${dif===0?'#2e7d32':dif>0?'#1565c0':'#c62828'};">DIFERENCIA</div><div style="font-weight:900;font-size:13px;color:${dif===0?'#2e7d32':dif>0?'#1565c0':'#c62828'};">${dif>0?'+':''}S/.${dif.toFixed(2)}</div></div>
+      <div style="background:#e8f5e9;border-radius:6px;padding:8px;"><div style="font-size:10px;color:#2e7d32;">TOTAL CONTADO</div><div style="font-weight:800;font-size:15px;color:#2e7d32;">S/.${parseFloat(a.total_contado).toFixed(2)}</div></div>
+      <div style="background:#f5f5f5;border-radius:6px;padding:8px;"><div style="font-size:10px;color:#666;">SALDO SISTEMA</div><div style="font-weight:800;font-size:15px;">S/.${parseFloat(a.saldo_sistema).toFixed(2)}</div></div>
+      <div style="background:${dif===0?'#e8f5e9':dif>0?'#e3f2fd':'#ffebee'};border-radius:6px;padding:8px;"><div style="font-size:10px;color:${dif===0?'#2e7d32':dif>0?'#1565c0':'#c62828'};">DIFERENCIA</div><div style="font-weight:900;font-size:15px;color:${dif===0?'#2e7d32':dif>0?'#1565c0':'#c62828'};">${dif>0?'+':''}S/.${dif.toFixed(2)}</div></div>
     </div>
-    ${a.observaciones ? `<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${a.observaciones}</div>` : ''}
+    ${a.observaciones ? `<div style="font-size:12px;margin-bottom:10px;"><b>Observaciones:</b> ${a.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px;">
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">Responsable de Caja</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:8px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:10px;text-transform:uppercase;">Responsable de Caja</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:10px;text-transform:uppercase;">V°B° ${empresaActiva().nombreCorto}</div>
     </div>
   </div>`;
   abrirModal('modal-print-arqueo');
@@ -12365,39 +12356,39 @@ function generarCopiaCafeCoco(c, etiqueta, colorEtiqueta){
   return `
   <div class="copia-guia" style="font-family:Arial,sans-serif;max-width:460px;margin:0 auto;padding:20px 22px;border:2px solid #6b3a2a;border-radius:8px;page-break-inside:avoid;">
     <div style="text-align:right;margin-bottom:4px;">
-      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:10px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
+      <span style="display:inline-block;background:${colorEtiqueta};color:#fff;font-size:12px;font-weight:800;letter-spacing:0.5px;padding:3px 12px;border-radius:12px;text-transform:uppercase;">${etiqueta}</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #6b3a2a;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
-        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-        <div style="font-size:11px;font-weight:800;color:#6b3a2a;letter-spacing:0.5px;margin-top:2px;">COMPRA DE CAFÉ COCO</div>
+        <div style="font-size:15px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
+        <div style="font-size:10.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:13px;font-weight:800;color:#6b3a2a;letter-spacing:0.5px;margin-top:2px;">COMPRA DE CAFÉ COCO</div>
       </div>
       <div style="width:40px;"></div>
     </div>
     <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:18px;font-weight:900;color:#6b3a2a;">${c.codigo}</div>
-      <div style="font-size:10px;color:#666;">${fechaDisplay(c.fecha)}</div>
+      <div style="font-size:20px;font-weight:900;color:#6b3a2a;">${c.codigo}</div>
+      <div style="font-size:12px;color:#666;">${fechaDisplay(c.fecha)}</div>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:2.1;">
       <tr><td style="width:42%;color:#444;">DNI</td><td style="font-weight:800;">: ${c.dni||'—'}</td></tr>
       <tr><td style="color:#444;">Nombres</td><td style="font-weight:800;text-transform:uppercase;">: ${c.nombres||'—'}</td></tr>
       <tr><td style="color:#444;">N° Sacos</td><td style="font-weight:700;">: ${c.sacos||0}</td></tr>
       <tr><td style="color:#444;">Kg Bruto</td><td style="font-weight:700;">: ${fmt(c.kgbruto)}</td></tr>
       <tr><td style="color:#444;">Tara</td><td style="font-weight:700;">: ${parseFloat(c.tara||0).toFixed(2)}</td></tr>
-      <tr><td style="color:#444;">Kg Neto</td><td style="font-weight:900;font-size:13px;color:#1b5e20;">: ${fmt(c.kgneto)}</td></tr>
+      <tr><td style="color:#444;">Kg Neto</td><td style="font-weight:900;font-size:15px;color:#1b5e20;">: ${fmt(c.kgneto)}</td></tr>
       <tr><td style="color:#444;">Precio por Kg</td><td style="font-weight:700;">: S/. ${parseFloat(c.preciokg||0).toFixed(2)}</td></tr>
       <tr><td style="color:#444;">Usuario</td><td style="font-weight:700;text-transform:uppercase;">: ${c.usuario||'—'}</td></tr>
     </table>
     <div style="border:2px solid #6b3a2a;border-radius:8px;padding:12px;text-align:center;margin:14px 0;background:#fbf2ee;">
-      <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">TOTAL A PAGAR</div>
-      <div style="font-size:26px;font-weight:900;color:#6b3a2a;">S/. ${fmt(c.total)}</div>
+      <div style="font-size:12px;color:#666;text-transform:uppercase;font-weight:700;">TOTAL A PAGAR</div>
+      <div style="font-size:28px;font-weight:900;color:#6b3a2a;">S/. ${fmt(c.total)}</div>
     </div>
-    ${c.observacion ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observación:</b> ${c.observacion}</div>` : ''}
+    ${c.observacion ? `<div style="font-size:13px;margin-bottom:10px;"><b>Observación:</b> ${c.observacion}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px;">
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Entregado por (Productor)</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Recibido por (${empresaActiva().nombreCorto})</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:11px;text-transform:uppercase;">Entregado por (Productor)</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:11px;text-transform:uppercase;">Recibido por (${empresaActiva().nombreCorto})</div>
     </div>
   </div>`;
 }
@@ -12974,40 +12965,40 @@ function verPrintRemision(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #1b5e20;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
-        <div style="font-size:11px;font-weight:800;color:#1b5e20;letter-spacing:0.5px;">GUÍA DE REMISIÓN — ALMACÉN A PLANTA</div>
+        <div style="font-size:15px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
+        <div style="font-size:13px;font-weight:800;color:#1b5e20;letter-spacing:0.5px;">GUÍA DE REMISIÓN — ALMACÉN A PLANTA</div>
       </div>
       <div style="width:40px;"></div>
     </div>
     <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:18px;font-weight:900;color:#1b5e20;">${r.codigo}</div>
-      <div style="font-size:10px;color:#666;">${fechaDisplay(r.fecha)}</div>
+      <div style="font-size:20px;font-weight:900;color:#1b5e20;">${r.codigo}</div>
+      <div style="font-size:12px;color:#666;">${fechaDisplay(r.fecha)}</div>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:2.1;">
       <tr><td style="width:46%;color:#444;">N° Guía Remisión</td><td style="font-weight:800;">: ${r.guia_remision_n||'—'}</td></tr>
       <tr><td style="color:#444;">Certificación</td><td style="font-weight:700;">: ${r.certificacion||'—'}</td></tr>
       <tr><td style="color:#444;">Contrato</td><td style="font-weight:700;">: ${r.contrato||'—'}</td></tr>
     </table>
-    <div style="margin-top:10px;font-size:11px;font-weight:800;color:#1b5e20;">SALIDA (Almacén)</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:1.9;">
+    <div style="margin-top:10px;font-size:13px;font-weight:800;color:#1b5e20;">SALIDA (Almacén)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.9;">
       <tr><td style="width:46%;color:#444;">Sacos</td><td style="font-weight:700;">: ${r.salida?.sacos||0}</td></tr>
       <tr><td style="color:#444;">Kg Bruto</td><td style="font-weight:700;">: ${fmt(r.salida?.kg_brutos)}</td></tr>
       <tr><td style="color:#444;">Kg Neto</td><td style="font-weight:900;color:#1b5e20;">: ${fmt(r.salida?.kg_netos)}</td></tr>
     </table>
-    <div style="margin-top:10px;font-size:11px;font-weight:800;color:#e65100;">RECEPCIÓN (Planta)</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:1.9;">
+    <div style="margin-top:10px;font-size:13px;font-weight:800;color:#e65100;">RECEPCIÓN (Planta)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.9;">
       <tr><td style="width:46%;color:#444;">Sacos</td><td style="font-weight:700;">: ${r.recepcion?.sacos||0}</td></tr>
       <tr><td style="color:#444;">Kg Bruto</td><td style="font-weight:700;">: ${fmt(r.recepcion?.kg_brutos)}</td></tr>
       <tr><td style="color:#444;">Kg Neto</td><td style="font-weight:900;color:#e65100;">: ${fmt(r.recepcion?.kg_netos)}</td></tr>
     </table>
     <div style="border:2px solid #1b5e20;border-radius:8px;padding:10px;text-align:center;margin:14px 0;background:#f1f8f2;">
-      <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">MERMA DE SECADO</div>
-      <div style="font-size:20px;font-weight:900;color:#1b5e20;">${fmt(r.merma_secado_kg)} kg</div>
+      <div style="font-size:12px;color:#666;text-transform:uppercase;font-weight:700;">MERMA DE SECADO</div>
+      <div style="font-size:22px;font-weight:900;color:#1b5e20;">${fmt(r.merma_secado_kg)} kg</div>
     </div>
-    ${r.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${r.observaciones}</div>` : ''}
+    ${r.observaciones ? `<div style="font-size:13px;margin-bottom:10px;"><b>Observaciones:</b> ${r.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px;">
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Entrega (Almacén)</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Recibe (Planta)</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:11px;text-transform:uppercase;">Entrega (Almacén)</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:11px;text-transform:uppercase;">Recibe (Planta)</div>
     </div>
   </div>`;
   abrirModal('modal-print-rem');
@@ -13434,39 +13425,39 @@ function verPrintLiquidacion(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #4e342e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
-        <div style="font-size:11px;font-weight:800;color:#4e342e;letter-spacing:0.5px;">LIQUIDACIÓN DE PROCESO</div>
+        <div style="font-size:15px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
+        <div style="font-size:13px;font-weight:800;color:#4e342e;letter-spacing:0.5px;">LIQUIDACIÓN DE PROCESO</div>
       </div>
       <div style="width:40px;"></div>
     </div>
     <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:18px;font-weight:900;color:#4e342e;">${l.codigo}</div>
-      <div style="font-size:10px;color:#666;">${fechaDisplay(l.fecha)}</div>
+      <div style="font-size:20px;font-weight:900;color:#4e342e;">${l.codigo}</div>
+      <div style="font-size:12px;color:#666;">${fechaDisplay(l.fecha)}</div>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:2.1;">
       <tr><td style="width:46%;color:#444;">N° Liquidación</td><td style="font-weight:800;">: ${l.n_liquidacion||'—'}</td></tr>
       <tr><td style="color:#444;">Certificación</td><td style="font-weight:700;">: ${l.certificacion||'—'}</td></tr>
       <tr><td style="color:#444;">Planta</td><td style="font-weight:700;">: ${l.planta||'—'}</td></tr>
       <tr><td style="color:#444;">Contrato</td><td style="font-weight:700;">: ${l.contrato||'—'}</td></tr>
     </table>
-    <div style="margin-top:10px;font-size:11px;font-weight:800;color:#4e342e;">DESGLOSE POR CALIDAD</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:1.8;">
+    <div style="margin-top:10px;font-size:13px;font-weight:800;color:#4e342e;">DESGLOSE POR CALIDAD</div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.8;">
       ${filasDesglose}
     </table>
     <div style="border:2px solid #4e342e;border-radius:8px;padding:10px;text-align:center;margin:14px 0;background:#fbf8f6;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div>
-        <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">TOTAL PROCESADO</div>
-        <div style="font-size:18px;font-weight:900;color:#4e342e;">${fmt(totalKg)} kg</div>
+        <div style="font-size:12px;color:#666;text-transform:uppercase;font-weight:700;">TOTAL PROCESADO</div>
+        <div style="font-size:20px;font-weight:900;color:#4e342e;">${fmt(totalKg)} kg</div>
       </div>
       <div>
-        <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">QQ EXPORTABLE (÷46)</div>
-        <div style="font-size:18px;font-weight:900;color:#1b5e20;">${fmt(totalQq)}</div>
+        <div style="font-size:12px;color:#666;text-transform:uppercase;font-weight:700;">QQ EXPORTABLE (÷46)</div>
+        <div style="font-size:20px;font-weight:900;color:#1b5e20;">${fmt(totalQq)}</div>
       </div>
     </div>
-    ${l.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${l.observaciones}</div>` : ''}
+    ${l.observaciones ? `<div style="font-size:13px;margin-bottom:10px;"><b>Observaciones:</b> ${l.observaciones}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px;">
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Elabora (Planta)</div>
-      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Revisa (${empresaActiva().nombreCorto})</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:11px;text-transform:uppercase;">Elabora (Planta)</div>
+      <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:11px;text-transform:uppercase;">Revisa (${empresaActiva().nombreCorto})</div>
     </div>
   </div>`;
   abrirModal('modal-print-liq');
@@ -13916,16 +13907,16 @@ function verPrintFactura(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #e65100;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
-        <div style="font-size:11px;font-weight:800;color:#e65100;letter-spacing:0.5px;">FACTURA DE VENTA — EXPORTACIÓN</div>
+        <div style="font-size:15px;font-weight:900;">${(empresaActiva().nombreSub||'').toUpperCase()} — ${empresaActiva().nombreCorto}</div>
+        <div style="font-size:13px;font-weight:800;color:#e65100;letter-spacing:0.5px;">FACTURA DE VENTA — EXPORTACIÓN</div>
       </div>
       <div style="width:40px;"></div>
     </div>
     <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:18px;font-weight:900;color:#e65100;">${f.codigo}</div>
-      <div style="font-size:10px;color:#666;">${fechaDisplay(f.fecha)}</div>
+      <div style="font-size:20px;font-weight:900;color:#e65100;">${f.codigo}</div>
+      <div style="font-size:12px;color:#666;">${fechaDisplay(f.fecha)}</div>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.1;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:2.1;">
       <tr><td style="width:46%;color:#444;">N° Factura</td><td style="font-weight:800;">: ${f.factura||'—'}</td></tr>
       <tr><td style="color:#444;">Cliente</td><td style="font-weight:700;">: ${f.cliente||'—'}</td></tr>
       <tr><td style="color:#444;">Contrato</td><td style="font-weight:700;">: ${f.contrato||'—'}</td></tr>
@@ -13936,10 +13927,10 @@ function verPrintFactura(idx){
       <tr><td style="color:#444;">Prima</td><td style="font-weight:700;">: US$ ${fmt(f.prima)}</td></tr>
     </table>
     <div style="border:2px solid #e65100;border-radius:8px;padding:12px;text-align:center;margin:14px 0;background:#fff3e0;">
-      <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">VALOR TOTAL</div>
-      <div style="font-size:26px;font-weight:900;color:#e65100;">US$ ${fmt(f.valor_total)}</div>
+      <div style="font-size:12px;color:#666;text-transform:uppercase;font-weight:700;">VALOR TOTAL</div>
+      <div style="font-size:28px;font-weight:900;color:#e65100;">US$ ${fmt(f.valor_total)}</div>
     </div>
-    ${f.observaciones ? `<div style="font-size:11px;margin-bottom:10px;"><b>Observaciones:</b> ${f.observaciones}</div>` : ''}
+    ${f.observaciones ? `<div style="font-size:13px;margin-bottom:10px;"><b>Observaciones:</b> ${f.observaciones}</div>` : ''}
   </div>`;
   abrirModal('modal-print-fact');
 }
@@ -15875,8 +15866,8 @@ function verPrintKardex(idx){
   const util = parseFloat(k.utilidad||0);
   const origenesHtml = (k.origenes_detalle||[]).length
     ? `<div style="margin-top:8px;">
-        <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#555;margin-bottom:3px;">Orígenes incluidos</div>
-        <table style="width:100%;border-collapse:collapse;font-size:9.5px;">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#555;margin-bottom:3px;">Orígenes incluidos</div>
+        <table style="width:100%;border-collapse:collapse;font-size:11.5px;">
           <thead><tr style="background:#1a5c2e;color:#fff;">
             <th style="border:1px solid #14431f;padding:3px;">Referencia</th>
             <th style="border:1px solid #14431f;padding:3px;">KG Incluidos</th>
@@ -15889,39 +15880,39 @@ function verPrintKardex(idx){
           </tr>`).join('')}</tbody>
         </table>
       </div>`
-    : `<div style="margin-top:8px;font-size:10px;color:#888;font-style:italic;">Venta manual — sin orígenes vinculados.</div>`;
+    : `<div style="margin-top:8px;font-size:12px;color:#888;font-style:italic;">Venta manual — sin orígenes vinculados.</div>`;
 
   document.getElementById('print-kardex-content').innerHTML = `
   <div id="print-zona-kardex" style="font-family:'Trebuchet MS','Segoe UI',Verdana,Arial,sans-serif;max-width:520px;margin:0 auto;padding:16px 18px;border:1.5px solid #000;border-radius:8px;">
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:12.5px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
-        <div style="font-size:8px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-        <div style="font-size:10px;font-weight:700;margin-top:2px;">COMPROBANTE DE VENTA — ${k.tipo==='conv'?'CAFÉ PERGAMINO CONVENCIONAL':'CAFÉ COCO'}</div>
-        <div style="font-size:18px;font-weight:900;color:#1a5c2e;">${k.codigo}</div>
+        <div style="font-size:14.5px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:10px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:12px;font-weight:700;margin-top:2px;">COMPROBANTE DE VENTA — ${k.tipo==='conv'?'CAFÉ PERGAMINO CONVENCIONAL':'CAFÉ COCO'}</div>
+        <div style="font-size:20px;font-weight:900;color:#1a5c2e;">${k.codigo}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;font-size:10.5px;margin-bottom:10px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;font-size:12.5px;margin-bottom:10px;">
       <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(k.fecha)}</strong></div>
       <div><span style="color:#666;">Cliente: </span><strong>${k.cliente||'—'}</strong></div>
       <div><span style="color:#666;">KG Vendidos: </span><strong>${fmtKg(k.kg_venta)} kg</strong></div>
       <div><span style="color:#666;">Precio Venta: </span><strong>S/. ${parseFloat(k.precio_venta||0).toFixed(4)}/kg</strong></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-bottom:8px;">
-      <div style="background:#e8f5e9;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#2e7d32;">INGRESO</div><div style="font-weight:800;font-size:13px;color:#2e7d32;">S/.${fmtMonto(k.ingreso)}</div></div>
-      <div style="background:#fff3e0;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#e65100;">COSTO</div><div style="font-weight:800;font-size:13px;color:#e65100;">S/.${fmtMonto(k.costo)}</div></div>
-      <div style="background:${util>=0?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:8px;color:${util>=0?'#2e7d32':'#c62828'};">UTILIDAD</div><div style="font-weight:900;font-size:13px;color:${util>=0?'#2e7d32':'#c62828'};">S/.${fmtMonto(util)}</div></div>
-      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:8px;color:#555;">MARGEN</div><div style="font-weight:800;font-size:13px;">${parseFloat(k.margen||0).toFixed(1)}%</div></div>
+      <div style="background:#e8f5e9;border-radius:6px;padding:7px;"><div style="font-size:10px;color:#2e7d32;">INGRESO</div><div style="font-weight:800;font-size:15px;color:#2e7d32;">S/.${fmtMonto(k.ingreso)}</div></div>
+      <div style="background:#fff3e0;border-radius:6px;padding:7px;"><div style="font-size:10px;color:#e65100;">COSTO</div><div style="font-weight:800;font-size:15px;color:#e65100;">S/.${fmtMonto(k.costo)}</div></div>
+      <div style="background:${util>=0?'#e8f5e9':'#ffebee'};border-radius:6px;padding:7px;"><div style="font-size:10px;color:${util>=0?'#2e7d32':'#c62828'};">UTILIDAD</div><div style="font-weight:900;font-size:15px;color:${util>=0?'#2e7d32':'#c62828'};">S/.${fmtMonto(util)}</div></div>
+      <div style="background:#f5f5f5;border-radius:6px;padding:7px;"><div style="font-size:10px;color:#555;">MARGEN</div><div style="font-weight:800;font-size:15px;">${parseFloat(k.margen||0).toFixed(1)}%</div></div>
     </div>
-    ${(k.gastos_refs&&k.gastos_refs.length)?`<div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:9.5px;">
+    ${(k.gastos_refs&&k.gastos_refs.length)?`<div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:11.5px;">
       <div style="font-weight:800;color:#e65100;margin-bottom:3px;">🚚 Gastos Adicionales Descontados</div>
       ${k.gastos_refs.map(cod=>{ const r=(DB.recibos||[]).find(x=>x.codigo===cod); return r?`<div>• ${r.codigo} — ${r.concepto||''}: S/.${fmt(r.monto)}</div>`:''; }).join('')}
       <div style="font-weight:800;color:#c62828;margin-top:3px;border-top:1px dashed #ffb74d;padding-top:3px;">Total Gastos: S/.${fmtMonto(k.gastos_total)}</div>
     </div>`:''}
     ${origenesHtml}
-    ${k.observaciones?`<div style="font-size:10px;margin-top:8px;"><b>Obs.:</b> ${k.observaciones}</div>`:''}
-    <div style="font-size:8px;color:#999;margin-top:16px;text-align:right;">Registrado por: ${k.usuario||'—'}</div>
+    ${k.observaciones?`<div style="font-size:12px;margin-top:8px;"><b>Obs.:</b> ${k.observaciones}</div>`:''}
+    <div style="font-size:10px;color:#999;margin-top:16px;text-align:right;">Registrado por: ${k.usuario||'—'}</div>
   </div>`;
   abrirModal('modal-print-kardex');
 }
@@ -16582,18 +16573,18 @@ function verPrintTostadoVenta(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
-        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">COMPROBANTE DE COMPRA — CAFÉ TOSTADO</div>
-        <div style="font-size:19px;font-weight:900;color:#1a5c2e;">${v.nventa}</div>
+        <div style="font-size:15px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:10.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:12.5px;font-weight:700;margin-top:2px;">COMPROBANTE DE COMPRA — CAFÉ TOSTADO</div>
+        <div style="font-size:21px;font-weight:900;color:#1a5c2e;">${v.nventa}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
-      <div style="grid-column:1/-1;"><span style="color:#666;">Cliente: </span><strong style="font-size:13px;">${v.cliente||'—'}</strong></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:13px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Cliente: </span><strong style="font-size:15px;">${v.cliente||'—'}</strong></div>
       <div><span style="color:#666;">DNI: </span><strong>${v.cliente_dni||'—'}</strong></div>
       <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(v.fecha)}</strong></div>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:12px;">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px;">
       <thead><tr style="background:#1a5c2e;color:#fff;">
         <th style="border:1px solid #14431f;padding:5px;">Producto</th>
         <th style="border:1px solid #14431f;padding:5px;">KG</th>
@@ -16601,20 +16592,20 @@ function verPrintTostadoVenta(idx){
         <th style="border:1px solid #14431f;padding:5px;">Subtotal</th>
       </tr></thead>
       <tbody><tr>
-        <td style="border:1px solid #ccc;padding:5px;">Café Tostado${presentLabel?`<div style="font-size:9px;color:#666;">${presentLabel}</div>`:''}</td>
+        <td style="border:1px solid #ccc;padding:5px;">Café Tostado${presentLabel?`<div style="font-size:11px;color:#666;">${presentLabel}</div>`:''}</td>
         <td style="border:1px solid #ccc;padding:5px;text-align:center;">${fmtKg(v.kg)}</td>
         <td style="border:1px solid #ccc;padding:5px;text-align:right;">S/.${parseFloat(v.precio||0).toFixed(2)}</td>
         <td style="border:1px solid #ccc;padding:5px;text-align:right;font-weight:800;">S/.${fmtMonto(v.ingreso)}</td>
       </tr></tbody>
     </table>
     <div style="background:#eef7ee;border:1.5px solid #000;border-radius:6px;padding:8px 12px;margin-bottom:14px;text-align:right;">
-      <span style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700;">Total a Pagar:</span>
-      <span style="font-size:20px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${fmtMonto(v.ingreso)}</span>
+      <span style="font-size:11px;color:#555;text-transform:uppercase;font-weight:700;">Total a Pagar:</span>
+      <span style="font-size:22px;font-weight:900;color:#1a5c2e;margin-left:8px;">S/. ${fmtMonto(v.ingreso)}</span>
     </div>
-    ${v.observaciones?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${v.observaciones}</div>`:''}
+    ${v.observaciones?`<div style="font-size:12px;margin-bottom:10px;"><b>Observaciones:</b> ${v.observaciones}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:34px;">
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Entregado por (${empresaActiva().nombreCorto})</div>
-      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:9px;font-weight:700;text-transform:uppercase;">Firma Cliente<br><span style="font-style:italic;color:#666;font-size:9px;">${v.cliente||''}</span></div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11px;font-weight:700;text-transform:uppercase;">Entregado por (${empresaActiva().nombreCorto})</div>
+      <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11px;font-weight:700;text-transform:uppercase;">Firma Cliente<br><span style="font-style:italic;color:#666;font-size:11px;">${v.cliente||''}</span></div>
     </div>
   </div>`;
   abrirModal('modal-print-tostado');
@@ -17877,31 +17868,31 @@ function verPrintInspeccionSimple(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:12px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
-        <div style="font-size:8.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
-        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">ACTA DE INSPECCIÓN INTERNA — ${i.tipo.toUpperCase()}</div>
-        <div style="font-size:18px;font-weight:900;color:#1a5c2e;">${i.codigo}</div>
+        <div style="font-size:15px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:10.5px;color:#555;">RUC: ${empresaActiva().ruc||'—'} · ${empresaActiva().direccion||''} · Tel: ${empresaActiva().telefono||''}</div>
+        <div style="font-size:12.5px;font-weight:700;margin-top:2px;">ACTA DE INSPECCIÓN INTERNA — ${i.tipo.toUpperCase()}</div>
+        <div style="font-size:20px;font-weight:900;color:#1a5c2e;">${i.codigo}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
-      <div style="grid-column:1/-1;"><span style="color:#666;">Productor: </span><strong style="font-size:13px;">${i.productor}</strong></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:13px;margin-bottom:12px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Productor: </span><strong style="font-size:15px;">${i.productor}</strong></div>
       <div><span style="color:#666;">Fecha: </span><strong>${fechaDisplay(i.fecha)}</strong></div>
       <div><span style="color:#666;">Inspector: </span><strong>${i.inspector}</strong></div>
-      <div style="grid-column:1/-1;"><span style="color:#666;">Resultado: </span><strong style="color:${badgeColor};font-size:13px;">${i.resultado}</strong></div>
+      <div style="grid-column:1/-1;"><span style="color:#666;">Resultado: </span><strong style="color:${badgeColor};font-size:15px;">${i.resultado}</strong></div>
     </div>
-    <div style="font-weight:800;font-size:9.5px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Checklist de Criterios</div>
-    <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;">
+    <div style="font-weight:800;font-size:11.5px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Checklist de Criterios</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
       <thead><tr style="background:#1a5c2e;color:#fff;">
         <th style="border:1px solid #14431f;padding:4px 6px;width:16%;">Cumple</th>
         <th style="border:1px solid #14431f;padding:4px 6px;">Criterio</th>
       </tr></thead>
       <tbody>${checklistHtml||'<tr><td colspan="2" style="text-align:center;padding:8px;color:#999;">Sin criterios</td></tr>'}</tbody>
     </table>
-    ${i.observaciones?`<div style="font-size:10px;margin-bottom:10px;"><b>Observaciones:</b> ${i.observaciones}</div>`:''}
+    ${i.observaciones?`<div style="font-size:12px;margin-bottom:10px;"><b>Observaciones:</b> ${i.observaciones}</div>`:''}
     <div style="margin-top:20px;">
-      <div style="font-size:8.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Productor</div>
+      <div style="font-size:10.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Productor</div>
       ${i.firma ? `<img src="${i.firma}" style="max-width:260px;border-bottom:1.5px solid #333;">` : `<div style="border-bottom:1.5px solid #333;height:50px;"></div>`}
-      <div style="font-size:9px;color:#999;margin-top:2px;">${i.productor}</div>
+      <div style="font-size:11px;color:#999;margin-top:2px;">${i.productor}</div>
     </div>
   </div>`;
   const w = window.open('', '_blank');
@@ -17939,14 +17930,14 @@ function generarFichaInspeccionHTML(idx){
       const detalle = (item.followUps||[]).map(fu=>resp[fu.key]?`${fu.label}: ${resp[fu.key]}`:null).filter(Boolean).join(' · ');
       return `<tr>
         <td style="border:1px solid #ccc;padding:3px 5px;width:24px;text-align:center;">${item.id}</td>
-        <td style="border:1px solid #ccc;padding:3px 5px;">${item.texto}${detalle?`<div style="color:#666;font-size:8px;margin-top:1px;">${detalle}</div>`:''}</td>
+        <td style="border:1px solid #ccc;padding:3px 5px;">${item.texto}${detalle?`<div style="color:#666;font-size:10px;margin-top:1px;">${detalle}</div>`:''}</td>
         <td style="border:1px solid #ccc;padding:3px 5px;width:60px;text-align:center;">${pesoTxt[item.peso]||item.peso||''}</td>
         <td style="border:1px solid #ccc;padding:3px 5px;width:78px;text-align:center;">${respTxt}</td>
       </tr>`;
     }).join('');
     return `<div style="page-break-inside:avoid;margin-bottom:10px;">
-      <div style="background:#1a5c2e;color:#fff;font-weight:800;font-size:10px;padding:4px 8px;">${cat.nombre} — ${logrado}/${max} evaluados · ${itemsActivos.length} criterio(s) en total</div>
-      <table style="width:100%;border-collapse:collapse;font-size:9px;">
+      <div style="background:#1a5c2e;color:#fff;font-weight:800;font-size:12px;padding:4px 8px;">${cat.nombre} — ${logrado}/${max} evaluados · ${itemsActivos.length} criterio(s) en total</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
         <thead><tr style="background:#eef6ef;"><th style="border:1px solid #ccc;padding:3px 5px;">#</th><th style="border:1px solid #ccc;padding:3px 5px;text-align:left;">Criterio</th><th style="border:1px solid #ccc;padding:3px 5px;">Peso</th><th style="border:1px solid #ccc;padding:3px 5px;">Resultado</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
@@ -17958,7 +17949,7 @@ function generarFichaInspeccionHTML(idx){
   const conyugeTxt = dg.conyuge && (dg.conyuge.nombre||dg.conyuge.dni)
     ? `${dg.conyuge.nombre||''}${dg.conyuge.dni?' (DNI '+dg.conyuge.dni+')':''}${dg.conyuge.fecha_nac?' — Nac. '+fechaDisplay(dg.conyuge.fecha_nac):''}${dg.conyuge.grado_instruccion?' — '+dg.conyuge.grado_instruccion:''}`
     : '';
-  const datosGeneralesHtml = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px 10px;font-size:9.5px;margin-bottom:10px;border:1px solid #ddd;border-radius:6px;padding:8px 10px;">
+  const datosGeneralesHtml = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px 10px;font-size:11.5px;margin-bottom:10px;border:1px solid #ddd;border-radius:6px;padding:8px 10px;">
     ${dgFila('Grado de instrucción', dg.grado_instruccion)}
     ${dgFila('Estado civil', dg.estado_civil)}
     ${dgFila('Celular', dg.celular)}
@@ -17978,7 +17969,7 @@ function generarFichaInspeccionHTML(idx){
   </div>`;
 
   // ── Hijos/as (solo si hay al menos uno registrado) ──
-  const hijosHtml = (i.hijos && i.hijos.length) ? `<table style="width:100%;border-collapse:collapse;font-size:9px;margin-bottom:10px;">
+  const hijosHtml = (i.hijos && i.hijos.length) ? `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
     <thead><tr style="background:#eef6ef;">
       <th style="border:1px solid #ccc;padding:3px 5px;">N°</th><th style="border:1px solid #ccc;padding:3px 5px;">Año Nac.</th>
       <th style="border:1px solid #ccc;padding:3px 5px;">Género</th><th style="border:1px solid #ccc;padding:3px 5px;">¿Estudia?</th>
@@ -17995,7 +17986,7 @@ function generarFichaInspeccionHTML(idx){
 
   // ── Certificaciones ──
   const certChk = (label,val)=>`<div>${val?'✅':'⬜'} ${label}</div>`;
-  const certificacionesHtml = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px 10px;font-size:9.5px;margin-bottom:10px;border:1px solid #ddd;border-radius:6px;padding:8px 10px;">
+  const certificacionesHtml = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px 10px;font-size:11.5px;margin-bottom:10px;border:1px solid #ddd;border-radius:6px;padding:8px 10px;">
     ${certChk('NOP-USDA', cert.nop_usda)}
     ${certChk('CEE 834/07', cert.cee_834_07)}
     ${certChk('COR', cert.cor)}
@@ -18021,7 +18012,7 @@ function generarFichaInspeccionHTML(idx){
       ['Bosque Primario',p.hectareas.bosque_primario],['Bosque Secundario',p.hectareas.bosque_secundario],['Otras Áreas',p.hectareas.otras_areas]]
       .filter(([,v])=>parseFloat(v)>0).map(([label,v])=>`${label}: ${parseFloat(v).toFixed(2)} ha`).join(' · ');
     const variedadesConDatos = (p.variedades||[]).filter(v=>(parseFloat(v.plantas_produccion)||0)>0 || (parseFloat(v.plantas_crecimiento)||0)>0);
-    const variedadesHtml = variedadesConDatos.length ? `<table style="width:100%;border-collapse:collapse;font-size:8.5px;margin-top:4px;">
+    const variedadesHtml = variedadesConDatos.length ? `<table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-top:4px;">
       <thead><tr style="background:#eef6ef;"><th style="border:1px solid #ccc;padding:2px 4px;text-align:left;">Variedad</th>
         <th style="border:1px solid #ccc;padding:2px 4px;">Plantas Prod.</th><th style="border:1px solid #ccc;padding:2px 4px;">Plantas Crec.</th>
         <th style="border:1px solid #ccc;padding:2px 4px;">Año Siembra</th><th style="border:1px solid #ccc;padding:2px 4px;">Ha</th></tr></thead>
@@ -18032,7 +18023,7 @@ function generarFichaInspeccionHTML(idx){
         <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${v.anio_plantacion||''}</td>
         <td style="border:1px solid #ccc;padding:2px 4px;text-align:right;">${parseFloat(v.ha||0).toFixed(2)}</td>
       </tr>`).join('')}</tbody></table>` : '';
-    return `<div style="page-break-inside:avoid;border:1px solid #ddd;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:9.5px;">
+    return `<div style="page-break-inside:avoid;border:1px solid #ddd;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11.5px;">
       <div style="font-weight:800;color:#1a5c2e;margin-bottom:3px;">${p.nombre||'(sin nombre)'} ${p.codigo?'— Cód. '+p.codigo:''}</div>
       <div>${p.base||''} ${p.sector||''} · Área total: <strong>${areaTotal.toFixed(2)} ha</strong> · Pendiente: ${p.pendiente_promedio_pct||'—'}% · GPS: ${gpsTxt}</div>
       ${linderos ? `<div style="color:#555;">Linderos: ${linderos}</div>` : ''}
@@ -18041,11 +18032,11 @@ function generarFichaInspeccionHTML(idx){
       ${hectareasFilas ? `<div style="color:#555;">Hectáreas: ${hectareasFilas}</div>` : ''}
       ${variedadesHtml}
     </div>`;
-  }).join('') : '<div style="font-size:10px;color:#999;margin-bottom:10px;">Sin parcelas registradas.</div>';
+  }).join('') : '<div style="font-size:12px;color:#999;margin-bottom:10px;">Sin parcelas registradas.</div>';
 
   const fotosHtml = (i.fotos&&i.fotos.length) ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
     ${i.fotos.map(f=>`<div style="width:100px;"><img src="${f.dataUrl}" style="width:100%;height:75px;object-fit:cover;border:1px solid #ccc;">
-      ${f.caption?`<div style="font-size:7px;color:#666;">${f.caption}</div>`:''}</div>`).join('')}
+      ${f.caption?`<div style="font-size:9px;color:#666;">${f.caption}</div>`:''}</div>`).join('')}
     </div>` : '';
 
   return `
@@ -18053,14 +18044,14 @@ function generarFichaInspeccionHTML(idx){
     <div style="display:flex;align-items:center;gap:10px;border-bottom:2.5px solid #1a5c2e;padding-bottom:8px;margin-bottom:10px;">
       <img src="data:image/jpeg;base64,${LOGO_B64}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div style="text-align:center;flex:1;">
-        <div style="font-size:13px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
-        <div style="font-size:10.5px;font-weight:700;margin-top:2px;">FICHA DE INSPECCIÓN INTERNA</div>
-        <div style="font-size:16px;font-weight:900;color:#1a5c2e;">${i.codigo}</div>
+        <div style="font-size:15px;font-weight:900;">${NOMBRE_ORGANIZACION}</div>
+        <div style="font-size:12.5px;font-weight:700;margin-top:2px;">FICHA DE INSPECCIÓN INTERNA</div>
+        <div style="font-size:18px;font-weight:900;color:#1a5c2e;">${i.codigo}</div>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px 10px;font-size:10px;margin-bottom:10px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
-      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:12px;">${i.socio_nombre||''}</strong> <span style="color:#666;">DNI:</span> <strong>${i.socio_dni||''}</strong></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px 10px;font-size:12px;margin-bottom:10px;background:#f9fef9;border:1.5px solid #c8e6c9;border-radius:6px;padding:8px 10px;">
+      <div style="grid-column:1/-1;"><span style="color:#666;">Socio: </span><strong style="font-size:14px;">${i.socio_nombre||''}</strong> <span style="color:#666;">DNI:</span> <strong>${i.socio_dni||''}</strong></div>
       <div><span style="color:#666;">Base:</span> <strong>${i.base||''}</strong></div>
       <div><span style="color:#666;">Sector:</span> <strong>${i.sector||''}</strong></div>
       <div><span style="color:#666;">Distrito:</span> <strong>${i.distrito||''}</strong></div>
@@ -18071,39 +18062,39 @@ function generarFichaInspeccionHTML(idx){
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;text-align:center;">
-      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:8px;color:#666;">OBLIGATORIOS</div><div style="font-weight:800;">${r.obligatorios.logrado}/${r.obligatorios.max}</div></div>
-      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:8px;color:#666;">MAYORES</div><div style="font-weight:800;">${r.mayores.logrado}/${r.mayores.max}</div></div>
-      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:8px;color:#666;">MENORES</div><div style="font-weight:800;">${r.menores.logrado}/${r.menores.max}</div></div>
-      <div style="border:2px solid #1a5c2e;border-radius:6px;padding:6px;background:#f0faf4;"><div style="font-size:8px;color:#1a5c2e;">PUNTAJE TOTAL</div><div style="font-weight:900;color:#1a5c2e;">${r.puntaje_total}/${r.puntaje_max}</div></div>
+      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:10px;color:#666;">OBLIGATORIOS</div><div style="font-weight:800;">${r.obligatorios.logrado}/${r.obligatorios.max}</div></div>
+      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:10px;color:#666;">MAYORES</div><div style="font-weight:800;">${r.mayores.logrado}/${r.mayores.max}</div></div>
+      <div style="border:1px solid #ccc;border-radius:6px;padding:6px;"><div style="font-size:10px;color:#666;">MENORES</div><div style="font-weight:800;">${r.menores.logrado}/${r.menores.max}</div></div>
+      <div style="border:2px solid #1a5c2e;border-radius:6px;padding:6px;background:#f0faf4;"><div style="font-size:10px;color:#1a5c2e;">PUNTAJE TOTAL</div><div style="font-weight:900;color:#1a5c2e;">${r.puntaje_total}/${r.puntaje_max}</div></div>
     </div>
-    ${r.num_incumplimientos>0?`<div style="font-size:9.5px;color:#c62828;margin-bottom:10px;">⚠️ Incumplimientos en: ${(r.resumen_incumplimientos_texto||'').split('===').join(', ')}</div>`:''}
+    ${r.num_incumplimientos>0?`<div style="font-size:11.5px;color:#c62828;margin-bottom:10px;">⚠️ Incumplimientos en: ${(r.resumen_incumplimientos_texto||'').split('===').join(', ')}</div>`:''}
 
-    <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Datos Generales del Productor</div>
+    <div style="font-weight:800;font-size:12px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Datos Generales del Productor</div>
     ${datosGeneralesHtml}
 
-    ${hijosHtml ? `<div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Hijos / Hijas</div>${hijosHtml}` : ''}
+    ${hijosHtml ? `<div style="font-weight:800;font-size:12px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Hijos / Hijas</div>${hijosHtml}` : ''}
 
-    <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Certificaciones</div>
+    <div style="font-weight:800;font-size:12px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Certificaciones</div>
     ${certificacionesHtml}
 
-    <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Parcelas Inspeccionadas</div>
+    <div style="font-weight:800;font-size:12px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Parcelas Inspeccionadas</div>
     ${parcelasHtml}
 
-    <div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Criterios de Cumplimiento</div>
+    <div style="font-weight:800;font-size:12px;text-transform:uppercase;color:#1a5c2e;margin-bottom:4px;">Criterios de Cumplimiento</div>
     ${criteriosHtml}
 
-    ${fotosHtml ? `<div style="font-weight:800;font-size:10px;text-transform:uppercase;color:#1a5c2e;margin:6px 0 4px;">Fotos</div>${fotosHtml}` : ''}
+    ${fotosHtml ? `<div style="font-weight:800;font-size:12px;text-transform:uppercase;color:#1a5c2e;margin:6px 0 4px;">Fotos</div>${fotosHtml}` : ''}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px;page-break-inside:avoid;">
       <div>
-        <div style="font-size:8.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Productor</div>
+        <div style="font-size:10.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Productor</div>
         ${i.firma_productor ? `<img src="${i.firma_productor}" style="max-width:220px;border-bottom:1.5px solid #333;">` : `<div style="border-bottom:1.5px solid #333;height:50px;"></div>`}
-        <div style="font-size:9px;color:#999;margin-top:2px;">${i.socio_nombre||''}</div>
+        <div style="font-size:11px;color:#999;margin-top:2px;">${i.socio_nombre||''}</div>
       </div>
       <div>
-        <div style="font-size:8.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Inspector Interno</div>
+        <div style="font-size:10.5px;color:#666;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Firma del Inspector Interno</div>
         ${i.firma_inspector ? `<img src="${i.firma_inspector}" style="max-width:220px;border-bottom:1.5px solid #333;">` : `<div style="border-bottom:1.5px solid #333;height:50px;"></div>`}
-        <div style="font-size:9px;color:#999;margin-top:2px;">${i.inspector_interno||''}</div>
+        <div style="font-size:11px;color:#999;margin-top:2px;">${i.inspector_interno||''}</div>
       </div>
     </div>
   </div>`;
