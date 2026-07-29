@@ -1,8 +1,8 @@
 // ============================================================
-// FIREBASE SYNC - Sincronización de datos con Firestore (Firebase 8.x)
+// FIREBASE SYNC v3 - Sincronización SEGURA en Firestore
 // ============================================================
-// Este archivo reemplaza localStorage con Firestore
-// Todos los datos se guardan automáticamente en la nube
+// Guarda TODA la base de datos (DB) completa en Firestore
+// Recupera automáticamente al cargar
 
 const firebaseConfig = {
   apiKey: "AIzaSyBVpBEJtstCzLqOa6Zur7rhaDgXekoNjzg",
@@ -14,7 +14,6 @@ const firebaseConfig = {
   measurementId: "G-8FT7T6ZKN2"
 };
 
-// Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
@@ -22,148 +21,260 @@ const auth = firebase.auth();
 console.log('✓ Firebase inicializado correctamente');
 
 // ============================================================
-// INTERCEPTAR LOCALSTORAGE
+// ESTADO GLOBAL
 // ============================================================
-
 let currentUser = null;
 let syncInProgress = false;
+let syncTimer = null;
+const SYNC_DELAY = 2000; // Guardar cada 2 segundos (debounce)
 
-// Detectar cambios de autenticación
-auth.onAuthStateChanged(function(user) {
+// ============================================================
+// AUTENTICACIÓN
+// ============================================================
+
+auth.onAuthStateChanged(async function(user) {
   currentUser = user;
   if (user) {
-    console.log('✓ Usuario autenticado:', user.email);
-    loadDataFromFirestore();
+    console.log('✓ Usuario autenticado:', user.uid);
+    await cargarBaseDatosDesdeFirestore();
   } else {
-    console.log('Usuario no autenticado');
+    console.log('Usuario no autenticado - usando datos locales');
+  }
+});
+
+// Iniciar sesión anónima automáticamente
+auth.onAuthStateChanged(function(user) {
+  if (!user) {
+    auth.signInAnonymously().catch(error => {
+      console.warn('⚠️ No se pudo iniciar sesión anónima:', error.message);
+    });
   }
 });
 
 // ============================================================
-// GUARDAR Y CARGAR DATOS
+// CARGAR BASE DE DATOS DESDE FIRESTORE
 // ============================================================
 
-function saveToFirestore(key, value) {
-  if (!currentUser || syncInProgress) return;
-
-  try {
-    syncInProgress = true;
-    const userData = currentUser.uid;
-
-    db.collection('users').doc(userData).collection('data').doc(key).set({
-      value: value,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      sync: true
-    }).then(function() {
-      console.log('✓ Guardado en Firestore: ' + key);
-    }).catch(function(error) {
-      console.error('Error al guardar en Firestore (' + key + '):', error);
-    }).finally(function() {
-      syncInProgress = false;
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    syncInProgress = false;
-  }
-}
-
-function loadDataFromFirestore() {
+async function cargarBaseDatosDesdeFirestore() {
   if (!currentUser) return;
 
   try {
-    const userData = currentUser.uid;
-    db.collection('users').doc(userData).collection('data').get().then(function(snapshot) {
-      snapshot.forEach(function(doc) {
-        var value = doc.data().value;
-        localStorage.setItem(doc.id, JSON.stringify(value));
-      });
-      console.log('✓ Datos cargados desde Firestore');
-    }).catch(function(error) {
-      console.error('Error al cargar datos de Firestore:', error);
-    });
+    const userId = currentUser.uid;
+    const docRef = db.collection('users').doc(userId).collection('data').doc('database');
+    const doc = await docRef.get();
+
+    if (doc.exists) {
+      const datosFirestore = doc.data().contenido;
+
+      // Recuperar toda la DB desde Firestore
+      if (datosFirestore && typeof datosFirestore === 'object') {
+        Object.assign(DB, datosFirestore);
+        console.log('✓ Base de datos cargada desde Firestore');
+        console.log('  Guías:', DB.guias ? DB.guias.length : 0);
+        console.log('  Tickets:', DB.tickets ? DB.tickets.length : 0);
+        console.log('  Comprobantes:', DB.comprobantes ? DB.comprobantes.length : 0);
+
+        // Guardar en localStorage también
+        localStorage.setItem('DB_backup', JSON.stringify(datosFirestore));
+      }
+    } else {
+      console.log('ℹ️ Primera vez - no hay datos en Firestore');
+      // Usar datos locales que ya tiene en localStorage
+    }
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ Error cargando desde Firestore:', error);
   }
 }
 
-// Interceptar setItem
-var originalSetItem = Storage.prototype.setItem;
-Storage.prototype.setItem = function(key, value) {
-  originalSetItem.call(this, key, value);
+// ============================================================
+// GUARDAR BASE DE DATOS EN FIRESTORE (Debounce)
+// ============================================================
 
-  if (!key.startsWith('_') && currentUser) {
+function guardarBaseDatosEnFirestore() {
+  if (!currentUser || syncInProgress) return;
+
+  // Cancelar timer anterior si existe
+  if (syncTimer) clearTimeout(syncTimer);
+
+  // Esperar a que terminen los cambios (debounce 2 segundos)
+  syncTimer = setTimeout(async () => {
+    if (syncInProgress) return;
+
     try {
-      saveToFirestore(key, JSON.parse(value));
-    } catch (e) {
-      saveToFirestore(key, value);
+      syncInProgress = true;
+      const userId = currentUser.uid;
+
+      // Guardar TODA la DB completa
+      const datosAGuardar = {
+        campana: DB.campana || null,
+        tickets: DB.tickets || [],
+        guias: DB.guias || [],
+        comprobantes: DB.comprobantes || [],
+        recibos: DB.recibos || [],
+        aperturas: DB.aperturas || [],
+        socios: DB.socios || [],
+        inspecciones: DB.inspecciones || [],
+        prestamos: DB.prestamos || [],
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      await db.collection('users')
+        .doc(userId)
+        .collection('data')
+        .doc('database')
+        .set({
+          contenido: datosAGuardar,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+      console.log('✓ Base de datos guardada en Firestore');
+      syncInProgress = false;
+    } catch (error) {
+      console.error('❌ Error guardando en Firestore:', error);
+      syncInProgress = false;
     }
+  }, SYNC_DELAY);
+}
+
+// ============================================================
+// INTERCEPTAR CAMBIOS EN LA BASE DE DATOS
+// ============================================================
+
+// Guardar cuando se modifica DB.guias
+const originalGuiasPush = DB.guias ? DB.guias.push.bind(DB.guias) : null;
+const originalGuiasSlice = DB.guias ? DB.guias.slice.bind(DB.guias) : null;
+
+// Vigilar cambios en la base de datos global
+const handler = {
+  set: function(target, property, value) {
+    target[property] = value;
+    // Guardar cuando cambia algo importante
+    if (['guias', 'tickets', 'comprobantes', 'recibos', 'aperturas'].includes(property)) {
+      guardarBaseDatosEnFirestore();
+    }
+    return true;
   }
 };
 
-// Interceptar getItem
-var originalGetItem = Storage.prototype.getItem;
-Storage.prototype.getItem = function(key) {
-  return originalGetItem.call(this, key);
-};
+// Crear proxy para DB si no existe
+if (typeof DB !== 'undefined' && !DB.hasOwnProperty('_proxy')) {
+  const DBProxy = new Proxy(DB, handler);
+  // Reemplazar DB con el proxy
+  window.DB = Object.assign(DB, DBProxy);
+}
 
 // ============================================================
-// SINCRONIZACIÓN EN TIEMPO REAL
+// GUARDAR AL HACER CLIC EN "GUARDAR"
+// ============================================================
+
+// Interceptar funciones de guardar
+const funcionesGuardar = [
+  'guardarTicket',
+  'guardarGuia',
+  'guardarRemision',
+  'guardarLiquidacion',
+  'guardarFactura',
+  'guardarComprobante',
+  'guardarApertura',
+  'guardarSocio'
+];
+
+funcionesGuardar.forEach(nombreFuncion => {
+  if (window[nombreFuncion]) {
+    const funcionOriginal = window[nombreFuncion];
+    window[nombreFuncion] = function(...args) {
+      const resultado = funcionOriginal.apply(this, args);
+      // Guardar después de cualquier acción de guardar
+      setTimeout(() => guardarBaseDatosEnFirestore(), 500);
+      return resultado;
+    };
+  }
+});
+
+// ============================================================
+// SINCRONIZACIÓN CADA VEZ QUE SE IMPORTA DATOS
+// ============================================================
+
+const funcionesImportar = [
+  'importarGuiasCompletasExcel',
+  'importarGuiasRemisionExcel',
+  'importarLiquidacionesExcel',
+  'importarFacturasExcel'
+];
+
+funcionesImportar.forEach(nombreFuncion => {
+  if (window[nombreFuncion]) {
+    const funcionOriginal = window[nombreFuncion];
+    window[nombreFuncion] = function(...args) {
+      const resultado = funcionOriginal.apply(this, args);
+      // Guardar después de importar
+      setTimeout(() => guardarBaseDatosEnFirestore(), 1000);
+      return resultado;
+    };
+  }
+});
+
+// ============================================================
+// SINCRONIZACIÓN EN TIEMPO REAL (opcional)
 // ============================================================
 
 function setupRealtimeSync() {
   if (!currentUser) return;
 
-  var userData = currentUser.uid;
+  const userId = currentUser.uid;
 
-  db.collection('users').doc(userData).collection('data').onSnapshot(function(snapshot) {
-    snapshot.docChanges().forEach(function(change) {
-      if (change.type === 'added' || change.type === 'modified') {
-        var key = change.doc.id;
-        var value = change.doc.data().value;
-        localStorage.setItem(key, JSON.stringify(value));
-        console.log('✓ Sincronizado desde Firestore: ' + key);
+  // Escuchar cambios en Firestore (desde otros dispositivos)
+  db.collection('users')
+    .doc(userId)
+    .collection('data')
+    .doc('database')
+    .onSnapshot(function(doc) {
+      if (doc.exists) {
+        const datosRemoto = doc.data().contenido;
+        const datosLocal = {
+          tickets: DB.tickets || [],
+          guias: DB.guias || [],
+          comprobantes: DB.comprobantes || []
+        };
+
+        // Solo cargar si los datos remotos son más recientes o más completos
+        const countRemoto = (datosRemoto.guias || []).length;
+        const countLocal = datosLocal.guias.length;
+
+        if (countRemoto > countLocal) {
+          console.log('✓ Sincronizado desde Firestore (otro dispositivo)');
+          Object.assign(DB, datosRemoto);
+        }
       }
     });
-  });
 }
 
+// Iniciar sincronización en tiempo real cuando el usuario se autentica
 auth.onAuthStateChanged(function(user) {
   if (user) {
-    setupRealtimeSync();
+    setTimeout(() => setupRealtimeSync(), 1000);
   }
 });
 
 // ============================================================
-// AUTENTICACIÓN ANÓNIMA
-// ============================================================
-
-function loginAnonymously() {
-  auth.signInAnonymously().then(function(result) {
-    console.log('✓ Sesión anónima iniciada');
-    return result.user;
-  }).catch(function(error) {
-    console.error('Error al iniciar sesión anónima:', error);
-  });
-}
-
-window.addEventListener('load', function() {
-  if (!auth.currentUser) {
-    loginAnonymously();
-  }
-});
-
-// ============================================================
-// FUNCIONES GLOBALES
+// FUNCIONES PÚBLICAS
 // ============================================================
 
 window.FirebaseSync = {
-  saveToFirestore: saveToFirestore,
-  loadDataFromFirestore: loadDataFromFirestore,
-  setupRealtimeSync: setupRealtimeSync,
-  loginAnonymously: loginAnonymously,
+  guardarAhora: guardarBaseDatosEnFirestore,
+  cargarAhora: cargarBaseDatosDesdeFirestore,
   getCurrentUser: function() { return currentUser; },
   getFirestore: function() { return db; },
-  getAuth: function() { return auth; }
+  getAuth: function() { return auth; },
+  getStatus: function() {
+    return {
+      usuario: currentUser ? currentUser.uid : 'anónimo',
+      guias: DB.guias ? DB.guias.length : 0,
+      tickets: DB.tickets ? DB.tickets.length : 0,
+      comprobantes: DB.comprobantes ? DB.comprobantes.length : 0,
+      sincronizando: syncInProgress
+    };
+  }
 };
 
-console.log('✓ Firebase Sync iniciado - todos los datos se guardan automáticamente');
+console.log('✓ Firebase Sync v3 iniciado - Base de datos guardada automáticamente en Firestore');
