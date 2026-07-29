@@ -4259,12 +4259,13 @@ async function loginSubmit(){
     document.querySelectorAll('.admin-only').forEach(el=>{
       el.style.display = 'none';
     });
+    // MOSTRAR elementos orgánicos
     document.querySelectorAll('.org-only').forEach(el=>{
-      el.style.display = 'none';
+      el.style.display = '';
     });
 
-    // Forzar tab convencional
-    _tkTab = 'conv'; _gTab = 'conv'; _cpTab = 'conv'; _dashTab = 'conv';
+    // Permitir ver todas las guías (tanto convencional como orgánica)
+    _tkTab = 'todos'; _gTab = 'todos'; _cpTab = 'todos'; _dashTab = 'todos';
 
     // Poner usuario en ticket
     const tf=document.getElementById('t-usuario');
