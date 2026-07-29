@@ -4229,39 +4229,43 @@ async function loginSubmit(){
   if(!u||!p){ errEl.textContent='Usuario y contraseña requeridos'; errEl.style.display='block'; return; }
 
   try {
-    // Intentar autenticación con el servidor
     errEl.style.display='none';
-    errEl.textContent='Conectando al servidor...';
+    errEl.textContent='Conectando a Firebase...';
     errEl.style.color='#1976d2';
     errEl.style.display='block';
 
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario: u, contrasena: p })
-    });
+    // Usar Firebase Authentication
+    const email = u.toLowerCase() + '@aparch.local';
+    const auth = firebase.auth();
 
-    const data = await res.json();
-
-    if(!res.ok || !data.token){
-      throw new Error(data.error || 'Error de autenticación');
+    let userCredential;
+    try {
+      // Intentar login con email/password
+      userCredential = await auth.signInWithEmailAndPassword(email, p);
+      console.log('✅ Login exitoso con Firebase');
+    } catch (error) {
+      // Si el usuario no existe, crear cuenta nueva
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        console.log('📝 Creando nuevo usuario en Firebase...');
+        userCredential = await auth.createUserWithEmailAndPassword(email, p);
+        console.log('✅ Usuario creado en Firebase');
+      } else {
+        throw error;
+      }
     }
 
-    // Token válido: guardar y cargar datos del servidor
-    localStorage.setItem('APARCH_TOKEN', data.token);
-    errEl.textContent='Cargando datos...';
+    // Token válido: guardar datos
+    const token = await userCredential.user.getIdToken();
+    localStorage.setItem('APARCH_TOKEN', token);
+    errEl.textContent='Cargando datos de Firebase...';
     errEl.style.display='block';
 
-    // Cargar datos desde MySQL vía APARCH_SYNC
-    if(window.APARCH_SYNC && typeof APARCH_SYNC.cargarDatos === 'function'){
-      await APARCH_SYNC.cargarDatos();
-    } else {
-      console.warn('⚠️ APARCH_SYNC no disponible, usando datos locales');
-    }
+    // Cargar datos desde Firestore vía Firebase Sync
+    await new Promise(resolve => setTimeout(resolve, 500)); // Esperar a que Firebase Sync se inicialize
 
     // Éxito: mostrar UI
     errEl.style.display='none';
-    const userRole = data.usuario?.rol || 'operador';
+    const userRole = 'operador'; // Por defecto operador
     SESSION={user:u, role:userRole};
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-sidebar').style.display='flex';
@@ -4293,7 +4297,7 @@ async function loginSubmit(){
     }
   } catch(err) {
     console.error('❌ Error de login:', err);
-    errEl.textContent='❌ ' + err.message;
+    errEl.textContent='❌ ' + (err.message || 'Error en autenticación');
     errEl.style.color='#c62828';
     errEl.style.display='block';
   }
