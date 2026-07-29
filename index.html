@@ -301,8 +301,7 @@ tr:hover td{background:#f4f8f4;}
       <label>Usuario</label>
       <input type="text" id="l-user" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')loginSubmit()">
     </div>
-    <!-- Campo de contraseña oculto - usando autenticación anónima de Firebase -->
-    <div class="login-field" style="display:none;">
+    <div class="login-field">
       <label>Contraseña</label>
       <input type="password" id="l-pass" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginSubmit()">
     </div>
@@ -4224,28 +4223,27 @@ function restaurarDesdeJSON(input){
 // ══════════════════════════════════════════
 async function loginSubmit(){
   const u=document.getElementById('l-user').value.trim();
+  const p=document.getElementById('l-pass').value;
   const errEl=document.getElementById('login-error');
 
-  if(!u){ errEl.textContent='Ingresa tu usuario'; errEl.style.display='block'; return; }
+  if(!u||!p){ errEl.textContent='Usuario y contraseña requeridos'; errEl.style.display='block'; return; }
 
   try {
     errEl.style.display='none';
-    errEl.textContent='Conectando a Firebase...';
+    errEl.textContent='Validando...';
     errEl.style.color='#1976d2';
     errEl.style.display='block';
 
-    // Usar autenticación anónima de Firebase
-    const auth = firebase.auth();
-    const userCredential = await auth.signInAnonymously();
-    console.log('✅ Sesión anónima iniciada con Firebase');
+    // Guardar datos locales (sin validación de servidor)
+    localStorage.setItem('APARCH_TOKEN', 'local_' + Date.now());
+    localStorage.setItem('APARCH_USER', u);
+    localStorage.setItem('APARCH_PASS', p);
 
-    // Guardar token
-    const token = await userCredential.user.getIdToken();
-    localStorage.setItem('APARCH_TOKEN', token);
+    console.log('✅ Login local iniciado');
     errEl.textContent='Cargando datos...';
 
-    // Cargar datos desde Firestore
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Esperar a que Firebase Sync se conecte
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     // Éxito: mostrar UI
     errEl.style.display='none';
@@ -4280,7 +4278,7 @@ async function loginSubmit(){
     }
   } catch(err) {
     console.error('❌ Error:', err);
-    errEl.textContent='❌ ' + (err.message || 'Error al conectar');
+    errEl.textContent='❌ Error: ' + (err.message || 'No puedo conectar');
     errEl.style.color='#c62828';
     errEl.style.display='block';
   }
