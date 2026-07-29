@@ -20,17 +20,10 @@ const auth = firebase.auth();
 
 console.log('✓ Firebase inicializado correctamente');
 
-// ============================================================
-// ESTADO GLOBAL
-// ============================================================
 let currentUser = null;
 let syncInProgress = false;
 let syncTimer = null;
-const SYNC_DELAY = 2000; // Guardar cada 2 segundos (debounce)
-
-// ============================================================
-// AUTENTICACIÓN
-// ============================================================
+const SYNC_DELAY = 2000;
 
 auth.onAuthStateChanged(async function(user) {
   currentUser = user;
@@ -42,7 +35,6 @@ auth.onAuthStateChanged(async function(user) {
   }
 });
 
-// Iniciar sesión anónima automáticamente
 auth.onAuthStateChanged(function(user) {
   if (!user) {
     auth.signInAnonymously().catch(error => {
@@ -50,10 +42,6 @@ auth.onAuthStateChanged(function(user) {
     });
   }
 });
-
-// ============================================================
-// CARGAR BASE DE DATOS DESDE FIRESTORE
-// ============================================================
 
 async function cargarBaseDatosDesdeFirestore() {
   if (!currentUser) return;
@@ -66,7 +54,6 @@ async function cargarBaseDatosDesdeFirestore() {
     if (doc.exists) {
       const datosFirestore = doc.data().contenido;
 
-      // Recuperar toda la DB desde Firestore
       if (datosFirestore && typeof datosFirestore === 'object') {
         Object.assign(DB, datosFirestore);
         console.log('✓ Base de datos cargada desde Firestore');
@@ -74,29 +61,21 @@ async function cargarBaseDatosDesdeFirestore() {
         console.log('  Tickets:', DB.tickets ? DB.tickets.length : 0);
         console.log('  Comprobantes:', DB.comprobantes ? DB.comprobantes.length : 0);
 
-        // Guardar en localStorage también
         localStorage.setItem('DB_backup', JSON.stringify(datosFirestore));
       }
     } else {
       console.log('ℹ️ Primera vez - no hay datos en Firestore');
-      // Usar datos locales que ya tiene en localStorage
     }
   } catch (error) {
     console.error('❌ Error cargando desde Firestore:', error);
   }
 }
 
-// ============================================================
-// GUARDAR BASE DE DATOS EN FIRESTORE (Debounce)
-// ============================================================
-
 function guardarBaseDatosEnFirestore() {
   if (!currentUser || syncInProgress) return;
 
-  // Cancelar timer anterior si existe
   if (syncTimer) clearTimeout(syncTimer);
 
-  // Esperar a que terminen los cambios (debounce 2 segundos)
   syncTimer = setTimeout(async () => {
     if (syncInProgress) return;
 
@@ -104,7 +83,6 @@ function guardarBaseDatosEnFirestore() {
       syncInProgress = true;
       const userId = currentUser.uid;
 
-      // Guardar TODA la DB completa
       const datosAGuardar = {
         campana: DB.campana || null,
         tickets: DB.tickets || [],
@@ -136,19 +114,9 @@ function guardarBaseDatosEnFirestore() {
   }, SYNC_DELAY);
 }
 
-// ============================================================
-// INTERCEPTAR CAMBIOS EN LA BASE DE DATOS
-// ============================================================
-
-// Guardar cuando se modifica DB.guias
-const originalGuiasPush = DB.guias ? DB.guias.push.bind(DB.guias) : null;
-const originalGuiasSlice = DB.guias ? DB.guias.slice.bind(DB.guias) : null;
-
-// Vigilar cambios en la base de datos global
 const handler = {
   set: function(target, property, value) {
     target[property] = value;
-    // Guardar cuando cambia algo importante
     if (['guias', 'tickets', 'comprobantes', 'recibos', 'aperturas'].includes(property)) {
       guardarBaseDatosEnFirestore();
     }
@@ -156,18 +124,11 @@ const handler = {
   }
 };
 
-// Crear proxy para DB si no existe
 if (typeof DB !== 'undefined' && !DB.hasOwnProperty('_proxy')) {
   const DBProxy = new Proxy(DB, handler);
-  // Reemplazar DB con el proxy
   window.DB = Object.assign(DB, DBProxy);
 }
 
-// ============================================================
-// GUARDAR AL HACER CLIC EN "GUARDAR"
-// ============================================================
-
-// Interceptar funciones de guardar
 const funcionesGuardar = [
   'guardarTicket',
   'guardarGuia',
@@ -184,16 +145,11 @@ funcionesGuardar.forEach(nombreFuncion => {
     const funcionOriginal = window[nombreFuncion];
     window[nombreFuncion] = function(...args) {
       const resultado = funcionOriginal.apply(this, args);
-      // Guardar después de cualquier acción de guardar
       setTimeout(() => guardarBaseDatosEnFirestore(), 500);
       return resultado;
     };
   }
 });
-
-// ============================================================
-// SINCRONIZACIÓN CADA VEZ QUE SE IMPORTA DATOS
-// ============================================================
 
 const funcionesImportar = [
   'importarGuiasCompletasExcel',
@@ -207,23 +163,17 @@ funcionesImportar.forEach(nombreFuncion => {
     const funcionOriginal = window[nombreFuncion];
     window[nombreFuncion] = function(...args) {
       const resultado = funcionOriginal.apply(this, args);
-      // Guardar después de importar
       setTimeout(() => guardarBaseDatosEnFirestore(), 1000);
       return resultado;
     };
   }
 });
 
-// ============================================================
-// SINCRONIZACIÓN EN TIEMPO REAL (opcional)
-// ============================================================
-
 function setupRealtimeSync() {
   if (!currentUser) return;
 
   const userId = currentUser.uid;
 
-  // Escuchar cambios en Firestore (desde otros dispositivos)
   db.collection('users')
     .doc(userId)
     .collection('data')
@@ -237,7 +187,6 @@ function setupRealtimeSync() {
           comprobantes: DB.comprobantes || []
         };
 
-        // Solo cargar si los datos remotos son más recientes o más completos
         const countRemoto = (datosRemoto.guias || []).length;
         const countLocal = datosLocal.guias.length;
 
@@ -249,16 +198,11 @@ function setupRealtimeSync() {
     });
 }
 
-// Iniciar sincronización en tiempo real cuando el usuario se autentica
 auth.onAuthStateChanged(function(user) {
   if (user) {
     setTimeout(() => setupRealtimeSync(), 1000);
   }
 });
-
-// ============================================================
-// FUNCIONES PÚBLICAS
-// ============================================================
 
 window.FirebaseSync = {
   guardarAhora: guardarBaseDatosEnFirestore,
