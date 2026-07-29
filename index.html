@@ -18212,43 +18212,10 @@ window.addEventListener('offline', actualizarBannerConexion);
 </script>
 <!-- Firebase Sync Script -->
 <script src="firebase-sync.js"></script>
-<script>
-// ═══════════════════════════════════════════════════════════════════════════
-// CARGAR DATOS AUTOMÁTICAMENTE DESPUÉS DEL LOGIN
-// ═══════════════════════════════════════════════════════════════════════════
-window.addEventListener('load', function() {
-    const token = localStorage.getItem('APARCH_TOKEN');
-    if (token) {
-        console.log('🔄 Cargando datos del servidor automáticamente...');
-
-        fetch('http://localhost:3000/api/datos/cargar', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.datos && typeof data.datos === 'object') {
-                console.log('✅ Datos recibidos del servidor');
-
-                // Asignar datos al objeto global DB
-                Object.assign(DB, data.datos);
-
-                // Renderizar todos los componentes
-                if (typeof renderDashboard === 'function') renderDashboard();
-                if (typeof renderTickets === 'function') renderTickets();
-                if (typeof renderGuias === 'function') renderGuias();
-                if (typeof renderComprobantes === 'function') renderComprobantes();
-                if (typeof renderCaja === 'function') renderCaja();
-
-                console.log('✅ Dashboard actualizado con datos del servidor');
-            }
-        })
-        .catch(e => {
-            console.error('❌ Error cargando datos:', e);
-        });
-    }
-});
-</script>
+<!--
+  NOTA: El código de carga de datos desde localhost:3000 ha sido removido
+  porque ahora usamos Firebase/Firestore para sincronizar todos los datos.
+  El script firebase-sync.js maneja automáticamente la carga y sincronización.
+-->
 </body>
 </html>
