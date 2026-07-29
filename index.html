@@ -301,7 +301,8 @@ tr:hover td{background:#f4f8f4;}
       <label>Usuario</label>
       <input type="text" id="l-user" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')loginSubmit()">
     </div>
-    <div class="login-field">
+    <!-- Campo de contraseña oculto - usando autenticación anónima de Firebase -->
+    <div class="login-field" style="display:none;">
       <label>Contraseña</label>
       <input type="password" id="l-pass" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginSubmit()">
     </div>
@@ -4223,10 +4224,9 @@ function restaurarDesdeJSON(input){
 // ══════════════════════════════════════════
 async function loginSubmit(){
   const u=document.getElementById('l-user').value.trim();
-  const p=document.getElementById('l-pass').value;
   const errEl=document.getElementById('login-error');
 
-  if(!u||!p){ errEl.textContent='Usuario y contraseña requeridos'; errEl.style.display='block'; return; }
+  if(!u){ errEl.textContent='Ingresa tu usuario'; errEl.style.display='block'; return; }
 
   try {
     errEl.style.display='none';
@@ -4234,57 +4234,40 @@ async function loginSubmit(){
     errEl.style.color='#1976d2';
     errEl.style.display='block';
 
-    // Usar Firebase Authentication
-    const email = u.toLowerCase() + '@aparch.local';
+    // Usar autenticación anónima de Firebase
     const auth = firebase.auth();
+    const userCredential = await auth.signInAnonymously();
+    console.log('✅ Sesión anónima iniciada con Firebase');
 
-    let userCredential;
-    try {
-      // Intentar login con email/password
-      userCredential = await auth.signInWithEmailAndPassword(email, p);
-      console.log('✅ Login exitoso con Firebase');
-    } catch (error) {
-      // Si el usuario no existe, crear cuenta nueva
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        console.log('📝 Creando nuevo usuario en Firebase...');
-        userCredential = await auth.createUserWithEmailAndPassword(email, p);
-        console.log('✅ Usuario creado en Firebase');
-      } else {
-        throw error;
-      }
-    }
-
-    // Token válido: guardar datos
+    // Guardar token
     const token = await userCredential.user.getIdToken();
     localStorage.setItem('APARCH_TOKEN', token);
-    errEl.textContent='Cargando datos de Firebase...';
-    errEl.style.display='block';
+    errEl.textContent='Cargando datos...';
 
-    // Cargar datos desde Firestore vía Firebase Sync
-    await new Promise(resolve => setTimeout(resolve, 500)); // Esperar a que Firebase Sync se inicialize
+    // Cargar datos desde Firestore
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Éxito: mostrar UI
     errEl.style.display='none';
-    const userRole = 'operador'; // Por defecto operador
+    const userRole = 'operador';
     SESSION={user:u, role:userRole};
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-sidebar').style.display='flex';
     document.getElementById('app-main').style.display='flex';
     document.getElementById('nav-username').textContent=u;
-    document.getElementById('nav-userrole').textContent=userRole==='admin'?'Administrador':'Operador';
+    document.getElementById('nav-userrole').textContent='Operador';
 
     // Mostrar/ocultar elementos admin
     document.querySelectorAll('.admin-only').forEach(el=>{
-      el.style.display = userRole==='admin' ? '' : 'none';
+      el.style.display = 'none';
     });
-    // Mostrar/ocultar elementos orgánicos (solo admin)
     document.querySelectorAll('.org-only').forEach(el=>{
-      el.style.display = userRole==='admin' ? '' : 'none';
+      el.style.display = 'none';
     });
-    // Si es operador, forzar tab convencional
-    if(userRole !== 'admin'){
-      _tkTab = 'conv'; _gTab = 'conv'; _cpTab = 'conv'; _dashTab = 'conv';
-    }
+
+    // Forzar tab convencional
+    _tkTab = 'conv'; _gTab = 'conv'; _cpTab = 'conv'; _dashTab = 'conv';
+
     // Poner usuario en ticket
     const tf=document.getElementById('t-usuario');
     if(tf) tf.value=u;
@@ -4296,8 +4279,8 @@ async function loginSubmit(){
       renderDashboard();
     }
   } catch(err) {
-    console.error('❌ Error de login:', err);
-    errEl.textContent='❌ ' + (err.message || 'Error en autenticación');
+    console.error('❌ Error:', err);
+    errEl.textContent='❌ ' + (err.message || 'Error al conectar');
     errEl.style.color='#c62828';
     errEl.style.display='block';
   }
