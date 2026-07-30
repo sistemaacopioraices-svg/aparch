@@ -14403,12 +14403,21 @@ function calcularKardexExportable(certifFiltro){
     filas.push({ tipo:'ingreso', fecha:l.fecha||'', doc:l.codigo||'', detalle:'PROCESO'+(l.contrato?' — '+l.contrato:''),
       guia:l.n_liquidacion||'', sacos:'', kg, certificacion:l.certificacion||'' });
   });
-  // Las facturas de venta no llevan campo de certificación propio (venta de exportación en USD);
-  // no se filtran por certificación, igual que ya se decidió en el Resumen de Campaña (Fase 1).
+  // Facturas de venta filtradas por certificación (mapear tipo_contrato como en Resumen de Campaña).
   (DB.facturasVenta||[]).forEach(f=>{
+    // Aplicar mismo filtrado que calcularResumenCampana()
+    if(!certifFiltro){
+      // "Todas" = todas las ventas
+    } else if(certifFiltro==='ORGANICO' && f.tipo_contrato !== 'ORG'){
+      return; // No incluir
+    } else if(certifFiltro==='ORGANICO - FAIRTRADE USA' && f.tipo_contrato !== 'FTO USA' && f.tipo_contrato !== 'FTO INTERNACIONAL'){
+      return; // No incluir
+    } else if(certifFiltro !== 'ORGANICO' && certifFiltro !== 'ORGANICO - FAIRTRADE USA'){
+      return; // Filtro desconocido
+    }
     const kg = parseFloat(f.kg)||0;
     filas.push({ tipo:'salida', fecha:f.fecha||'', doc:f.codigo||'', detalle:'VENTA'+(f.contrato?' — CONTRATO: '+f.contrato:''),
-      guia:f.factura||'', sacos:'', kg, certificacion:'' });
+      guia:f.factura||'', sacos:'', kg, certificacion:f.tipo_contrato||'' });
   });
   _kardexOrdenar(filas);
   let saldo = 0;
@@ -14741,10 +14750,18 @@ function calcularResumenCampana(){
   const procesadoKg = DESGLOSE_CALIDADES.reduce((a,cal)=>a+desgloseTotales[cal],0);
   const pctExportacion = procesadoKg>0 ? (desgloseTotales.exportacion/procesadoKg) : 0;
 
-  // ── Vendido (Facturas de Venta) — no tiene campo de certificación propio (va en USD, es venta
-  // de exportación); no se filtra por certificación, solo se muestra el total global.
-  const vendidoKg = (DB.facturasVenta||[]).reduce((a,f)=>a+(parseFloat(f.kg)||0),0);
-  const vendidoUsd = (DB.facturasVenta||[]).reduce((a,f)=>a+(parseFloat(f.valor_total)||0),0);
+  // ── Vendido (Facturas de Venta) — mapear tipo_contrato a certificación y filtrar igual que
+  // los otros componentes, para que el saldo sea consistente cuando se filtra por certificación.
+  // Mapeo: ORG→ORGANICO, FTO USA/INTERNACIONAL→ORGANICO - FAIRTRADE USA.
+  const facturasVentaFiltradas = (DB.facturasVenta||[]).filter(f=>{
+    if(!certifFiltro) return true; // "Todas" = todas las ventas
+    const tipoCertif = f.tipo_contrato;
+    if(certifFiltro==='ORGANICO') return tipoCertif === 'ORG';
+    if(certifFiltro==='ORGANICO - FAIRTRADE USA') return tipoCertif === 'FTO USA' || tipoCertif === 'FTO INTERNACIONAL';
+    return false;
+  });
+  const vendidoKg = facturasVentaFiltradas.reduce((a,f)=>a+(parseFloat(f.kg)||0),0);
+  const vendidoUsd = facturasVentaFiltradas.reduce((a,f)=>a+(parseFloat(f.valor_total)||0),0);
 
   // ── Saldos vivos ──
   const saldoAlmacen = acopio.kgNeto - remitidoKg;
