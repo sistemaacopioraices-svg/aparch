@@ -13213,6 +13213,8 @@ function _abrirSiguientePdfFactura(){
   document.getElementById('fact-libras').value = item.libras||'';
   document.getElementById('fact-floid').value = item.flo_id_comprador||'';
   document.getElementById('fact-preciounit').value = item.precio_unit||'';
+  document.getElementById('fact-primaorganico').value = item.prima_organico||'';
+  document.getElementById('fact-primafairtrade').value = item.prima_fairtrade||'';
 
   calcFactura();
 
@@ -13694,6 +13696,248 @@ function guardarLiquidacion(){
     _pdfQueueLiquidacion.idx++;
     _abrirSiguientePdfLiquidacion();
   }
+}
+
+// ── FACTURA DE VENTA ──
+let editandoFacturaIdx = -1;
+
+function abrirModalFactura(idx){
+  editandoFacturaIdx = (idx !== undefined) ? idx : -1;
+  const f = idx !== undefined ? DB.facturasVenta[idx] : null;
+
+  document.getElementById('modal-fact-titulo').textContent = f ? '✏️ Editar Factura de Venta' : '💵 Nueva Factura de Venta';
+  document.getElementById('fact-codigo').value = f ? f.codigo : nextCodigo(DB.facturasVenta||[], 'FACT-');
+  document.getElementById('fact-fecha').value = f ? f.fecha : hoy();
+  document.getElementById('fact-factura').value = f ? f.factura : '';
+  document.getElementById('fact-cliente').value = f ? (f.cliente||'') : '';
+  document.getElementById('fact-contrato').value = f ? (f.contrato||'') : '';
+  document.getElementById('fact-lote').value = f ? (f.lote||'') : '';
+  document.getElementById('fact-referencia').value = f ? (f.referencia||'') : '';
+  document.getElementById('fact-tipocontrato').value = f ? (f.tipo_contrato||'') : '';
+  document.getElementById('fact-planta').value = f ? (f.planta||'') : '';
+  document.getElementById('fact-floid').value = f ? (f.flo_id_comprador||'') : '';
+  document.getElementById('fact-unidad').value = f ? (f.unidad||'KILOGRAMO') : 'KILOGRAMO';
+  document.getElementById('fact-kg').value = f ? (f.kg||'') : '';
+  document.getElementById('fact-libras').value = f ? (f.libras||'') : '';
+  document.getElementById('fact-preciounit').value = f ? (f.precio_unit||'') : '';
+  document.getElementById('fact-primaorganico').value = f ? (f.prima_organico||'') : '';
+  document.getElementById('fact-primafairtrade').value = f ? (f.prima_fairtrade||'') : '';
+  document.getElementById('fact-observaciones').value = f ? (f.observaciones||'') : '';
+  document.getElementById('fact-form-alert').innerHTML = '';
+
+  abrirModal('modal-factura');
+  calcFactura();
+}
+
+function calcFactura(){
+  const unidad = document.getElementById('fact-unidad').value;
+  const kg = parseFloat(document.getElementById('fact-kg').value)||0;
+  const libras = parseFloat(document.getElementById('fact-libras').value)||0;
+  const precioUnit = parseFloat(document.getElementById('fact-preciounit').value)||0;
+  const primaOrganico = parseFloat(document.getElementById('fact-primaorganico').value)||0;
+  const primaFairtrade = parseFloat(document.getElementById('fact-primafairtrade').value)||0;
+
+  // QQ siempre es kg÷46 (valor de exportable)
+  const qq = kg / 46;
+  document.getElementById('fact-qq').value = qq.toFixed(2);
+
+  // Prima total
+  const primaTotalVal = primaOrganico + primaFairtrade;
+  document.getElementById('fact-prima').value = primaTotalVal.toFixed(2);
+
+  // Valor total = (kg × precio_unit) + prima_total
+  const valorTotal = (kg * precioUnit) + primaTotalVal;
+  document.getElementById('fact-valortotal').value = valorTotal.toFixed(2);
+}
+
+function guardarFactura(){
+  const fecha = document.getElementById('fact-fecha').value;
+  const factura = document.getElementById('fact-factura').value.trim();
+  const kg = parseFloat(document.getElementById('fact-kg').value)||0;
+
+  if(!fecha){ showAlert('fact-form-alert','error','Ingrese la fecha.'); return; }
+  if(!factura){ showAlert('fact-form-alert','error','Ingrese el N° de factura.'); return; }
+  if(kg <= 0){ showAlert('fact-form-alert','error','Ingrese el kg de café.'); return; }
+
+  const registro = {
+    codigo: document.getElementById('fact-codigo').value,
+    fecha,
+    factura,
+    cliente: document.getElementById('fact-cliente').value.trim(),
+    contrato: document.getElementById('fact-contrato').value.trim(),
+    lote: document.getElementById('fact-lote').value.trim(),
+    referencia: document.getElementById('fact-referencia').value.trim(),
+    tipo_contrato: document.getElementById('fact-tipocontrato').value,
+    planta: document.getElementById('fact-planta').value.trim(),
+    flo_id_comprador: document.getElementById('fact-floid').value.trim(),
+    unidad: document.getElementById('fact-unidad').value,
+    kg: kg.toString(),
+    libras: (parseFloat(document.getElementById('fact-libras').value)||0).toString(),
+    precio_unit: (parseFloat(document.getElementById('fact-preciounit').value)||0).toString(),
+    prima_organico: (parseFloat(document.getElementById('fact-primaorganico').value)||0).toString(),
+    prima_fairtrade: (parseFloat(document.getElementById('fact-primafairtrade').value)||0).toString(),
+    valor_total: document.getElementById('fact-valortotal').value,
+    observaciones: document.getElementById('fact-observaciones').value,
+    usuario: SESSION.user
+  };
+
+  if(!DB.facturasVenta) DB.facturasVenta=[];
+  if(editandoFacturaIdx >= 0) DB.facturasVenta[editandoFacturaIdx] = registro;
+  else DB.facturasVenta.push(registro);
+
+  guardarDB(); cerrarModal('modal-factura'); renderFacturasVenta(); showSection('factura');
+
+  // ── Hook de cola de importación PDF (no afecta el guardado manual normal) ──
+  if(window._pdfReviewActivoFactura){
+    window._pdfReviewActivoFactura = false;
+    _pdfQueueFactura.guardadas++;
+    _pdfQueueFactura.idx++;
+    _abrirSiguientePdfFactura();
+  }
+}
+
+function eliminarFactura(idx){
+  if(!confirm('¿Eliminar esta factura de venta?')) return;
+  DB.facturasVenta.splice(idx,1); guardarDB(); renderFacturasVenta();
+}
+
+function renderFacturasVenta(filtro){
+  if(!DB.facturasVenta) DB.facturasVenta=[];
+  const lista = (filtro
+    ? DB.facturasVenta.filter(f=>(f.codigo||'').toLowerCase().includes(filtro)||(f.factura||'').toLowerCase().includes(filtro)||(f.cliente||'').toLowerCase().includes(filtro)||(f.contrato||'').toLowerCase().includes(filtro))
+    : [...DB.facturasVenta]);
+
+  // Stats
+  const totalKgGlobal = DB.facturasVenta.reduce((a,f)=>a+(parseFloat(f.kg)||0),0);
+  const totalQqGlobal = totalKgGlobal / 46;
+  const totalUsdGlobal = DB.facturasVenta.reduce((a,f)=>a+(parseFloat(f.valor_total)||0),0);
+  document.getElementById('fact-stat-total').textContent = DB.facturasVenta.length;
+  document.getElementById('fact-stat-kg').textContent = fmt(totalKgGlobal);
+  document.getElementById('fact-stat-qq').textContent = fmt(totalQqGlobal);
+  document.getElementById('fact-stat-usd').textContent = 'US$ '+fmt(totalUsdGlobal);
+
+  const tb = document.getElementById('facturasventa-body');
+  if(!lista.length){
+    tb.innerHTML = `<tr><td colspan="15"><div class="empty-state"><span class="ico">💵</span>No hay facturas de venta registradas.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = [...lista].reverse().map(f=>{
+    const fi = DB.facturasVenta.indexOf(f);
+    const qq = (parseFloat(f.kg)||0) / 46;
+    const primaTotal = (parseFloat(f.prima_organico)||0) + (parseFloat(f.prima_fairtrade)||0);
+    return `<tr>
+      <td class="td-codigo">${f.codigo}</td>
+      <td>${fechaDisplay(f.fecha)}</td>
+      <td style="font-family:monospace;font-size:0.78rem;font-weight:700;">${f.factura||'—'}</td>
+      <td style="font-size:0.75rem;max-width:140px;">${f.cliente||'—'}</td>
+      <td style="font-size:0.75rem;">${f.flo_id_comprador||'—'}</td>
+      <td>${f.lote||'—'}</td>
+      <td style="font-size:0.75rem;max-width:120px;">${f.contrato||'—'}</td>
+      <td>${f.tipo_contrato||'—'}</td>
+      <td style="text-align:right;color:#1b5e20;font-weight:700;">${fmt(f.kg)}</td>
+      <td style="text-align:right;">${fmt(f.libras)}</td>
+      <td style="text-align:right;color:#0d47a1;font-weight:700;">${fmt(qq)}</td>
+      <td style="text-align:right;">US$ ${fmt(f.precio_unit)}</td>
+      <td style="text-align:right;">US$ ${fmt(primaTotal)}</td>
+      <td style="text-align:right;color:#e65100;font-weight:800;">US$ ${fmt(f.valor_total)}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="btn btn-secondary btn-sm" onclick="abrirModalFactura(${fi})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarFactura(${fi})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function filtrarFacturasVenta(){
+  renderFacturasVenta(document.getElementById('search-fact').value.toLowerCase());
+}
+
+function importarFacturasVentaExcel(input){
+  if(!input.files || !input.files.length) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type:'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const datos = XLSX.utils.sheet_to_json(ws);
+
+      if(!datos.length){
+        showAlertEl('fact-alert','warning','El archivo Excel está vacío.');
+        return;
+      }
+
+      let importadas = 0;
+      datos.forEach(row=>{
+        const registro = {
+          codigo: nextCodigo(DB.facturasVenta||[], 'FACT-'),
+          fecha: parseFechaImportacion(row['Fecha']||row['fecha']||''),
+          factura: (row['Factura']||row['factura']||'').toString().trim(),
+          cliente: (row['Cliente']||row['cliente']||'').trim(),
+          contrato: (row['Contrato']||row['contrato']||'').trim(),
+          lote: (row['Lote']||row['lote']||'').trim(),
+          referencia: (row['Referencia']||row['referencia']||'').trim(),
+          tipo_contrato: (row['Tipo Contrato']||row['tipo_contrato']||'').trim(),
+          planta: (row['Planta']||row['planta']||'').trim(),
+          flo_id_comprador: (row['FLO ID']||row['flo_id_comprador']||'').trim(),
+          unidad: (row['Unidad']||row['unidad']||'KILOGRAMO').toString(),
+          kg: (row['Kg']||row['kg']||'0').toString(),
+          libras: (row['Libras']||row['libras']||'0').toString(),
+          precio_unit: (row['Precio Unit.']||row['precio_unit']||'0').toString(),
+          prima_organico: (row['Prima Org']||row['prima_organico']||'0').toString(),
+          prima_fairtrade: (row['Prima FT']||row['prima_fairtrade']||'0').toString(),
+          valor_total: (row['Valor Total']||row['valor_total']||'0').toString(),
+          observaciones: (row['Observaciones']||row['observaciones']||'').trim(),
+          usuario: SESSION.user
+        };
+        if(registro.factura && parseFloat(registro.kg)>0){
+          if(!DB.facturasVenta) DB.facturasVenta=[];
+          DB.facturasVenta.push(registro);
+          importadas++;
+        }
+      });
+
+      if(importadas>0){
+        guardarDB(); renderFacturasVenta(); showAlertEl('fact-alert','success',`✅ ${importadas} factura${importadas!==1?'s':''} importada${importadas!==1?'s':''} desde Excel.`);
+      } else {
+        showAlertEl('fact-alert','warning','No se encontraron facturas válidas en el archivo.');
+      }
+    } catch(err){
+      console.error('Error importando Excel:', err);
+      showAlertEl('fact-alert','error','Error al leer el archivo Excel.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+function exportarFacturasVenta(){
+  if(!DB.facturasVenta || !DB.facturasVenta.length){
+    alert('No hay facturas para exportar.');
+    return;
+  }
+  const datos = DB.facturasVenta.map(f=>({
+    'Código': f.codigo,
+    'Fecha': f.fecha,
+    'Factura': f.factura,
+    'Cliente': f.cliente,
+    'FLO ID': f.flo_id_comprador,
+    'Lote': f.lote,
+    'Contrato': f.contrato,
+    'Tipo': f.tipo_contrato,
+    'Kg': f.kg,
+    'Libras': f.libras,
+    'Precio Unit.': f.precio_unit,
+    'Prima Org': f.prima_organico,
+    'Prima FT': f.prima_fairtrade,
+    'Valor Total': f.valor_total,
+    'Observaciones': f.observaciones
+  }));
+  const ws = XLSX.utils.json_to_sheet(datos);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
+  XLSX.writeFile(wb, `FACTURAS_VENTA_${hoy()}.xlsx`);
 }
 
 function eliminarLiquidacion(idx){
