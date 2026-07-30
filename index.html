@@ -1485,6 +1485,7 @@ tr:hover td{background:#f4f8f4;}
         <button class="btn btn-primary" onclick="abrirModalRemision()">+ Nueva Guía de Remisión</button>
       </div>
     </div>
+    <div id="rem-alert" style="margin:8px 0;"></div>
     <div class="search-bar">
       <input type="text" id="search-rem" placeholder="🔍 Buscar por código, N° guía, contrato..." oninput="filtrarGuiasRemision()">
     </div>
@@ -1540,6 +1541,7 @@ tr:hover td{background:#f4f8f4;}
         <button class="btn btn-primary" onclick="abrirModalLiquidacion()">+ Nueva Liquidación</button>
       </div>
     </div>
+    <div id="liq-alert" style="margin:8px 0;"></div>
     <div class="search-bar">
       <input type="text" id="search-liq" placeholder="🔍 Buscar por código, N° liquidación, contrato..." oninput="filtrarLiquidaciones()">
     </div>
@@ -1594,6 +1596,7 @@ tr:hover td{background:#f4f8f4;}
         <button class="btn btn-primary" onclick="abrirModalFactura()">+ Nueva Factura</button>
       </div>
     </div>
+    <div id="fact-alert" style="margin:8px 0;"></div>
     <div class="search-bar">
       <input type="text" id="search-fact" placeholder="🔍 Buscar por código, factura, cliente, contrato..." oninput="filtrarFacturasVenta()">
     </div>
@@ -3465,6 +3468,7 @@ tr:hover td{background:#f4f8f4;}
     <div class="form-group"><label>Estimado QQ</label><input type="number" id="s-est-qq" step="0.01" min="0" oninput="calcEstKG()"></div>
     <div class="form-group"><label>Estimado KG (auto)</label><input type="number" id="s-est-kg" readonly style="background:#eee;"></div>
   </div>
+  <input type="hidden" id="modal-socio-idx" value="-1">
   <div class="form-actions">
     <button class="btn btn-secondary" onclick="cerrarModal('modal-socio')">Cancelar</button>
     <button class="btn btn-primary" onclick="guardarSocio()">💾 Guardar</button>
@@ -7001,10 +7005,11 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   // El compromiso/estimado de acopio solo aplica a socios Orgánico/Fairtrade, no a Convencional
   const estimadoKg = aplicaCompromiso && socio ? parseFloat(socio.estimado_kg||0)||parseFloat(socio.estimado_qq||0)*55.2 : 0;
 
-  const tkRows=(g.tickets_detalle||[]).map(r=>{
-    const entregadoAcum = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-    const saldo = estimadoKg > 0 ? Math.max(0, estimadoKg - entregadoAcum) : '';
-    const compromisoVal = estimadoKg > 0 ? fmt(estimadoKg) : (r.compromiso||'—');
+  const tkRows=(g.tickets_detalle||[]).map((r,idx)=>{
+    const totalEntregado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
+    const saldoActual = estimadoKg > 0 ? Math.max(0, estimadoKg - totalEntregado) : 0;
+    const cumplimientoVal = estimadoKg > 0 ? Math.round((totalEntregado/estimadoKg)*100) : 100;
+    const compromisoMostrar = idx === 0 && estimadoKg > 0 ? fmt(estimadoKg) : '—';
     return `<tr>
       <td style="border:1px solid #ccc;padding:3px 2px;">${r.nticket||'—'}</td>
       <td style="border:1px solid #ccc;padding:3px 2px;color:#1565c0;font-weight:600;">${r.lote||'—'}</td>
@@ -7014,10 +7019,10 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
       <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;">${fmt(r.desctohumedad)}</td>
       <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;font-weight:700;color:#1a5c2e;">${fmt(r.pesoneto)}</td>
       <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;">${parseFloat(r.pesoneto_qq||0).toFixed(2)}</td>
-      <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;color:#e65100;font-weight:700;">${compromisoVal}</td>
-      <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;">${fmt(r.entregado||r.pesoneto)}</td>
-      <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;color:${saldo&&parseFloat(saldo)>0?'#c62828':'#2e7d32'};font-weight:700;">${saldo?fmtPago(saldo):'—'}</td>
-      <td style="border:1px solid #ccc;padding:3px 2px;text-align:center;font-weight:700;">${r.cumplimiento||'100%'}</td>
+      <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;color:#e65100;font-weight:700;">${compromisoMostrar}</td>
+      <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;">${fmt(r.pesoneto)}</td>
+      <td style="border:1px solid #ccc;padding:3px 2px;text-align:right;color:${saldoActual>0?'#c62828':'#2e7d32'};font-weight:700;">${fmt(saldoActual)}</td>
+      <td style="border:1px solid #ccc;padding:3px 2px;text-align:center;font-weight:700;">${cumplimientoVal}%</td>
     </tr>`;
   }).join('');
 
@@ -8516,13 +8521,18 @@ function abrirModalSocio(callback){
   document.getElementById('s-certificacion').value='';
   document.getElementById('s-pais').value='Perú';
   document.getElementById('s-cultivo').value='Café';
+  // Resetear para crear nuevo socio
+  document.getElementById('modal-socio-idx').value = '-1';
+  document.querySelector('#modal-socio .modal-title').textContent = '👤 Agregar Socio';
+  document.querySelector('#modal-socio .btn-primary').textContent = '💾 Guardar';
   abrirModal('modal-socio');
 }
 function guardarSocio(){
   const nombre=document.getElementById('s-nombre').value.trim();
   if(!nombre){alert('Nombre obligatorio');return;}
   const qq=parseFloat(document.getElementById('s-est-qq').value)||0;
-  DB.socios.push({
+  const idxEdit = parseInt(document.getElementById('modal-socio-idx').value||'-1');
+  const socioData = {
     nombre, dni:document.getElementById('s-dni').value,
     genero:document.getElementById('s-genero').value,
     certificacion:document.getElementById('s-certificacion').value,
@@ -8538,7 +8548,18 @@ function guardarSocio(){
     tm_ha:parseFloat(document.getElementById('s-tmha').value)||0,
     estimado_qq:qq, estimado_kg:qq*55.2, estimado:qq*55.2,
     telefono:'', email:''
-  });
+  };
+
+  if(idxEdit >= 0){
+    // Editar socio existente (preservar estado de baja si existe)
+    if(DB.socios[idxEdit].estado) socioData.estado = DB.socios[idxEdit].estado;
+    if(DB.socios[idxEdit].fecha_baja) socioData.fecha_baja = DB.socios[idxEdit].fecha_baja;
+    DB.socios[idxEdit] = socioData;
+  } else {
+    // Crear nuevo socio
+    DB.socios.push(socioData);
+  }
+
   guardarDB(); cerrarModal('modal-socio'); renderSocios();
   if(_socioCallbackOrigen){
     const cb = _socioCallbackOrigen;
@@ -8633,11 +8654,13 @@ function renderSocios(){
         </div>
         <div style="font-size:0.65rem;color:${bc};font-weight:700;text-align:center;">${pct.toFixed(0)}%</div>
       </td>
-      <td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" title="Editar productor" onclick="abrirSocio(${i})">✏️</button>
         ${tieneTickets
           ? `<button class="btn btn-secondary btn-sm" title="Ver tickets" onclick="verTicketsSocio('${s.nombre.replace(/'/g,"\\'")}')">🎫 ${ticketsSocio.length}</button>`
-          : `<button class="btn btn-danger btn-sm" onclick="eliminarSocio(${i})" title="Eliminar socio">🗑️</button>`
+          : ''
         }
+        <button class="btn btn-warning btn-sm" title="Dar de baja" onclick="darDeBajaSocio(${i})">❌</button>
       </td>
     </tr>`;
   }).join('');
@@ -8652,6 +8675,40 @@ function verTicketsSocio(nombre){
   alert(`Tickets de ${nombre}:\n\n${lista}`);
 }
 function eliminarSocio(i){if(!confirm('¿Eliminar socio?'))return;DB.socios.splice(i,1);guardarDB();renderSocios();}
+
+function darDeBajaSocio(i){
+  const s = DB.socios[i];
+  if(!confirm(`¿Dar de baja a ${s.nombre}? Los datos se mantienen pero como inactivo.`)) return;
+  s.estado = 'inactivo';
+  s.fecha_baja = new Date().toISOString().split('T')[0];
+  guardarDB();
+  renderSocios();
+  showAlertEl('socios-alert', 'success', `${s.nombre} dado(a) de baja.`);
+}
+
+function abrirSocio(i){
+  const s = DB.socios[i];
+  document.getElementById('s-nombre').value = s.nombre||'';
+  document.getElementById('s-dni').value = s.dni||'';
+  document.getElementById('s-genero').value = s.genero||'';
+  document.getElementById('s-base').value = s.base||'';
+  document.getElementById('s-caserio').value = s.caserio||'';
+  document.getElementById('s-distrito').value = s.distrito||'';
+  document.getElementById('s-provincia').value = s.provincia||'';
+  document.getElementById('s-departamento').value = s.departamento||'';
+  document.getElementById('s-pais').value = s.pais||'Perú';
+  document.getElementById('s-certificacion').value = s.certificacion||'';
+  document.getElementById('s-parcela').value = s.parcela||'';
+  document.getElementById('s-cultivo').value = s.cultivo||'Café';
+  document.getElementById('s-area').value = s.area_total||'';
+  document.getElementById('s-tmha').value = s.tm_ha||'';
+  document.getElementById('s-est-qq').value = s.estimado_qq||'';
+  document.getElementById('s-est-kg').value = s.estimado_kg||'';
+  document.getElementById('modal-socio-idx').value = i; // Guardar índice para edición
+  document.querySelector('#modal-socio .modal-title').textContent = '👤 Editar Socio';
+  document.querySelector('#modal-socio .btn-primary').textContent = '💾 Actualizar';
+  abrirModal('modal-socio');
+}
 
 function cargarExcelSocios(input){
   const file=input.files[0]; if(!file) return;
@@ -12954,6 +13011,209 @@ function parsearPaginaFactura(texto){
     prima_fairtrade: primaFairtrade,
     _valor_total_sunat: subtotalRaw ? subtotalRaw.replace(/,/g,'') : ''
   };
+}
+
+// ══════════════════════════════════════════
+// PDF IMPORT HANDLERS
+// ══════════════════════════════════════════
+let _pdfQueueRemision = { items: [], idx: 0, guardadas: 0 };
+let _pdfQueueLiquidacion = { items: [], idx: 0, guardadas: 0 };
+let _pdfQueueFactura = { items: [], idx: 0, guardadas: 0 };
+let _pdfReviewActivoRemision = false;
+let _pdfReviewActivoLiquidacion = false;
+let _pdfReviewActivoFactura = false;
+
+// Configura pdfjsLib worker
+if(typeof pdfjsLib !== 'undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function importarGuiasRemisionPDF(input){
+  if(!input.files || !input.files.length) return;
+  const files = Array.from(input.files);
+  const candidatosA = [], candidatosB = [];
+
+  for(const file of files){
+    try{
+      const paginas = await extraerTextoPDF(file);
+      paginas.forEach((texto, pidx) => {
+        const resultA = parsearPaginaGuiaRemision(texto);
+        if(resultA) { resultA._archivo = file.name; resultA._pagina = pidx+1; candidatosA.push(resultA); }
+        const resultB = parsearPaginaGuiaIngreso(texto);
+        if(resultB) { resultB._archivo = file.name; resultB._pagina = pidx+1; candidatosB.push(resultB); }
+      });
+    } catch(err){
+      console.error(`Error leyendo ${file.name}:`, err);
+    }
+  }
+
+  const combinados = _cruzarGuiaRemisionEIngreso(candidatosA, candidatosB);
+  if(!combinados.length){
+    showAlertEl('rem-alert', 'warning', '📄 No se encontraron guías válidas en los PDFs.');
+    return;
+  }
+
+  _pdfQueueRemision = { items: combinados, idx: 0, guardadas: 0 };
+  _pdfReviewActivoRemision = true;
+  _abrirSiguientePdfRemision();
+  input.value = '';
+}
+
+async function importarLiquidacionesPDF(input){
+  if(!input.files || !input.files.length) return;
+  const files = Array.from(input.files);
+  const candidatos = [];
+
+  for(const file of files){
+    try{
+      const paginas = await extraerTextoPDF(file);
+      paginas.forEach((texto, pidx) => {
+        const result = parsearPaginaLiquidacion(texto);
+        if(result) { result._archivo = file.name; result._pagina = pidx+1; candidatos.push(result); }
+      });
+    } catch(err){
+      console.error(`Error leyendo ${file.name}:`, err);
+    }
+  }
+
+  if(!candidatos.length){
+    showAlertEl('liq-alert', 'warning', '📄 No se encontraron liquidaciones válidas en los PDFs.');
+    return;
+  }
+
+  _pdfQueueLiquidacion = { items: candidatos, idx: 0, guardadas: 0 };
+  _pdfReviewActivoLiquidacion = true;
+  _abrirSiguientePdfLiquidacion();
+  input.value = '';
+}
+
+async function importarFacturasVentaPDF(input){
+  if(!input.files || !input.files.length) return;
+  const files = Array.from(input.files);
+  const candidatos = [];
+
+  for(const file of files){
+    try{
+      const paginas = await extraerTextoPDF(file);
+      paginas.forEach((texto, pidx) => {
+        const result = parsearPaginaFactura(texto);
+        if(result) { result._archivo = file.name; result._pagina = pidx+1; candidatos.push(result); }
+      });
+    } catch(err){
+      console.error(`Error leyendo ${file.name}:`, err);
+    }
+  }
+
+  if(!candidatos.length){
+    showAlertEl('fact-alert', 'warning', '📄 No se encontraron facturas válidas en los PDFs.');
+    return;
+  }
+
+  _pdfQueueFactura = { items: candidatos, idx: 0, guardadas: 0 };
+  _pdfReviewActivoFactura = true;
+  _abrirSiguientePdfFactura();
+  input.value = '';
+}
+
+function _abrirSiguientePdfRemision(){
+  const queue = _pdfQueueRemision;
+  if(queue.idx >= queue.items.length){
+    showAlertEl('rem-alert', 'success', `✅ ${queue.guardadas} guía${queue.guardadas!==1?'s':''} importada${queue.guardadas!==1?'s':''} desde PDF.`);
+    _pdfReviewActivoRemision = false;
+    return;
+  }
+
+  const item = queue.items[queue.idx];
+  const existente = (DB.guiasRemision||[]).findIndex(r => r.guia_remision_n === item.guia_remision_n);
+
+  // Pre-llenar el formulario de remisión
+  abrirModalRemision(existente >= 0 ? existente : undefined);
+  document.getElementById('rem-guian').value = item.guia_remision_n||'';
+  document.getElementById('rem-fecha').value = item.fecha||'';
+  document.getElementById('rem-certificacion').value = item.certificacion||'';
+  document.getElementById('rem-contrato').value = item.contrato||'';
+  document.getElementById('rem-sal-sacos').value = item.sal_sacos||'';
+  document.getElementById('rem-sal-kgbruto').value = item.sal_kgbruto||'';
+  document.getElementById('rem-rec-sacos').value = item.rec_sacos||'';
+  document.getElementById('rem-rec-kgbruto').value = item.rec_kgbruto||'';
+
+  calcRemision();
+
+  let aviso = `📄 Datos extraídos automáticamente de ${item._archivo} (página ${item._pagina||1}).<br/>⚠️ Revisa antes de guardar.`;
+  if(existente >= 0) aviso = `📄 Actualizando registro existente: ${item.guia_remision_n}<br/>` + aviso;
+  showAlertEl('rem-form-alert', 'info', aviso);
+}
+
+function _abrirSiguientePdfLiquidacion(){
+  const queue = _pdfQueueLiquidacion;
+  if(queue.idx >= queue.items.length){
+    showAlertEl('liq-alert', 'success', `✅ ${queue.guardadas} liquidación${queue.guardadas!==1?'es':''} importada${queue.guardadas!==1?'s':''} desde PDF.`);
+    _pdfReviewActivoLiquidacion = false;
+    return;
+  }
+
+  const item = queue.items[queue.idx];
+  const existente = (DB.liquidacionesProceso||[]).findIndex(l => l.n_liquidacion === item.n_liquidacion);
+
+  abrirModalLiquidacion(existente >= 0 ? existente : undefined);
+  document.getElementById('liq-nliq').value = item.n_liquidacion||'';
+  document.getElementById('liq-fecha').value = item.fecha||'';
+  document.getElementById('liq-certificacion').value = item.certificacion||'';
+  document.getElementById('liq-contrato').value = item.contrato||'';
+  document.getElementById('liq-planta').value = item.planta||'';
+
+  // Rellenar desglose
+  if(item.desglose){
+    DESGLOSE_CALIDADES.forEach(cal => {
+      const el = document.getElementById(DESGLOSE_IDS[cal]);
+      if(el) el.value = item.desglose[cal]||'';
+    });
+  }
+
+  calcLiquidacion();
+
+  let aviso = `📄 Datos extraídos automáticamente de ${item._archivo} (página ${item._pagina||1}).<br/>⚠️ Revisa antes de guardar.`;
+  if(existente >= 0) aviso = `📄 Actualizando registro existente: ${item.n_liquidacion}<br/>` + aviso;
+  showAlertEl('liq-form-alert', 'info', aviso);
+}
+
+function _abrirSiguientePdfFactura(){
+  const queue = _pdfQueueFactura;
+  if(queue.idx >= queue.items.length){
+    showAlertEl('fact-alert', 'success', `✅ ${queue.guardadas} factura${queue.guardadas!==1?'s':''} importada${queue.guardadas!==1?'s':''} desde PDF.`);
+    _pdfReviewActivoFactura = false;
+    return;
+  }
+
+  const item = queue.items[queue.idx];
+  const existente = (DB.facturasVenta||[]).findIndex(f => f.factura === item.factura);
+
+  abrirModalFactura(existente >= 0 ? existente : undefined);
+  document.getElementById('fact-factura').value = item.factura||'';
+  document.getElementById('fact-fecha').value = item.fecha||'';
+  document.getElementById('fact-cliente').value = item.cliente||'';
+  document.getElementById('fact-contrato').value = item.contrato||'';
+  document.getElementById('fact-lote').value = item.lote||'';
+  document.getElementById('fact-referencia').value = item.referencia||'';
+  document.getElementById('fact-tipocontrato').value = item.tipo_contrato||'';
+  document.getElementById('fact-unidad').value = item.unidad||'KILOGRAMO';
+  document.getElementById('fact-kg').value = item.kg||'';
+  document.getElementById('fact-libras').value = item.libras||'';
+  document.getElementById('fact-floid').value = item.flo_id_comprador||'';
+  document.getElementById('fact-preciounit').value = item.precio_unit||'';
+
+  calcFactura();
+
+  let aviso = `📄 Datos extraídos automáticamente de ${item._archivo} (página ${item._pagina||1}).<br/>⚠️ Revisa antes de guardar.`;
+  if(existente >= 0) aviso = `📄 Actualizando registro existente: ${item.factura}<br/>` + aviso;
+  if(item._valor_total_sunat){
+    const valCalculado = parseFloat(document.getElementById('fact-valortotal').value||0);
+    const valPdf = parseFloat(item._valor_total_sunat);
+    if(Math.abs(valCalculado - valPdf) > 0.01){
+      aviso += `<br/>⚠️ Valor en PDF: $${valPdf.toFixed(2)} vs calculado: $${valCalculado.toFixed(2)} (revisar prima).`;
+    }
+  }
+  showAlertEl('fact-form-alert', 'info', aviso);
 }
 
 // ══════════════════════════════════════════
