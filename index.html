@@ -6013,9 +6013,17 @@ function leerEncabezadoFlexible(rows){
 }
 
 // Calcula automáticamente el número de LOTE para un productor basado en su histórico de acopios
-// Formato: LT001-{base}-{año}, LT002-{base}-{año}, etc.
+// Formato: LT001-{iniciales}-{año}, LT002-{iniciales}-{año}, etc.
+// Las iniciales se obtienen de las primeras letras de cada palabra del nombre del productor
 function calcularLoteAutomatico(productor, base, ano){
-  if(!productor || !base) return '';
+  if(!productor) return '';
+
+  // Extraer las iniciales del nombre del productor (primera letra de cada palabra)
+  const palabras = (productor||'').trim().toUpperCase().split(/\s+/);
+  const iniciales = palabras.map(p => p.charAt(0)).join('');
+
+  // Si no hay iniciales válidas, usar base como fallback
+  const sigla = iniciales.length > 0 ? iniciales : (base||'').toUpperCase().slice(0, 2);
 
   // Contar cuántas guías tiene este productor (incluyendo las que se van a importar en esta corrida)
   const conteoGuias = (DB.guias||[]).filter(g=>(g.productor||'').trim().toUpperCase() === productor.trim().toUpperCase()).length;
@@ -6023,11 +6031,11 @@ function calcularLoteAutomatico(productor, base, ano){
   // El siguiente número de lote es conteoGuias + 1 (próximo acopio)
   const numLote = conteoGuias + 1;
 
-  // Formato: LT{numero:03d}-{base}-{año}
-  // Ejemplo: LT001-RCH-2026
+  // Formato: LT{numero:03d}-{iniciales}-{año}
+  // Ejemplo: LT001-NRMJ-2026 (Nuñez Ramirez Mayler Jesus)
   const loteNum = String(numLote).padStart(3, '0');
   const anoCorto = String(ano).slice(-4); // Tomar últimos 4 dígitos (2026)
-  return `LT${loteNum}-${base}-${anoCorto}`;
+  return `LT${loteNum}-${sigla}-${anoCorto}`;
 }
 
 // Migración: Regenera el LOTE de TODOS los registros antiguos con el formato LT{numero}-{base}-{año}
@@ -6057,12 +6065,16 @@ function migrarLotesAFormatoNuevo(){
 
   // Regenerar el LOTE de cada guía y sus tickets asociados
   productoresGuias.forEach((guias, nomProd)=>{
+    // Extraer iniciales del productor (primera letra de cada palabra)
+    const palabras = nomProd.trim().toUpperCase().split(/\s+/);
+    const iniciales = palabras.map(p => p.charAt(0)).join('');
+
     guias.forEach((g, idx)=>{
       const numLote = idx + 1; // Contador desde 1 para este productor
       const loteNum = String(numLote).padStart(3, '0');
       const ano = (g.fecha||'').split('-')[0] || new Date().getFullYear();
-      const base = g.base || 'RCH'; // RCH es la base por defecto si no tiene
-      const loteNuevo = `LT${loteNum}-${base}-${ano}`;
+      const sigla = iniciales.length > 0 ? iniciales : (g.base || 'RCH').toUpperCase().slice(0, 2);
+      const loteNuevo = `LT${loteNum}-${sigla}-${ano}`;
 
       // Actualizar el LOTE de la guía en tickets_detalle
       if(g.tickets_detalle && g.tickets_detalle.length > 0){
