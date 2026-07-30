@@ -7005,15 +7005,20 @@ function generarCopiaGuia(g, etiqueta, colorEtiqueta){
   // El compromiso/estimado de acopio solo aplica a socios Orgánico/Fairtrade, no a Convencional
   const estimadoKg = aplicaCompromiso && socio ? parseFloat(socio.estimado_kg||0)||parseFloat(socio.estimado_qq||0)*55.2 : 0;
 
-  // Calcular totales acumulativos ANTES de mapear
-  const totalEntregado = (g.tickets_detalle||[]).reduce((a,t)=>a+(parseFloat(t.pesoneto)||0),0);
-  const saldoActual = estimadoKg > 0 ? Math.max(0, estimadoKg - totalEntregado) : 0;
-  const cumplimientoVal = estimadoKg > 0 ? Math.round((totalEntregado/estimadoKg)*100) : 100;
+  // Calcular ACUMULADO de TODAS las guías del socio (incluyendo esta)
+  const acumuladoTodasGuias = aplicaCompromiso ? (DB.guias||[])
+    .filter(gg => gg.productor === g.productor && (gg.certificacion||'').toUpperCase().includes('ORGANICO'))
+    .reduce((a, gg) => a + (gg.kg_netos || (gg.tickets_detalle||[]).reduce((b,t)=>b+(parseFloat(t.pesoneto)||0),0)), 0)
+    : 0;
+
+  const saldoActual = estimadoKg > 0 ? Math.max(0, estimadoKg - acumuladoTodasGuias) : 0;
+  const cumplimientoVal = estimadoKg > 0 ? Math.round((acumuladoTodasGuias/estimadoKg)*100) : 100;
 
   const tkRows=(g.tickets_detalle||[]).map((r,idx)=>{
     // Solo mostrar Compromiso/Entregado/Saldo si es ORGANICO o FAIRTRADE (aplicaCompromiso=true)
+    // Entregado = acumulado de TODAS las guías del socio (incluyendo esta)
     const compromisoMostrar = aplicaCompromiso && idx === 0 && estimadoKg > 0 ? fmt(estimadoKg) : '—';
-    const entregadoMostrar = aplicaCompromiso ? fmt(totalEntregado) : '—';
+    const entregadoMostrar = aplicaCompromiso ? fmt(acumuladoTodasGuias) : '—';
     const saldoMostrar = aplicaCompromiso ? fmt(saldoActual) : '—';
     const cumpMostrar = aplicaCompromiso ? `${cumplimientoVal}%` : '—';
 
