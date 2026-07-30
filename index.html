@@ -8393,7 +8393,7 @@ function generarCopiaComprobante(c, tot, pagado, saldo, etiqueta, colorEtiqueta)
       </div>`).join('')}
       <div style="font-weight:800;color:#c62828;margin-top:4px;border-top:1px dashed #ffb74d;padding-top:4px;">Total Descontado: S/. ${fmt(c.descuento_prestamos)}</div>
     </div>`:''}
-    ${c.observaciones?`<div style="font-size:13px;margin-bottom:7px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
+    ${c.observaciones && !c.observaciones.match(/^Importado desde Excel.*guía original/i)?`<div style="font-size:13px;margin-bottom:7px;"><b>Obs.:</b> ${c.observaciones}</div>`:''}
     <div style="display:flex;gap:50px;margin-top:auto;padding-top:38px;">
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11.5px;font-weight:700;text-transform:uppercase;">Pagado por (${empresaActiva().nombreCorto})</div>
       <div style="flex:1;text-align:center;border-top:2px solid #333;padding-top:5px;font-size:11.5px;font-weight:700;text-transform:uppercase;">Firma Productor<br><span style="font-style:italic;color:#666;font-size:11.5px;">${c.productor||''}</span></div>
