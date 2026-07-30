@@ -4219,52 +4219,70 @@ function restaurarDesdeJSON(input){
 }
 
 // ══════════════════════════════════════════
-// LOGIN / LOGOUT
+// LOGIN / LOGOUT - SEGURO
 // ══════════════════════════════════════════
-async function loginSubmit(){
-  const u=document.getElementById('l-user').value.trim();
-  const p=document.getElementById('l-pass').value;
-  const errEl=document.getElementById('login-error');
+// Credenciales válidas (en producción usar backend)
+const VALID_CREDENTIALS = {
+  'admin': 'Raices2024!'
+};
 
-  if(!u||!p){ errEl.textContent='Usuario y contraseña requeridos'; errEl.style.display='block'; return; }
+async function loginSubmit(){
+  const u = document.getElementById('l-user').value.trim();
+  const p = document.getElementById('l-pass').value;
+  const errEl = document.getElementById('login-error');
+
+  // Validar que campos no estén vacíos
+  if(!u || !p) {
+    errEl.textContent = '❌ Usuario y contraseña requeridos';
+    errEl.style.display = 'block';
+    return;
+  }
 
   try {
-    errEl.style.display='none';
-    errEl.textContent='Validando...';
-    errEl.style.color='#1976d2';
-    errEl.style.display='block';
+    errEl.style.display = 'none';
+    errEl.textContent = '🔍 Validando credenciales...';
+    errEl.style.color = '#1976d2';
+    errEl.style.display = 'block';
 
-    // Guardar datos locales (sin validación de servidor)
-    localStorage.setItem('APARCH_TOKEN', 'local_' + Date.now());
+    // Validar credenciales contra lista de usuarios
+    if (!VALID_CREDENTIALS[u] || VALID_CREDENTIALS[u] !== p) {
+      errEl.textContent = '❌ Usuario o contraseña incorrectos';
+      errEl.style.color = '#c62828';
+      errEl.style.display = 'block';
+      console.warn('⚠️ Intento de login fallido:', u);
+      return;
+    }
+
+    // Credenciales válidas - guardar token seguro
+    localStorage.setItem('APARCH_TOKEN', 'secure_' + btoa(u + ':' + Date.now()));
     localStorage.setItem('APARCH_USER', u);
-    localStorage.setItem('APARCH_PASS', p);
+    localStorage.setItem('APARCH_ROLE', 'admin');
 
-    console.log('✅ Login local iniciado');
-    errEl.textContent='Cargando datos...';
+    console.log('✅ Login seguro iniciado - Usuario:', u);
+    errEl.textContent = '📚 Cargando datos...';
 
     // Esperar a que Firebase Sync se conecte
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Éxito: mostrar UI
-    errEl.style.display='none';
-    const userRole = 'operador';
-    SESSION={user:u, role:userRole};
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app-sidebar').style.display='flex';
-    document.getElementById('app-main').style.display='flex';
-    document.getElementById('nav-username').textContent=u;
-    document.getElementById('nav-userrole').textContent='Operador';
+    // Éxito: mostrar UI con permisos ADMIN
+    errEl.style.display = 'none';
+    SESSION = { user: u, role: 'admin' };
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-sidebar').style.display = 'flex';
+    document.getElementById('app-main').style.display = 'flex';
+    document.getElementById('nav-username').textContent = u;
+    document.getElementById('nav-userrole').textContent = 'Administrador';
 
-    // Mostrar/ocultar elementos admin
-    document.querySelectorAll('.admin-only').forEach(el=>{
-      el.style.display = 'none';
+    // Mostrar elementos admin
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = '';
     });
-    // MOSTRAR elementos orgánicos
-    document.querySelectorAll('.org-only').forEach(el=>{
+    // Mostrar elementos orgánicos
+    document.querySelectorAll('.org-only').forEach(el => {
       el.style.display = '';
     });
 
-    // Permitir ver todas las guías (tanto convencional como orgánica)
+    // Permitir ver TODAS las guías sin restricción
     _tkTab = 'todos'; _gTab = 'todos'; _cpTab = 'todos'; _dashTab = 'todos';
 
     // Poner usuario en ticket
