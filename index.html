@@ -6175,7 +6175,7 @@ function importarGuiasCompletasExcel(input){
           valorrecibido: total.toFixed(2),
           exportacion:desg.exp_pct, segunda:desg.seg_pct, cascara:desg.cas_pct, totalmuestra:'300',
           humedadanalisis: humedad!==null ? humedad.toFixed(2) : '', taza:'',
-          tickets_detalle:[{ nticket: codTicket, pesobrutokg:kgBruto, tara:tara, desctohumedad:deschum.toFixed(2), pesoneto:kgNeto.toFixed(2) }],
+          tickets_detalle:[{ nticket: codTicket, sacos: String(sacos), lote: nroGuiaOriginal || codTicket, pesobrutokg:kgBruto, tara:tara, desctohumedad:deschum.toFixed(2), pesoneto:kgNeto.toFixed(2), pesoneto_qq: (kgNeto/55.2).toFixed(2), compromiso: '', entregado: kgNeto.toFixed(2), cumplimiento: '100%' }],
           total_pagado:0, estado_pago:'Pendiente',
           excel_ref: nroGuiaOriginal,
           import_batch: importBatchId
