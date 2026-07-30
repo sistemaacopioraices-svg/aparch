@@ -5982,6 +5982,24 @@ function leerEncabezadoFlexible(rows){
   return { headers, dataStartIdx };
 }
 
+// Calcula automáticamente el número de LOTE para un productor basado en su histórico de acopios
+// Formato: LT001-{base}-{año}, LT002-{base}-{año}, etc.
+function calcularLoteAutomatico(productor, base, ano){
+  if(!productor || !base) return '';
+
+  // Contar cuántas guías tiene este productor (incluyendo las que se van a importar en esta corrida)
+  const conteoGuias = (DB.guias||[]).filter(g=>(g.productor||'').trim().toUpperCase() === productor.trim().toUpperCase()).length;
+
+  // El siguiente número de lote es conteoGuias + 1 (próximo acopio)
+  const numLote = conteoGuias + 1;
+
+  // Formato: LT{numero:03d}-{base}-{año}
+  // Ejemplo: LT001-RCH-2026
+  const loteNum = String(numLote).padStart(3, '0');
+  const anoCorto = String(ano).slice(-4); // Tomar últimos 4 dígitos (2026)
+  return `LT${loteNum}-${base}-${anoCorto}`;
+}
+
 function importarGuiasCompletasExcel(input){
   const file = input.files[0];
   if(!file) return;
@@ -6149,6 +6167,9 @@ function importarGuiasCompletasExcel(input){
         // inventa un % fijo) — ver TABLA_RENDIMIENTO_DETALLE / desglosarRendimiento() arriba.
         const desg = desglosarRendimiento(rend);
 
+        // Si el LOTE viene vacío en el Excel, calcular automáticamente basado en el histórico del productor
+        const loteAuto = nroGuiaOriginal || calcularLoteAutomatico(productor, base, new Date().getFullYear());
+
         // ── TICKET ──
         const codTicket = nextCodigoCertif('ticket', certificacion);
         DB.tickets.push({
@@ -6158,7 +6179,7 @@ function importarGuiasCompletasExcel(input){
           humedad: humedad!==null ? humedad.toFixed(2) : '',
           deschum: deschum.toFixed(2), pesoneto: kgNeto.toFixed(2),
           exp_g:desg.exp_g, exp_pct:desg.exp_pct, seg_g:desg.seg_g, seg_pct:desg.seg_pct, cas_g:desg.cas_g, cas_pct:desg.cas_pct,
-          defectos:0, lote: nroGuiaOriginal || codTicket,
+          defectos:0, lote: loteAuto,
           observaciones: `Importado desde Excel — guía original ${nroGuiaOriginal||'—'}`,
           usuario: SESSION.user||'admin', guia_asignada:'',
           import_batch: importBatchId
@@ -6175,7 +6196,7 @@ function importarGuiasCompletasExcel(input){
           valorrecibido: total.toFixed(2),
           exportacion:desg.exp_pct, segunda:desg.seg_pct, cascara:desg.cas_pct, totalmuestra:'300',
           humedadanalisis: humedad!==null ? humedad.toFixed(2) : '', taza:'',
-          tickets_detalle:[{ nticket: codTicket, sacos: String(sacos), lote: nroGuiaOriginal || codTicket, pesobrutokg:kgBruto, tara:tara, desctohumedad:deschum.toFixed(2), pesoneto:kgNeto.toFixed(2), pesoneto_qq: (kgNeto/55.2).toFixed(2), compromiso: '', entregado: kgNeto.toFixed(2), cumplimiento: '100%' }],
+          tickets_detalle:[{ nticket: codTicket, sacos: String(sacos), lote: loteAuto, pesobrutokg:kgBruto, tara:tara, desctohumedad:deschum.toFixed(2), pesoneto:kgNeto.toFixed(2), pesoneto_qq: (kgNeto/55.2).toFixed(2), compromiso: '', entregado: kgNeto.toFixed(2), cumplimiento: '100%' }],
           total_pagado:0, estado_pago:'Pendiente',
           excel_ref: nroGuiaOriginal,
           import_batch: importBatchId
