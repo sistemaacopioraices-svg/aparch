@@ -5611,7 +5611,6 @@ function generarTicketHTML(t){
     <table style="width:100%;border-collapse:collapse;font-size:13px;line-height:1.9;">
       <tr><td style="width:46%;color:#444;">Ticket</td><td style="font-weight:900;font-size:14px;color:#1a3a6e;">: ${t.codigo}</td></tr>
       <tr><td style="color:#444;">Fecha</td><td style="font-weight:700;">: ${fechaDisplay(t.fecha)}</td></tr>
-      <tr><td style="color:#444;">Hora</td><td style="font-weight:700;">: ${t.hora||'—'}</td></tr>
       <tr><td style="color:#444;">Productor</td><td style="font-weight:900;text-transform:uppercase;">: ${t.productor||'—'}</td></tr>
       <tr><td style="color:#444;">DNI</td><td style="font-weight:700;">: ${t.dni||'—'}</td></tr>
       <tr><td style="color:#444;">Base / Caserío</td><td style="font-weight:700;">: ${t.base||'—'} / ${t.caserio||'—'}</td></tr>
@@ -5628,7 +5627,7 @@ function generarTicketHTML(t){
       <tr><td style="color:#444;">Defectos</td><td style="font-weight:700;">: ${t.defectos||'—'}</td></tr>
       <tr><td style="color:#444;">Lote</td><td style="font-weight:700;">: ${t.lote||'—'}</td></tr>
       <tr><td style="color:#444;">Usuario</td><td style="font-weight:700;text-transform:uppercase;">: ${t.usuario||'—'}</td></tr>
-      <tr><td style="color:#444;">Obs.</td><td style="font-weight:700;">: ${t.observaciones||'—'}</td></tr>
+      <tr><td style="color:#444;">Obs.</td><td style="font-weight:700;">: ${(t.observaciones||'').replace(/Importado desde Excel.*guía original.*?(?:\d{3}-\d{5})?/gi, '').trim() || '—'}</td></tr>
     </table>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:28px;">
       <div style="text-align:center;border-top:1px solid #333;padding-top:4px;font-size:9px;text-transform:uppercase;">Recibido por</div>
@@ -14350,14 +14349,16 @@ function _kardexOrdenar(filas){
 }
 
 // 1) Kárdex Pergamino — saldo de café pergamino en almacén (Chirinos), antes de ir a planta.
-//    Ingreso = tickets de acopio. Salida = guías de remisión (envío a planta).
+//    Ingreso = guías de acopio. Salida = guías de remisión (envío a planta).
 function calcularKardexPergamino(certifFiltro){
   const filas = [];
-  (DB.tickets||[]).forEach(t=>{
-    if(!_matchCertifCampana(t.certificacion, certifFiltro)) return;
-    const kg = parseFloat(t.pesoneto)||0;
-    filas.push({ tipo:'ingreso', fecha:t.fecha||'', doc:t.codigo||'', detalle:(t.productor||'')+(t.dni?' (DNI '+t.dni+')':''),
-      guia:t.lote||t.codigo||'', sacos:parseFloat(t.sacos)||0, kg, certificacion:t.certificacion||'' });
+  // Ingreso: guías de acopio (agrupar tickets por guía)
+  (DB.guias||[]).forEach(g=>{
+    if(!_matchCertifCampana(g.certificacion, certifFiltro)) return;
+    const kg = getKgNetosAcopioGuia(g);
+    const sacos = getSacosAcopioGuia(g);
+    filas.push({ tipo:'ingreso', fecha:g.fecha||'', doc:g.codigo||'', detalle:(g.productor||'')+(g.dni?' (DNI '+g.dni+')':''),
+      guia:g.codigo||'', sacos, kg, certificacion:g.certificacion||'' });
   });
   (DB.guiasRemision||[]).forEach(r=>{
     if(!_matchCertifCampana(r.certificacion, certifFiltro)) return;
