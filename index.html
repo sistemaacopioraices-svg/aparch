@@ -878,6 +878,36 @@ tr:hover td{background:#f4f8f4;}
       <div id="gdrive-config-estado"></div>
     </div>
 
+    <!-- MANTENIMIENTO DE DATOS -->
+    <div class="card admin-only" style="grid-column:1/-1;background:linear-gradient(135deg,#fff3e0,#fff);border:1px solid #ffb74d;">
+      <div class="card-header" style="background:linear-gradient(135deg,#e65100,#f57c00);color:#fff;border-radius:8px 8px 0 0;margin:-1px -1px 16px -1px;padding:16px 20px;">
+        <div class="card-title">🔧 Mantenimiento de Datos</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+        <div>
+          <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:12px 14px;font-size:0.8rem;line-height:1.6;margin-bottom:12px;">
+            <strong>📋 Migración de LOTE a Formato Nuevo</strong><br>
+            Regenera los LOTE de TODOS los registros con el formato LT{numero:03d}-{base}-{año}.<br><br>
+            <strong>Ejemplo:</strong><br>
+            • Antes: 001-00099<br>
+            • Después: LT001-RCH-2026
+          </div>
+          <button class="btn" onclick="migrarLotesAFormatoNuevo()" style="background:#e65100;color:#fff;font-weight:700;width:100%;">
+            🔄 Migrar LOTE a Formato Nuevo
+          </button>
+        </div>
+        <div>
+          <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:12px 14px;font-size:0.8rem;line-height:1.6;">
+            <strong>⚠️ Importante:</strong><br>
+            ✓ Esta migración regenera LOTEs de forma automática<br>
+            ✓ Se ejecuta UNA sola vez<br>
+            ✓ Los LOTEs nuevos aparecerán en reportes inmediatamente<br>
+            ✓ Los nuevos acopios usarán automáticamente el formato LT{numero}-{base}-{año}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- TABLA DE PRECIOS -->
     <div class="card" style="grid-column:1/-1;">
       <div class="card-header">
@@ -5982,6 +6012,84 @@ function leerEncabezadoFlexible(rows){
   return { headers, dataStartIdx };
 }
 
+// Calcula automáticamente el número de LOTE para un productor basado en su histórico de acopios
+// Formato: LT001-{base}-{año}, LT002-{base}-{año}, etc.
+function calcularLoteAutomatico(productor, base, ano){
+  if(!productor || !base) return '';
+
+  // Contar cuántas guías tiene este productor (incluyendo las que se van a importar en esta corrida)
+  const conteoGuias = (DB.guias||[]).filter(g=>(g.productor||'').trim().toUpperCase() === productor.trim().toUpperCase()).length;
+
+  // El siguiente número de lote es conteoGuias + 1 (próximo acopio)
+  const numLote = conteoGuias + 1;
+
+  // Formato: LT{numero:03d}-{base}-{año}
+  // Ejemplo: LT001-RCH-2026
+  const loteNum = String(numLote).padStart(3, '0');
+  const anoCorto = String(ano).slice(-4); // Tomar últimos 4 dígitos (2026)
+  return `LT${loteNum}-${base}-${anoCorto}`;
+}
+
+// Migración: Regenera el LOTE de TODOS los registros antiguos con el formato LT{numero}-{base}-{año}
+// Se ejecuta una sola vez para corregir registros que fueron importados antes de implementar esta función
+function migrarLotesAFormatoNuevo(){
+  if(!confirm(`⚠️ MIGRACIÓN DE LOTES\n\nSe regenerarán los números de LOTE para TODAS las guías y tickets existentes con el formato LT{numero:03d}-{base}-{año}.\n\nEjemplo: 001-00099 → LT001-RCH-2026\n\n¿Continuar?`)) return;
+
+  const productoresGuias = new Map(); // nombre canónico del productor → lista de guías ordenadas por fecha
+
+  // Agrupar guías por productor y ordenar por fecha
+  DB.guias.forEach(g=>{
+    const nomProd = (g.productor||'').trim();
+    if(!nomProd) return;
+    if(!productoresGuias.has(nomProd)){
+      productoresGuias.set(nomProd, []);
+    }
+    productoresGuias.get(nomProd).push(g);
+  });
+
+  // Ordenar guías de cada productor por fecha
+  productoresGuias.forEach((guias)=>{
+    guias.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  });
+
+  let actualizaciones = 0;
+  let errores = 0;
+
+  // Regenerar el LOTE de cada guía y sus tickets asociados
+  productoresGuias.forEach((guias, nomProd)=>{
+    guias.forEach((g, idx)=>{
+      const numLote = idx + 1; // Contador desde 1 para este productor
+      const loteNum = String(numLote).padStart(3, '0');
+      const ano = (g.fecha||'').split('-')[0] || new Date().getFullYear();
+      const base = g.base || 'RCH'; // RCH es la base por defecto si no tiene
+      const loteNuevo = `LT${loteNum}-${base}-${ano}`;
+
+      // Actualizar el LOTE de la guía en tickets_detalle
+      if(g.tickets_detalle && g.tickets_detalle.length > 0){
+        g.tickets_detalle.forEach(td=>{
+          const oldLote = td.lote;
+          td.lote = loteNuevo;
+          if(oldLote !== loteNuevo) actualizaciones++;
+        });
+      }
+
+      // Actualizar el LOTE en los tickets vinculados en DB
+      DB.tickets.forEach(tk=>{
+        if(tk.guia_asignada === g.codigo){
+          const oldLote = tk.lote;
+          tk.lote = loteNuevo;
+          if(oldLote !== loteNuevo) actualizaciones++;
+        }
+      });
+    });
+  });
+
+  guardarDB();
+  alert(`✅ Migración completada:\n\n• ${actualizaciones} LOTE(s) regenerados con el formato LT{numero}-{base}-{año}\n• Los reportes ahora mostrarán los LOTE con el formato correcto\n\nNota: Esta migración es irreversible. Los LOTE antiguos han sido reemplazados.`);
+  renderGuias();
+  if(typeof renderTickets === 'function') renderTickets();
+}
+
 function importarGuiasCompletasExcel(input){
   const file = input.files[0];
   if(!file) return;
@@ -6000,16 +6108,16 @@ function importarGuiasCompletasExcel(input){
         dni:      find(['dni']),
         productor:find(['productor','nombre']),
         nroguia:  find(['nro guía','nro guia','n° guía','n guia','guía','guia']),
-        sacos:    find(['sacos']),
-        kgbruto:  find(['kg. brutos','kg brutos','kilos brutos','peso bruto']),
+        sacos:    find(['sacos','cant. sacos','cantidad sacos','# sacos','cantidad saco','no. sacos']),
+        kgbruto:  find(['kg. brutos','kg brutos','kilos brutos','peso bruto','kg bruto','kg. bruto']),
         tara:     find(['tara']),
-        kgneto:   find(['kg. netos','kg netos','kilos netos','peso neto']),
-        rend:     find(['rdto','rendimiento']),
-        preciokg: find(['precio unit. kg','precio unit kg','precio kg','preciokg']),
-        precioqq: find(['precio unit. qq','precio unit qq','precio qq','precioqq']),
-        total:    find(['total']),
-        humedad:  find(['humedad']),
-        certif:   find(['certificacion','certificación','certif'])
+        kgneto:   find(['kg. netos','kg netos','kilos netos','peso neto','kg neto','kg. neto']),
+        rend:     find(['rdto','rendimiento','rendimient']),
+        preciokg: find(['precio unit. kg','precio unit kg','precio kg','preciokg','precio/kg','precio x kg']),
+        precioqq: find(['precio unit. qq','precio unit qq','precio qq','precioqq','precio/qq','precio x qq']),
+        total:    find(['total','total a pagar','total pago','valor total']),
+        humedad:  find(['humedad','% humedad','humedad %']),
+        certif:   find(['certificacion','certificación','certif','certificación '])
       };
       const faltantes = [];
       if(cols.productor<0) faltantes.push('Productor');
@@ -6149,6 +6257,9 @@ function importarGuiasCompletasExcel(input){
         // inventa un % fijo) — ver TABLA_RENDIMIENTO_DETALLE / desglosarRendimiento() arriba.
         const desg = desglosarRendimiento(rend);
 
+        // Si el LOTE viene vacío en el Excel, calcular automáticamente basado en el histórico del productor
+        const loteAuto = nroGuiaOriginal || calcularLoteAutomatico(productor, base, new Date().getFullYear());
+
         // ── TICKET ──
         const codTicket = nextCodigoCertif('ticket', certificacion);
         DB.tickets.push({
@@ -6158,7 +6269,7 @@ function importarGuiasCompletasExcel(input){
           humedad: humedad!==null ? humedad.toFixed(2) : '',
           deschum: deschum.toFixed(2), pesoneto: kgNeto.toFixed(2),
           exp_g:desg.exp_g, exp_pct:desg.exp_pct, seg_g:desg.seg_g, seg_pct:desg.seg_pct, cas_g:desg.cas_g, cas_pct:desg.cas_pct,
-          defectos:0, lote: nroGuiaOriginal || codTicket,
+          defectos:0, lote: loteAuto,
           observaciones: `Importado desde Excel — guía original ${nroGuiaOriginal||'—'}`,
           usuario: SESSION.user||'admin', guia_asignada:'',
           import_batch: importBatchId
@@ -6175,7 +6286,7 @@ function importarGuiasCompletasExcel(input){
           valorrecibido: total.toFixed(2),
           exportacion:desg.exp_pct, segunda:desg.seg_pct, cascara:desg.cas_pct, totalmuestra:'300',
           humedadanalisis: humedad!==null ? humedad.toFixed(2) : '', taza:'',
-          tickets_detalle:[{ nticket: codTicket, pesobrutokg:kgBruto, tara:tara, desctohumedad:deschum.toFixed(2), pesoneto:kgNeto.toFixed(2) }],
+          tickets_detalle:[{ nticket: codTicket, sacos: String(sacos), lote: loteAuto, pesobrutokg:kgBruto, tara:tara, desctohumedad:deschum.toFixed(2), pesoneto:kgNeto.toFixed(2), pesoneto_qq: (kgNeto/55.2).toFixed(2), compromiso: '', entregado: kgNeto.toFixed(2), cumplimiento: '100%' }],
           total_pagado:0, estado_pago:'Pendiente',
           excel_ref: nroGuiaOriginal,
           import_batch: importBatchId
