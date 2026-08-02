@@ -5548,11 +5548,35 @@ function renderPager(modulo, total, containerId){
 
 function _irPag(modulo, pag){
   _paginas[modulo] = pag;
-  if(modulo==='tickets')      filtrarTickets();
-  if(modulo==='guias')        filtrarGuias();
-  if(modulo==='comprobantes') filtrarComprobantes();
-  if(modulo==='recibos')      filtrarRecibos();
-  if(modulo==='inspecciones') filtrarInspecciones();
+  // NO llamar a _resetPag aquí; los botones de paginación ESTABLECEN la página, no la resetean
+  // Llamar directamente a render* con los valores de filtro actuales (sin resetear la página)
+  if(modulo==='tickets') {
+    const q = (document.getElementById('search-ticket')?.value||'').toLowerCase();
+    const desde = document.getElementById('filter-ticket-desde')?.value||'';
+    const hasta = document.getElementById('filter-ticket-hasta')?.value||'';
+    renderTickets(q, desde, hasta);
+  }
+  if(modulo==='guias') {
+    const q = (document.getElementById('search-guia')?.value||'').toLowerCase();
+    const desde = document.getElementById('filter-guia-desde')?.value||'';
+    const hasta = document.getElementById('filter-guia-hasta')?.value||'';
+    renderGuias(q, desde, hasta);
+  }
+  if(modulo==='comprobantes') {
+    const q = (document.getElementById('search-comp')?.value||'').toLowerCase();
+    const desde = document.getElementById('filter-comp-desde')?.value||'';
+    const hasta = document.getElementById('filter-comp-hasta')?.value||'';
+    renderComprobantes(q, desde, hasta);
+  }
+  if(modulo==='recibos') {
+    const q = (document.getElementById('search-recibo')?.value||'').toLowerCase();
+    const desde = document.getElementById('filter-recibo-desde')?.value||'';
+    const hasta = document.getElementById('filter-recibo-hasta')?.value||'';
+    filtrarRecibos();  // Guarda el estado de las pestañas, así que mantenemos esta llamada
+  }
+  if(modulo==='inspecciones') {
+    filtrarInspecciones();  // Igual caso que recibos
+  }
   if(modulo==='kardexperg' || modulo==='kardexplanta' || modulo==='kardexexportable' || modulo==='kardexdescarte' || modulo==='socios' || modulo==='remisionproceso') renderKardexCampana();
 }
 
