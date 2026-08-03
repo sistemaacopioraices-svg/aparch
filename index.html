@@ -8254,6 +8254,23 @@ function _ejecutarGuardadoComprobante(apCaja){
     estado: 'Activo'
   };
 
+  // Generar recibo de ingreso en caja por descuento de préstamo (SI EXISTE)
+  if(apCaja && totalDescuento > 0){
+    if(!DB.recibos) DB.recibos=[];
+    const codigoReciboIngreso = nextCodigo(DB.recibos, 'ING-');
+    const prestamosDesconDesc = descuentos.map(d=>DB.prestamos[d.prestamoIdx]?.codigo||'Préstamo').join(', ');
+    DB.recibos.push({
+      codigo: codigoReciboIngreso, tipo: 'ingreso', fecha: comp.fecha,
+      persona: prestamosDesconDesc,
+      concepto: `Pago de Préstamo(s) descontado(s) de Guía(s)/Café Coco (Comprobante ${comp.codigo})`,
+      monto: totalDescuento.toFixed(2),
+      formapago: 'Descuento en Guía',
+      observaciones: `Generado automáticamente`,
+      apertura_ref: apCaja.codigo, usuario: SESSION.user
+    });
+    comp.recibo_ingreso_prestamo_ref = codigoReciboIngreso;
+  }
+
   // Generar recibo de egreso en caja
   if(apCaja && montoEfectivoCaja > 0){
     if(!DB.recibos) DB.recibos=[];
