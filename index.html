@@ -3535,6 +3535,31 @@ tr:hover td{background:#f4f8f4;}
 
 
 <script>
+// ══════════════════════════════════════════════════════════════════
+// 🗑️ SCRIPT DE LIMPIEZA AUTOMÁTICA - Elimina caché corrupto
+// ══════════════════════════════════════════════════════════════════
+(function() {
+  // Limpiar localStorage completamente
+  localStorage.clear();
+  
+  // Limpiar sessionStorage
+  sessionStorage.clear();
+  
+  // Limpiar cookies
+  document.cookie.split(";").forEach((c) => {
+    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+  });
+  
+  // Limpiar IndexedDB si existe
+  if (window.indexedDB && indexedDB.databases) {
+    indexedDB.databases().then(dbs => {
+      dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+    });
+  }
+  
+  console.log('✅ Caché limpiado - Usando datos de la BD embebida');
+})();
+</script><script>
 // ══════════════════════════════════════════
 // DB + PERSISTENCIA
 // ══════════════════════════════════════════
